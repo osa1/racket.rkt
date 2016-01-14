@@ -18,11 +18,11 @@
 ;; Next we have the partial evaluation pass described in the book.
 (define (pe-neg r)
   (cond [(fixnum? r) (fx- 0 r)]
-	[else `(- ,r)]))
+        [else `(- ,r)]))
 
 (define (pe-add r1 r2)
   (cond [(and (fixnum? r1) (fixnum? r2)) (fx+ r1 r2)]
-	[else `(+ ,r1 ,r2)]))
+        [else `(+ ,r1 ,r2)]))
 
 (define (pe-arith e)
   (match e
@@ -31,13 +31,13 @@
     [`(- ,e1) (pe-neg (pe-arith e1))]
     [`(+ ,e1 ,e2) (pe-add (pe-arith e1) (pe-arith e2))]
     [`(program ,e) `(program ,(pe-arith e))]
-    ))   
+    ))
 
 
 (define r0-passes
   (list `("flipper" ,flipper ,interp-scheme)
-	`("partial evaluator" ,pe-arith ,interp-scheme)
-	))
+        `("partial evaluator" ,pe-arith ,interp-scheme)
+        ))
 
 (interp-tests "integers and arithmetic" r0-passes interp-scheme "r0" (range 1 5))
 (display "tests passed!") (newline)

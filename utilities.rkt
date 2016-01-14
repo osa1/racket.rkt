@@ -2,19 +2,19 @@
 (require racket/pretty)
 (provide debug map2 label-name lookup  make-dispatcher assert
          read-fixnum read-program
-	 compile compile-file check-passes interp-tests compiler-tests fix while
-	 make-graph add-edge adjacent
-	 general-registers registers-for-alloc caller-save callee-save
-	 arg-registers register->color registers align)
+         compile compile-file check-passes interp-tests compiler-tests fix while
+         make-graph add-edge adjacent
+         general-registers registers-for-alloc caller-save callee-save
+         arg-registers register->color registers align)
 
 (define debug-state #f)
 
 (define (debug label val)
   (if debug-state
       (begin
-	(printf "~a:\n" label)
-	(pretty-print val)
-	(newline))
+        (printf "~a:\n" label)
+        (pretty-print val)
+        (newline))
       (void)))
 
 (define-syntax-rule (while condition body ...)
@@ -54,18 +54,18 @@
 (define lookup
   (lambda (x ls)
     (cond [(null? ls)
-	   (error "lookup failed for " x)]
-	  [(and (pair? (car ls)) (eq? x (car (car ls))))
-	   (cdr (car ls))]
-	  [(and (mpair? (car ls)) (eq? x (mcar (car ls))))
-	   (mcdr (car ls))]
-	  [else
-	   (lookup x (cdr ls))])))
+           (error "lookup failed for " x)]
+          [(and (pair? (car ls)) (eq? x (car (car ls))))
+           (cdr (car ls))]
+          [(and (mpair? (car ls)) (eq? x (mcar (car ls))))
+           (mcdr (car ls))]
+          [else
+           (lookup x (cdr ls))])))
 
 (define (read-fixnum)
   (define r (read))
   (cond [(fixnum? r) r]
-	[else (error 'read "expected an integer")]))
+        [else (error 'read "expected an integer")]))
 
 ;; Read an entire .rkt file wrapping the s-expressions in
 ;; a list whose head is 'program.
@@ -86,9 +86,9 @@
   (lambda (e . rest)
     (match e
        [`(,tag ,args ...)
-	(apply (hash-ref mt tag) (append rest args))]
+        (apply (hash-ref mt tag) (append rest args))]
        [else
-	(error "no match in dispatcher for " e)]
+        (error "no match in dispatcher for " e)]
        )))
 
 ;; The check-passes function takes a compiler name (a string) and a description of
@@ -116,39 +116,39 @@
     (debug "program:" sexp)
 
     (let loop ([passes passes] [p sexp]
-	       [result (if (file-exists? input-file-name)
-			   (with-input-from-file input-file-name
-			     (lambda () (initial-interp sexp)))
-			   (initial-interp sexp))])
+               [result (if (file-exists? input-file-name)
+                           (with-input-from-file input-file-name
+                             (lambda () (initial-interp sexp)))
+                           (initial-interp sexp))])
       (cond [(null? passes) result]
-	    [else
-	     (match (car passes)
-		[`(,pass-name ,pass ,interp)
-		 (debug "running pass" pass-name)
-		 (define new-p (pass p))
-		 (debug pass-name new-p)
-		 (cond [interp
-			(let ([new-result
+            [else
+             (match (car passes)
+                [`(,pass-name ,pass ,interp)
+                 (debug "running pass" pass-name)
+                 (define new-p (pass p))
+                 (debug pass-name new-p)
+                 (cond [interp
+                        (let ([new-result
                                ;; if there is an input file with the same name
                                ;; as this test bing current-input-port to that
                                ;; file's input port so that the interpreters
                                ;; can use it as test input.
-			       (if (file-exists? input-file-name)
+                               (if (file-exists? input-file-name)
                                    (with-input-from-file input-file-name
                                      (lambda () (interp new-p)))
-				   (interp new-p))])
-			  (cond [result
-				 (cond [(equal? result new-result)
-					(loop (cdr passes) new-p new-result)]
-				       [else
-					(display "in program")(newline)
-					(pretty-print new-p)(newline)
-					(error (format "differing results in compiler '~a' pass '~a', expected ~a, not" name pass-name result )
-					       new-result)])]
-				[else ;; no result to check yet
-				 (loop (cdr passes) new-p new-result)]))]
-		       [else
-			(loop (cdr passes) new-p result)])])]))
+                                   (interp new-p))])
+                          (cond [result
+                                 (cond [(equal? result new-result)
+                                        (loop (cdr passes) new-p new-result)]
+                                       [else
+                                        (display "in program")(newline)
+                                        (pretty-print new-p)(newline)
+                                        (error (format "differing results in compiler '~a' pass '~a', expected ~a, not" name pass-name result )
+                                               new-result)])]
+                                [else ;; no result to check yet
+                                 (loop (cdr passes) new-p new-result)]))]
+                       [else
+                        (loop (cdr passes) new-p result)])])]))
     ))
 
 (define (compile passes)
@@ -201,7 +201,7 @@
 (define (interp-tests name passes initial-interp test-family test-nums)
   (define checker (check-passes name passes initial-interp))
   (for ([test-name (map (lambda (n) (format "~a_~a" test-family n))
-			test-nums)])
+                        test-nums)])
        (checker test-name)
        ))
 
@@ -215,29 +215,29 @@
 (define (compiler-tests name passes test-family test-nums)
   (define compiler (compile-file passes))
   (for ([test-name (map (lambda (n) (format "~a_~a" test-family n))
-			test-nums)])
+                        test-nums)])
        (compiler (format "tests/~a.rkt" test-name))
        (if (system (format "gcc -g -std=c99 runtime.o tests/~a.s" test-name))
-	   (void) (exit))
+           (void) (exit))
        (let* ([input (if (file-exists? (format "tests/~a.in" test-name))
-			 (format " < tests/~a.in" test-name)
-			 "")]
+                         (format " < tests/~a.in" test-name)
+                         "")]
               [progout (process (format "./a.out~a" input))] ; List, first element is stdout
-	      [result (string->number (read-line (car progout)))])
-	 (if (eq? result 42)
-	     (begin (display test-name)(display " ")(flush-output))
-	     (error (format "test ~a failed, output: ~a"
-			    test-name result))))
+              [result (string->number (read-line (car progout)))])
+         (if (eq? result 42)
+             (begin (display test-name)(display " ")(flush-output))
+             (error (format "test ~a failed, output: ~a"
+                            test-name result))))
        ))
 
 (define assert
   (lambda (msg b)
     (if (not b)
-	(begin
-	  (display "ERROR: ")
-	  (display msg)
-	  (newline))
-	(void))))
+        (begin
+          (display "ERROR: ")
+          (display msg)
+          (newline))
+        (void))))
 
 
 ;; System V Application Binary Interface
@@ -252,8 +252,8 @@
 
 ;; there are 13 general registers:
 (define general-registers (vector 'rbx 'rcx 'rdx 'rsi 'rdi
-    				  'r8 'r9 'r10 'r11 'r12
-				  'r13 'r14 'r15))
+                                      'r8 'r9 'r10 'r11 'r12
+                                  'r13 'r14 'r15))
 
 ;; registers-for-alloc should always inlcude the arg-registers. -Jeremy
 (define registers-for-alloc general-registers)
@@ -269,13 +269,13 @@
   (cdr (assq r reg-colors)))
 
 (define registers (set-union (list->set (vector->list general-registers))
-			     (set 'rax 'rsp 'rbp '__flag)))
+                             (set 'rax 'rsp 'rbp '__flag)))
 
 (define (align n alignment)
   (cond [(eq? 0 (modulo n alignment))
-	 n]
-	[else
-	 (+ n (- alignment (modulo n alignment)))]))
+         n]
+        [else
+         (+ n (- alignment (modulo n alignment)))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Graph ADT
