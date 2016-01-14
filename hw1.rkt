@@ -2,13 +2,23 @@
 
 (require racket/fixnum)
 (require "utilities.rkt")
+(require "interp.rkt")
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
 ;
 ; R1  ::= (program exp)
 
+; arg  ::= int | var
+; exp  ::= arg | (read) | (- arg) | (+ arg arg)
+; stms ::= (assign var exp) | (return arg)
+; C0   ::= (program (var*) stmt+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Uniquify
+
 (define (uniquify pgm)
+  ; (printf "pgm: ~s~n" pgm)
   (match pgm
     [`(program ,e) `(program ,(uniquify-expr '() e))]
     [_ (error 'uniquify "Expected a (program ...) form, found: ~s~n" pgm)]))
@@ -28,7 +38,7 @@
      `(+ ,(uniquify-expr rns e1) ,(uniquify-expr rns e2))]
 
     [(? symbol?)
-     (lookup e0 rns)]
+     (car (lookup e0 rns))]
 
     [`(let ([,var ,e1]) ,body)
      (let* ([fresh (gensym "x")]
@@ -42,13 +52,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
-(uniquify '(program (+ 1 2)))
-(uniquify '(program (+ 1 (- 2))))
-(uniquify-expr '((a x)) '(+ 1 a))
-(uniquify '(program (let [(x 1)] (+ x x))))
-(uniquify '(program (let [(x 1)] (+ x x))))
-(uniquify '(program (let [(x (let [(x 20)]
-                               (let [(y 30)] (+ x y))))]
-                      (+ x x))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(interp-tests "uniquify"
+              `(("uniquify" ,uniquify ,interp-scheme))
+              interp-scheme
+              "uniquify"
+              (range 1 6))
