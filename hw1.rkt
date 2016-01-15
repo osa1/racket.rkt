@@ -57,7 +57,7 @@
     [`(program ,e)
      (let-values ([(_ pgm e) (flatten-expr '() '() e)])
        ; (printf "collect-binds result: ~s~n" (collect-binds pgm))
-       `(program ,(collect-binds pgm) ,(reverse (cons `(return ,e) pgm))))]
+       `(program ,(collect-binds pgm) ,@(reverse (cons `(return ,e) pgm))))]
 
     [_ (error 'flatten "Expected a (program ...) form, found ~s~n" pgm)]))
 
