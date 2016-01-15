@@ -111,7 +111,8 @@
 ;; Tests
 
 (interp-tests "uniquify"
-              `(("uniquify" ,uniquify ,interp-scheme))
+              `(("uniquify" ,uniquify ,interp-scheme)
+                ("flatten" ,flatten ,interp-C))
               interp-scheme
               "uniquify"
               (range 1 6))
