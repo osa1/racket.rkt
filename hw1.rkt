@@ -183,7 +183,7 @@
 (define (instr-sel pgm)
   (match pgm
     [(list-rest 'program vs stmts)
-     (printf "stmts: ~s~n" stmts)
+     ; (printf "stmts: ~s~n" stmts)
      (let ([total-vars (length vs)])
        `(program ,(* 8 total-vars) ,@(append-map instr-sel-stmt stmts)))]
 
@@ -194,7 +194,7 @@
     [`(assign ,var ,expr)
      (instr-sel-expr var expr)]
     [`(return ,arg)
-     `((movq ,arg (reg rax)))]))
+     `((movq ,(arg->x86-arg arg) (reg rax)))]))
 
 (define (instr-sel-expr bind-to expr)
   (match expr
@@ -204,7 +204,7 @@
     [`(read) (error 'instr-sel-expr "read is not implemented yet")]
 
     [`(- ,arg)
-     `(,(instr-sel-arg bind-to expr) (negq ,(arg->x86-arg arg)))]
+     `(,(instr-sel-arg bind-to arg) (negq ,(arg->x86-arg bind-to)))]
 
     [`(+ ,arg1 ,arg2)
      `(,(instr-sel-arg bind-to arg1) (addq ,(arg->x86-arg arg2)
@@ -225,16 +225,18 @@
 
 (interp-tests "uniquify"
               `(("uniquify" ,uniquify ,interp-scheme)
-                ("flatten" ,flatten ,interp-C))
+                ("flatten" ,flatten ,interp-C)
+                ("instr-sel" ,instr-sel ,interp-x86))
               interp-scheme
               "uniquify"
               (range 1 6))
 
 (interp-tests "flatten"
               `(("uniquify" ,uniquify ,interp-scheme)
-                ("flatten" ,flatten ,interp-C))
+                ("flatten" ,flatten ,interp-C)
+                ("instr-sel" ,instr-sel ,interp-x86))
               interp-scheme
               "flatten"
               (range 1 5))
 
-(instr-sel (flatten (uniquify '(program (+ 3 (+ 1 2))))))
+; (instr-sel (flatten (uniquify '(program (+ 3 (+ 1 2))))))
