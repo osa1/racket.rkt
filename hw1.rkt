@@ -57,7 +57,10 @@
     [`(program ,e)
      (let-values ([(_ pgm e) (flatten-expr '() '() e)])
        ; (printf "collect-binds result: ~s~n" (collect-binds pgm))
-       `(program ,(collect-binds pgm) ,@(reverse (cons `(return ,e) pgm))))]
+       (let [(stats (reverse (cons `(return ,e) pgm)))]
+         ; (printf "stats before remove-var-asgns: ~s~n" stats)
+         ; (printf "stats after remove-var-asgns: ~s~n" (remove-var-asgns stats))
+         `(program ,(collect-binds pgm) ,@(remove-var-asgns stats))))]
 
     [_ (error 'flatten "Expected a (program ...) form, found ~s~n" pgm)]))
 
@@ -106,6 +109,56 @@
            (values binds pgm body))))]
 
     [_ (error 'flatten-expr "unsupported form: ~s~n" expr)]))
+
+;; Remove statements in form (assign x y) where y is a variable.
+;; Does this by renaming x with y in the statements that follow this statement.
+;; Does not effect semantics - for simplification purposes only.
+;; NOTE: Statements should be in order - e.g. don't pass the list returned by
+;; flatten-expr, it needs to be reversed!
+(define (remove-var-asgns stmts)
+  (match stmts
+    [(list) '()]
+
+    [(cons `(assign ,x ,y) t)
+     (if (symbol? y)
+       (remove-var-asgns (rename-stmts x y t))
+       (cons `(assign ,x ,y) (remove-var-asgns t)))]
+
+    [(cons s t)
+     (cons s (remove-var-asgns t))]))
+
+;; Substitute y for x in stmts
+(define (rename-stmts x y stmts)
+  (match stmts
+    [(list) '()]
+
+    [(cons `(assign ,x1 ,y1) t)
+     (cond [(eq? x1 x)
+            (error 'rename-stmts "BUG: the variable seen in LHS: ~s in ~s~n" x stmts)]
+           [else
+            (cons `(assign ,x1 ,(rename-expr x y y1)) (rename-stmts x y t))])]
+
+    [(cons `(return ,y1) t)
+     (if (eq? y1 x)
+       (cons `(return ,y) (rename-stmts x y t))
+       (cons `(return ,y1) (rename-stmts x y t)))]))
+
+(define (rename-expr x y expr)
+  (match expr
+    [`(read) expr]
+
+    [`(- ,e1)
+     `(- ,(rename-arg x y e1))]
+
+    [`(+ ,e1 ,e2)
+     `(+ ,(rename-arg x y e1) ,(rename-arg x y e2))]
+
+    [_ (rename-arg x y expr)]))
+
+(define (rename-arg x y arg)
+  (match arg
+    [(? fixnum?) arg]
+    [x1 (if (eq? x1 x) y arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
