@@ -1,6 +1,7 @@
 #lang racket
 
 (require racket/fixnum)
+(require racket/set)
 (require "public/utilities.rkt")
 (require "public/interp.rkt")
 
@@ -161,6 +162,33 @@
     [x1 (if (eq? x1 x) y arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Instruction selection
+
+; Input:
+;
+; arg  ::= int | var
+; exp  ::= arg | (read) | (- arg) | (+ arg arg)
+; stms ::= (assign var exp) | (return arg)
+; C0   ::= (program (var*) stmt+)
+;
+; Output:
+; arg   ::= (int int) | (reg register) | (stack int)
+; instr ::= (addq arg arg) | (subq arg arg) | (negq arg) | (movq arg arg)
+;         | (callq label) | (pushq arg) | (popq arg) | (retq)
+; x86_0 ::= (program int instr+)
+;
+; In this pass, we also generate an arg (var x).
+
+(define (instr-sel pgm)
+  (match pgm
+    [(list-rest 'program vs stmts)
+     (let ([total-vars (length vs)])
+       (printf "stmts: ~s~n" stmts)
+       `(program ,(* 8 total-vars)))]
+
+    [_ (error 'instr-sel "unhandled form: ~s~n" pgm)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
 (interp-tests "uniquify"
@@ -176,3 +204,5 @@
               interp-scheme
               "flatten"
               (range 1 5))
+
+(instr-sel (flatten (uniquify '(program (+ 3 (+ 1 2))))))
