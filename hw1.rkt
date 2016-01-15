@@ -110,14 +110,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
-; (interp-tests "uniquify"
-;               `(("uniquify" ,uniquify ,interp-scheme))
-;               interp-scheme
-;               "uniquify"
-;               (range 1 6))
+(interp-tests "uniquify"
+              `(("uniquify" ,uniquify ,interp-scheme))
+              interp-scheme
+              "uniquify"
+              (range 1 6))
 
-(flatten '(program (+ 1 2)))
-(flatten '(program (let [(x 10)] x)))
-(flatten '(program (let [(x 10)]
-                     (let [(y 20)]
-                       (+ (- y) (+ x y))))))
+(interp-tests "flatten"
+              `(("flatten" ,flatten ,interp-C))
+              interp-C
+              "flatten"
+              (range 1 4))
