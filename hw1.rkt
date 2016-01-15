@@ -1,8 +1,8 @@
 #lang racket
 
 (require racket/fixnum)
-(require "utilities.rkt")
-(require "interp.rkt")
+(require "public/utilities.rkt")
+(require "public/interp.rkt")
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
