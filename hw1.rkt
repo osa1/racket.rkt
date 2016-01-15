@@ -2,6 +2,7 @@
 
 (require racket/fixnum)
 (require racket/set)
+(require (rename-in racket/list [flatten flatten-list]))
 (require "public/utilities.rkt")
 (require "public/interp.rkt")
 
@@ -182,11 +183,42 @@
 (define (instr-sel pgm)
   (match pgm
     [(list-rest 'program vs stmts)
+     (printf "stmts: ~s~n" stmts)
      (let ([total-vars (length vs)])
-       (printf "stmts: ~s~n" stmts)
-       `(program ,(* 8 total-vars)))]
+       `(program ,(* 8 total-vars) ,@(append-map instr-sel-stmt stmts)))]
 
     [_ (error 'instr-sel "unhandled form: ~s~n" pgm)]))
+
+(define (instr-sel-stmt stmt)
+  (match stmt
+    [`(assign ,var ,expr)
+     (instr-sel-expr var expr)]
+    [`(return ,arg)
+     `((movq ,arg (reg rax)))]))
+
+(define (instr-sel-expr bind-to expr)
+  (match expr
+    [(or (? fixnum?) (? symbol?))
+     `(,(instr-sel-arg bind-to expr))]
+
+    [`(read) (error 'instr-sel-expr "read is not implemented yet")]
+
+    [`(- ,arg)
+     `(,(instr-sel-arg bind-to expr) (negq ,(arg->x86-arg arg)))]
+
+    [`(+ ,arg1 ,arg2)
+     `(,(instr-sel-arg bind-to arg1) (addq ,(arg->x86-arg arg2)
+                                           ,(arg->x86-arg bind-to)))]
+
+    [_ (error 'instr-sel-expr "unsupported form: ~s~n" expr)]))
+
+(define (instr-sel-arg bind-to arg)
+  `(movq ,(arg->x86-arg arg) ,(arg->x86-arg bind-to)))
+
+(define (arg->x86-arg arg)
+  (cond [(symbol? arg) `(var ,arg)]
+        [(fixnum? arg) `(int ,arg)]
+        [else (error 'arg->x86-arg "unsupported arg: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
