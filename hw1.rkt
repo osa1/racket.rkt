@@ -98,7 +98,7 @@
 
     [`(let ([,var ,e1]) ,body)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-       (let [(fresh (gensym "tmp"))]
+       (let [(fresh (gensym (string-append "tmp_" (symbol->string var) "_")))]
          (let-values ([(binds pgm body)
                        (flatten-expr (cons `(,var ,fresh) binds)
                                      (cons `(assign ,fresh ,e1) pgm)
@@ -117,9 +117,9 @@
               "uniquify"
               (range 1 6))
 
-(interp-tests "uniquify"
+(interp-tests "flatten"
               `(("uniquify" ,uniquify ,interp-scheme)
                 ("flatten" ,flatten ,interp-C))
               interp-scheme
               "flatten"
-              (range 1 4))
+              (range 1 5))
