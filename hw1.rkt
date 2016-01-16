@@ -297,13 +297,51 @@
     [_ (error 'assign-home-arg "unsupported form: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Instruction patching
+;;
+;; From the book, it's not clean what we're supposed to do here. So I'm just
+;; doing this:
+;; If the instructions takes two arguments and both of the arguments are memory
+;; locations, just make the destination a %rax, then movq %rax mem.
+
+(define (patch-instructions pgm)
+  (match pgm
+    [(list-rest 'program s stmts)
+     `(program ,s ,@(append-map patch-instructions-stmt stmts))]
+    [_ (error 'patch-instructions "unsupported form: ~s~n" pgm)]))
+
+(define (arg-mem? arg)
+  (match arg
+    [`(stack ,_) #t]
+    [`(,(or 'reg 'int) ,_) #f]
+    [_ (error 'arg-mem? "illegal arg: ~s~n" arg)]))
+
+(define (patch-instructions-stmt stmt)
+  (match stmt
+    [`(movq ,arg1 ,arg2)
+     (if (and (arg-mem? arg1) (arg-mem? arg2))
+       (list `(movq ,arg1 (reg rax))
+             `(movq (reg rax) ,arg2))
+       (list stmt))]
+
+    [`(,(or 'addq 'subq) ,arg1 ,arg2)
+     (if (and (arg-mem? arg1) (arg-mem? arg2))
+       (list (list 'movq arg2 '(reg rax))
+             (list (car stmt) arg1 '(reg rax))
+             (list 'movq '(reg rax) arg2))
+       (list stmt))]
+
+     [_ (list stmt)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
 (interp-tests "uniquify"
               `(("uniquify" ,uniquify ,interp-scheme)
                 ("flatten" ,flatten ,interp-C)
                 ("instr-sel" ,instr-sel ,interp-x86)
-                ("assign-homes" ,assign-homes ,interp-x86))
+                ("assign-homes" ,assign-homes ,interp-x86)
+                ("patch-instructions" ,patch-instructions ,interp-x86))
               interp-scheme
               "uniquify"
               (range 1 6))
@@ -312,7 +350,8 @@
               `(("uniquify" ,uniquify ,interp-scheme)
                 ("flatten" ,flatten ,interp-C)
                 ("instr-sel" ,instr-sel ,interp-x86)
-                ("assign-homes" ,assign-homes ,interp-x86))
+                ("assign-homes" ,assign-homes ,interp-x86)
+                ("patch-instructions" ,patch-instructions ,interp-x86))
               interp-scheme
               "flatten"
               (range 1 5))
