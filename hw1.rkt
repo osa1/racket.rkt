@@ -272,7 +272,29 @@
     [_ (error 'assign-vars "unsupported form: ~s~n" all-vars)]))
 
 (define (assign-home-instr asgns instr)
-  (error 'assign-home-instr "not implemented yet"))
+  (match instr
+    [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
+     (list (car instr) (assign-home-arg asgns arg1) (assign-home-arg asgns arg2))]
+
+    [`(,(or 'negq 'pushq 'popq) ,arg)
+     (list (car instr) (assign-home-arg asgns arg))]
+
+    [`(callq ,_) instr]
+
+    [`(retq) instr]
+
+    [_ (error 'assign-home-instr "unsupported form: ~s~n" instr)]))
+
+(define (assign-home-arg asgns arg)
+  (match arg
+    [`(int ,_) arg]
+    [`(reg ,_) arg]
+    [`(stack ,_) arg]
+    [`(var ,var)
+     (match (hash-ref asgns var '())
+       [`() (error 'assign-home-arg "can't find var in assignments: ~s ~s~n" var asgns)]
+       [ret `(stack ,ret)])]
+    [_ (error 'assign-home-arg "unsupported form: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
