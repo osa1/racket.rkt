@@ -334,6 +334,37 @@
      [_ (list stmt)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Print X86_64
+
+(define (print-x86_64 pgm)
+  (match pgm
+    [(list-rest 'program s stmts)
+     (let ([stmt-lines (map print-x86_64-stmt stmts)])
+       ; TODO: add prelude and conclusion etc.
+       (string-append* stmt-lines))]
+
+    [_ (error 'printx86_64 "unsupported form: ~s~n" pgm)]))
+
+(define instr3-format "~s ~s ~s")
+(define instr2-format "~s ~s")
+
+(define (print-x86_64-stmt stmt)
+  (match stmt
+    [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
+     (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
+    [`(,(or 'negq 'pushq 'pushq 'callq) ,arg1)
+     (format instr2-format (car stmt) (print-x86_64-arg arg1))]
+    [`(retq) "ret"]
+    [_ (error 'print-x86_64-stmt "unsupported form: ~s~n" stmt)]))
+
+(define (print-x86_64-arg arg)
+  (match arg
+    [`(int ,int) (format "$~s" int)]
+    [`(reg ,reg) (format "%~s" reg)]
+    [`(stack ,offset) (format "~s(%rsp)" offset)]
+    [_ (error 'print-x86_64-arg "unsupported form: ~s~n" arg)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
 (interp-tests "uniquify"
@@ -355,3 +386,13 @@
               interp-scheme
               "flatten"
               (range 1 5))
+
+(compiler-tests "first assignment"
+                `(("uniquify" ,uniquify ,interp-scheme)
+                  ("flatten" ,flatten ,interp-C)
+                  ("instr-sel" ,instr-sel ,interp-x86)
+                  ("assign-homes" ,assign-homes ,interp-x86)
+                  ("patch-instructions" ,patch-instructions ,interp-x86)
+                  ("print-x86" ,print-x86_64 ,interp-x86))
+                "uniquify"
+                (range 1 5))
