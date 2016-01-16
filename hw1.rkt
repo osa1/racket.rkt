@@ -230,8 +230,8 @@
     [(list-rest 'program stack-size instrs)
      (let* ([all-vars (collect-vars (set) instrs)]
             [var-asgns (assign-vars 0 (hash) (set->list all-vars))])
-       (printf "all-vars: ~s~n" all-vars)
-       `(program ,stack-size ,(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
+       ; (printf "all-vars: ~s~n" all-vars)
+       `(program ,stack-size ,@(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
 
     [_ (error 'assign-homes "unsupported form: ~s~n" pgm)]))
 
@@ -299,20 +299,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
-; (interp-tests "uniquify"
-;               `(("uniquify" ,uniquify ,interp-scheme)
-;                 ("flatten" ,flatten ,interp-C)
-;                 ("instr-sel" ,instr-sel ,interp-x86))
-;               interp-scheme
-;               "uniquify"
-;               (range 1 6))
-;
-; (interp-tests "flatten"
-;               `(("uniquify" ,uniquify ,interp-scheme)
-;                 ("flatten" ,flatten ,interp-C)
-;                 ("instr-sel" ,instr-sel ,interp-x86))
-;               interp-scheme
-;               "flatten"
-;               (range 1 5))
+(interp-tests "uniquify"
+              `(("uniquify" ,uniquify ,interp-scheme)
+                ("flatten" ,flatten ,interp-C)
+                ("instr-sel" ,instr-sel ,interp-x86)
+                ("assign-homes" ,assign-homes ,interp-x86))
+              interp-scheme
+              "uniquify"
+              (range 1 6))
 
-(assign-homes (instr-sel (flatten (uniquify '(program (+ 3 (+ 1 2)))))))
+(interp-tests "flatten"
+              `(("uniquify" ,uniquify ,interp-scheme)
+                ("flatten" ,flatten ,interp-C)
+                ("instr-sel" ,instr-sel ,interp-x86)
+                ("assign-homes" ,assign-homes ,interp-x86))
+              interp-scheme
+              "flatten"
+              (range 1 5))
