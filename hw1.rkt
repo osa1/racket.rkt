@@ -221,22 +221,76 @@
         [else (error 'arg->x86-arg "unsupported arg: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Instruction selection
+
+; Input: x86 with (var) in arguments.
+; Output: x86 without any (var)s.
+(define (assign-homes pgm)
+  (match pgm
+    [(list-rest 'program stack-size instrs)
+     (let* ([all-vars (collect-vars (set) instrs)]
+            [var-asgns (assign-vars 0 (hash) (set->list all-vars))])
+       (printf "all-vars: ~s~n" all-vars)
+       `(program ,stack-size ,(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
+
+    [_ (error 'assign-homes "unsupported form: ~s~n" pgm)]))
+
+(define (collect-vars vars instrs)
+  (match instrs
+    [(list) vars]
+    [(list-rest instr instrs)
+     (collect-vars (collect-vars-instr vars instr) instrs)]
+    [_ (error 'collect-vars "unsupported form: ~s~n" instrs)]))
+
+(define (collect-vars-instr vars instr)
+  (match instr
+    [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
+     (collect-vars-arg (collect-vars-arg vars arg1) arg2)]
+    [`(,(or 'pushq 'popq 'negq) ,arg)
+     (collect-vars-arg vars arg)]
+    [`(callq _) vars]
+    [`(retq) vars]
+    [_ (error 'collect-vars-instr "unsupported form: ~s~n" instr)]))
+
+(define (collect-vars-arg vars arg)
+  (match arg
+    [`(int ,_) vars]
+    [`(reg ,_) vars]
+    [`(stack ,_) vars]
+    [`(var ,v) (set-add vars v)]
+    [_ (error 'collect-vars-arg "unsupported form: ~s~n" arg)]))
+
+(define (assign-vars stack-offset var-offsets all-vars)
+  (match all-vars
+    [(list) var-offsets]
+    [(list-rest var vars)
+     (match (hash-ref var-offsets var '())
+       [(list) (assign-vars (- stack-offset 8)
+                            (hash-set var-offsets var (- stack-offset 8))
+                            vars)]
+       [_ (assign-vars stack-offset var-offsets vars)])]
+    [_ (error 'assign-vars "unsupported form: ~s~n" all-vars)]))
+
+(define (assign-home-instr asgns instr)
+  (error 'assign-home-instr "not implemented yet"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
 
-(interp-tests "uniquify"
-              `(("uniquify" ,uniquify ,interp-scheme)
-                ("flatten" ,flatten ,interp-C)
-                ("instr-sel" ,instr-sel ,interp-x86))
-              interp-scheme
-              "uniquify"
-              (range 1 6))
+; (interp-tests "uniquify"
+;               `(("uniquify" ,uniquify ,interp-scheme)
+;                 ("flatten" ,flatten ,interp-C)
+;                 ("instr-sel" ,instr-sel ,interp-x86))
+;               interp-scheme
+;               "uniquify"
+;               (range 1 6))
+;
+; (interp-tests "flatten"
+;               `(("uniquify" ,uniquify ,interp-scheme)
+;                 ("flatten" ,flatten ,interp-C)
+;                 ("instr-sel" ,instr-sel ,interp-x86))
+;               interp-scheme
+;               "flatten"
+;               (range 1 5))
 
-(interp-tests "flatten"
-              `(("uniquify" ,uniquify ,interp-scheme)
-                ("flatten" ,flatten ,interp-C)
-                ("instr-sel" ,instr-sel ,interp-x86))
-              interp-scheme
-              "flatten"
-              (range 1 5))
-
-; (instr-sel (flatten (uniquify '(program (+ 3 (+ 1 2))))))
+(assign-homes (instr-sel (flatten (uniquify '(program (+ 3 (+ 1 2)))))))
