@@ -299,7 +299,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Instruction patching
 ;;
-;; From the book, it's not clean what we're supposed to do here. So I'm just
+;; From the book, it's not clear what we're supposed to do here. So I'm just
 ;; doing this:
 ;; If the instructions takes two arguments and both of the arguments are memory
 ;; locations, just make the destination a %rax, then movq %rax mem.
@@ -336,17 +336,39 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Print X86_64
 
+(define main-prelude
+"\t.globl main
+main:\n")
+
+(define main-conclusion "\tretq\n")
+
+(define (mk-pgm-prelude stack-size)
+  (format
+"\tpushq %rbp
+\tsubq $~a, %rsp\n" stack-size))
+
+(define (mk-pgm-conclusion stack-size)
+  (format
+"\tmovq %rax, %rdi
+\tcallq print_int
+\taddq $~a, %rsp
+\tmovq $0, %rax
+\tpopq %rbp\n" stack-size))
+
 (define (print-x86_64 pgm)
   (match pgm
     [(list-rest 'program s stmts)
      (let ([stmt-lines (map print-x86_64-stmt stmts)])
-       ; TODO: add prelude and conclusion etc.
-       (string-append* stmt-lines))]
+       (string-append main-prelude
+                      (mk-pgm-prelude s)
+                      (string-join stmt-lines)
+                      (mk-pgm-conclusion s)
+                      main-conclusion))]
 
     [_ (error 'printx86_64 "unsupported form: ~s~n" pgm)]))
 
-(define instr3-format "~s ~s ~s")
-(define instr2-format "~s ~s")
+(define instr3-format "\t~a ~a, ~a\n")
+(define instr2-format "\t~a ~a\n")
 
 (define (print-x86_64-stmt stmt)
   (match stmt
@@ -354,7 +376,7 @@
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
     [`(,(or 'negq 'pushq 'pushq 'callq) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
-    [`(retq) "ret"]
+    [`(retq) "\tret\n"]
     [_ (error 'print-x86_64-stmt "unsupported form: ~s~n" stmt)]))
 
 (define (print-x86_64-arg arg)
