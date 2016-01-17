@@ -19,3 +19,4 @@ runtime.o: public/runtime.c
 clean:
 	rm -f *.o
 	rm -f $(execs)
+	rm -r tests/*.s
