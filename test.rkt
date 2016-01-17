@@ -28,3 +28,8 @@
                   ("print-x86" ,print-x86_64 ,interp-x86))
                 "patch_instructions"
                 (range 1 4))
+
+(compiler-tests "r0"
+				r1-passes
+				"r0"
+				(range 1 5))
