@@ -234,7 +234,7 @@
      (let* ([all-vars (collect-vars (set) instrs)]
             [var-asgns (assign-vars 0 (hash) (set->list all-vars))])
        ; (printf "all-vars: ~s~n" all-vars)
-       `(program ,stack-size ,@(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
+       `(program (,stack-size) ,@(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
 
     [_ (error 'assign-homes "unsupported form: ~s~n" pgm)]))
 
@@ -361,7 +361,7 @@ main:\n")
 
 (define (print-x86_64 pgm)
   (match pgm
-    [(list-rest 'program s stmts)
+    [(list-rest 'program `(,s) stmts)
      (let ([stmt-lines (map print-x86_64-stmt stmts)])
        (string-append main-prelude
                       (mk-pgm-prelude s)
