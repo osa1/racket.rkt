@@ -348,6 +348,7 @@ main:\n")
 (define (mk-pgm-prelude stack-size)
   (format
 "\tpushq %rbp
+\tmovq %rsp, %rbp
 \tsubq $~a, %rsp\n" stack-size))
 
 (define (mk-pgm-conclusion stack-size)
@@ -386,7 +387,7 @@ main:\n")
   (match arg
     [`(int ,int) (format "$~s" int)]
     [`(reg ,reg) (format "%~s" reg)]
-    [`(stack ,offset) (format "~s(%rsp)" offset)]
+    [`(stack ,offset) (format "~s(%rbp)" offset)]
     [(? symbol?) arg] ;; must be a function call
     [_ (error 'print-x86_64-arg "unsupported form: ~s~n" arg)]))
 
