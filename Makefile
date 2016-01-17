@@ -4,6 +4,9 @@ execs = test.exe
 
 all: runtime.o $(execs)
 
+runtime.o: public/runtime.c
+	$(CC) $^ -c -g -o $@
+
 %.o: %.c
 	$(CC) $^ -c -g -o $@
 
