@@ -6,12 +6,12 @@
 (require "compiler.rkt")
 
 (compiler-tests "first assignment"
-				r1-passes
+                r1-passes
                 "uniquify"
                 (range 1 6))
 
 (compiler-tests "first assignment"
-				r1-passes
+                r1-passes
                 "flatten"
                 (range 1 5))
 
@@ -30,6 +30,6 @@
                 (range 1 4))
 
 (compiler-tests "r0"
-				r1-passes
-				"r0"
-				(range 1 5))
+                r1-passes
+                "r0"
+                (range 1 5))

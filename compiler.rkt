@@ -7,9 +7,9 @@
 (require "public/interp.rkt")
 
 (provide r1-passes
-		 ; export individual passes for testing purposes
-		 ; (see test.rkt)
-		 uniquify flatten instr-sel assign-homes patch-instructions print-x86_64)
+         ; export individual passes for testing purposes
+         ; (see test.rkt)
+         uniquify flatten instr-sel assign-homes patch-instructions print-x86_64)
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
@@ -400,8 +400,8 @@ main:\n")
 
 (define r1-passes
   `(("uniquify" ,uniquify ,interp-scheme)
-	("flatten" ,flatten ,interp-C)
-	("instr-sel" ,instr-sel ,interp-x86)
-	("assign-homes" ,assign-homes ,interp-x86)
-	("patch-instructions" ,patch-instructions ,interp-x86)
-	("print-x86" ,print-x86_64 #f)))
+    ("flatten" ,flatten ,interp-C)
+    ("instr-sel" ,instr-sel ,interp-x86)
+    ("assign-homes" ,assign-homes ,interp-x86)
+    ("patch-instructions" ,patch-instructions ,interp-x86)
+    ("print-x86" ,print-x86_64 #f)))
