@@ -6,6 +6,11 @@
 (require "public/utilities.rkt")
 (require "public/interp.rkt")
 
+(provide r1-passes
+		 ; export individual passes for testing purposes
+		 ; (see test.rkt)
+		 uniquify flatten instr-sel assign-homes patch-instructions print-x86_64)
+
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
 ;
@@ -392,38 +397,11 @@ main:\n")
     [_ (error 'print-x86_64-arg "unsupported form: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Tests
 
-(compiler-tests "first assignment"
-                `(("uniquify" ,uniquify ,interp-scheme)
-                  ("flatten" ,flatten ,interp-C)
-                  ("instr-sel" ,instr-sel ,interp-x86)
-                  ("assign-homes" ,assign-homes ,interp-x86)
-                  ("patch-instructions" ,patch-instructions ,interp-x86)
-                  ("print-x86" ,print-x86_64 ,interp-x86))
-                "uniquify"
-                (range 1 6))
-
-(compiler-tests "first assignment"
-                `(("uniquify" ,uniquify ,interp-scheme)
-                  ("flatten" ,flatten ,interp-C)
-                  ("instr-sel" ,instr-sel ,interp-x86)
-                  ("assign-homes" ,assign-homes ,interp-x86)
-                  ("patch-instructions" ,patch-instructions ,interp-x86)
-                  ("print-x86" ,print-x86_64 ,interp-x86))
-                "flatten"
-                (range 1 5))
-
-(compiler-tests "select instructions"
-                `(("instr-sel" ,instr-sel ,interp-x86)
-                  ("assign-homes" ,assign-homes ,interp-x86)
-                  ("patch-instructions" ,patch-instructions ,interp-x86)
-                  ("print-x86" ,print-x86_64 ,interp-x86))
-                "select_instructions"
-                (range 1 4))
-
-(compiler-tests "patch instructions"
-                `(("patch-instructions" ,patch-instructions ,interp-x86)
-                  ("print-x86" ,print-x86_64 ,interp-x86))
-                "patch_instructions"
-                (range 1 4))
+(define r1-passes
+  `(("uniquify" ,uniquify ,interp-scheme)
+	("flatten" ,flatten ,interp-C)
+	("instr-sel" ,instr-sel ,interp-x86)
+	("assign-homes" ,assign-homes ,interp-x86)
+	("patch-instructions" ,patch-instructions ,interp-x86)
+	("print-x86" ,print-x86_64 #f)))
