@@ -1,3 +1,4 @@
 *.exe
 *.o
 tests/*.s
+.gdb_history
