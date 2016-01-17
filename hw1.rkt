@@ -201,7 +201,9 @@
     [(or (? fixnum?) (? symbol?))
      `(,(instr-sel-arg bind-to expr))]
 
-    [`(read) (error 'instr-sel-expr "read is not implemented yet")]
+    [`(read)
+     `((callq read_int)
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
 
     [`(- ,arg)
      `(,(instr-sel-arg bind-to arg) (negq ,(arg->x86-arg bind-to)))]
@@ -248,7 +250,7 @@
      (collect-vars-arg (collect-vars-arg vars arg1) arg2)]
     [`(,(or 'pushq 'popq 'negq) ,arg)
      (collect-vars-arg vars arg)]
-    [`(callq _) vars]
+    [`(callq ,_) vars]
     [`(retq) vars]
     [_ (error 'collect-vars-instr "unsupported form: ~s~n" instr)]))
 
@@ -384,6 +386,7 @@ main:\n")
     [`(int ,int) (format "$~s" int)]
     [`(reg ,reg) (format "%~s" reg)]
     [`(stack ,offset) (format "~s(%rsp)" offset)]
+    [(? symbol?) arg] ;; must be a function call
     [_ (error 'print-x86_64-arg "unsupported form: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
