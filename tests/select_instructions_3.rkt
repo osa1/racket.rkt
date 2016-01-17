@@ -1,0 +1,5 @@
+(v1)
+(assign v1 (read))
+(assign v1 (- v1))
+(assign v1 (+ v1 v1))
+(return v1)

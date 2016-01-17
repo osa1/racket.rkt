@@ -1,0 +1,5 @@
+(v1 v2 v3)
+(assign v1 10)
+(assign v2 (read))
+(assign v3 (+ v2 v1))
+(return v3)
