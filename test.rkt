@@ -33,3 +33,5 @@
                 r1-passes
                 "r0"
                 (range 1 5))
+
+(compiler-tests "r1" r1-passes "r1" (range 1 20))
