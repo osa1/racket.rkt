@@ -229,7 +229,7 @@
         [else (error 'arg->x86-arg "unsupported arg: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Instruction selection
+;; Assigning vars to their locations on the machine
 
 ; Input: x86 with (var) in arguments.
 ; Output: x86 without any (var)s.
