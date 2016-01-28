@@ -1,8 +1,17 @@
+SHELL := /bin/bash
 CC := gcc
 
 execs = test.exe
 
 all: runtime.o $(execs)
+
+pngs:
+	for dotfile in $$(ls tests | grep .dot$$); do \
+		dot -Tpng tests/$$dotfile > "$${dotfile%.dot}.png"; \
+	done;
+	for dotfile in $$(ls . | grep .dot$$); do \
+		dot -Tpng $$dotfile > "$${dotfile%.dot}.png"; \
+	done;
 
 runtime.o: public/runtime.c
 	$(CC) $^ -c -g -o $@
@@ -20,3 +29,7 @@ clean:
 	rm -f *.o
 	rm -f $(execs)
 	rm -r tests/*.s
+	rm -f tests/*.png
+	rm -f tests/*.dot
+	rm -f *.png
+	rm -f *.dot
