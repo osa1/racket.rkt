@@ -1,4 +1,4 @@
-()
+(v w x y z)
 (movq (int 1) (var v))
 (movq (int 46) (var w))
 (movq (var v) (var x))
