@@ -229,6 +229,56 @@
         [else (error 'arg->x86-arg "unsupported arg: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Live-after sets
+
+; NOTE: This should be run _before_ assign-homes as this assumes variable
+; arguments. We just ignore non-var arguments.
+
+(define (gen-live-afters pgm)
+  (match pgm
+    [(list-rest 'program _ instrs)
+     ; generating in reversed order to avoid stack overflows
+     (gen-live-afters-instrs (set) '() (reverse instrs))]
+    [_ (error 'gen-live-afters "unsupported form: ~s~n" pgm)]))
+
+(define (gen-live-afters-instrs lives acc instrs)
+  (match instrs
+    [(list) acc]
+    [(cons instr instrs)
+     (gen-live-afters-instrs (gen-live-afters-instr lives instr) (cons lives acc) instrs)]))
+
+(define (gen-live-afters-instr lives instr)
+  ; (printf "gen-live-afters-instr ~a ~a~n" lives instr)
+  (match instr
+    [`(,(or 'addq 'subq) ,arg1 ,arg2)
+     (let [(lives (match arg2
+                    [`(var ,v) (set-add lives v)]
+                    [_ lives]))]
+       (match arg1
+         [`(var ,v) (set-add lives v)]
+         [_ lives]))]
+
+    [`(,(or 'pushq 'popq) (var ,v))
+     (set-remove lives v)]
+
+    [`(movq ,arg1 ,arg2)
+     (let [(lives (match arg2
+                    [`(var ,v) (set-remove lives v)]
+                    [_ lives]))]
+       (match arg1
+         [`(var ,v) (set-add lives v)]
+         [_ lives]))]
+
+    [`(negq ,_) lives]
+
+    ; not sure about this part
+    [`(callq ,_) (set-remove lives 'rax)]
+
+    [`(retq) lives]
+
+    [_ (error 'gen-live-afters-instr "unsupported instruction form: ~s~n" instr)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Assigning vars to their locations on the machine
 
 ; Input: x86 with (var) in arguments.
@@ -339,7 +389,7 @@
              (list 'movq '(reg rax) arg2))
        (list stmt))]
 
-     [_ (list stmt)]))
+    [_ (list stmt)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Print X86_64
@@ -405,3 +455,15 @@ main:\n")
     ("assign-homes" ,assign-homes ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
     ("print-x86" ,print-x86_64 #f)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (print-lives path)
+  (let* [(pgm (instr-sel (flatten (uniquify (read-program path)))))
+         (lives (gen-live-afters pgm))]
+    (printf "pgm: ~s~n~n" (cddr pgm))
+    (printf "lives: ~s~n~n" lives)
+    (pretty-print (map list (cddr pgm) lives))))
+
+(print-lives "tests/uniquify_5.rkt")
+(print-lives "tests/r0_1.rkt")
