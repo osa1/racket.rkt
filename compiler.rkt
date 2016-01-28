@@ -475,7 +475,7 @@
 "\t.globl main
 main:\n")
 
-(define main-conclusion "\tretq\n")
+(define main-conclusion "\tretq")
 
 (define (mk-pgm-prelude stack-size)
   (let [(ls
