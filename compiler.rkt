@@ -322,6 +322,58 @@
     [_ (error 'build-graph "unsupported instruction: ~a~n" instr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Register allocation
+
+(define (reg-alloc inter-graph)
+  (let [(inter-graph (hash-copy inter-graph))]
+    (hash-remove! inter-graph 'rax)
+    (reg-alloc-iter inter-graph (make-immutable-hash))))
+
+(define all-regs (list->set (vector->list general-registers)))
+
+(define (reg-alloc-iter inter-graph mapping)
+  (if (eq? (hash-count inter-graph) (hash-count mapping))
+    mapping
+    (let* [(not-mapped (set-subtract (list->set (hash-keys inter-graph))
+                                     (list->set (hash-keys mapping))))
+
+           (most-constrained (find-most-constrained inter-graph (set->list not-mapped)))
+
+           (used-regs
+             (list->set (filter (lambda (m) (not (null? m)))
+                                (map (lambda (nb) (hash-ref mapping nb '()))
+                                     (set->list (adjacent inter-graph most-constrained))))))
+
+           ; NOTE: I think we could slight improve this by pushing caller-saved
+           ; registers down in the regs list to allocate them last.
+           (available-regs (set-subtract all-regs used-regs))
+
+           ; TODO: implement spilling when we run out of available registers
+           (next-reg (car (set->list available-regs)))]
+
+      ; (printf "not-mapped: ~s~n" not-mapped)
+      ; (printf "most constrained: ~s~n" most-constrained)
+      ; (printf "next-reg: ~s~n" next-reg)
+      ; (printf "mapping: ~s~n" mapping)
+      ; (printf "updated mapping: ~s~n~n~n" (hash-set mapping most-constrained next-reg))
+
+      (reg-alloc-iter inter-graph (hash-set mapping most-constrained next-reg)))))
+
+(define (find-most-constrained inter-graph not-mapped)
+  (let* [(cs (filter-nulls
+               (hash-map inter-graph (lambda (key val)
+                                       (if (set-member? not-mapped key)
+                                         `(,(set-count val) . ,key)
+                                         '())))))
+
+         (min-key (foldl (lambda (e min_so_far)
+                           (cond [(null? min_so_far) e]
+                                 [(> (car min_so_far) (car e)) e]
+                                 [#t min_so_far]))
+                         '() cs))]
+    (cdr min-key)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Assigning vars to their locations on the machine
 
 ; Input: x86 with (var) in arguments.
@@ -500,6 +552,12 @@ main:\n")
     ("print-x86" ,print-x86_64 #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Utilities
+
+(define (not-null? e) (not (null? e)))
+(define (filter-nulls lst) (filter not-null? lst))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (print-lives-rkt path)
   (let* [(pgm (instr-sel (flatten (uniquify (read-program path)))))
@@ -511,12 +569,14 @@ main:\n")
 (define (print-lives-x86 path)
   (let* [(pgm (read-program path))
          (lives (gen-live-afters pgm))
-         (int-graph (build-interference-graph pgm lives))]
+         (int-graph (build-interference-graph pgm lives))
+         (allocations (reg-alloc int-graph))]
     (printf "pgm: ~s~n~n" (cddr pgm))
     (printf "lives: ~s~n~n" lives)
     (printf "interference graph: ~s~n~n" int-graph)
     (pretty-print (map list (cddr pgm) lives))
-    (print-dot int-graph "dot.dot")))
+    (print-dot int-graph "dot.dot")
+    (printf "allocations: ~s~n" allocations)))
 
 ; (print-lives-rkt "tests/uniquify_5.rkt")
 ; (print-lives-rkt "tests/r0_1.rkt")
