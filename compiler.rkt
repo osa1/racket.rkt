@@ -250,7 +250,7 @@
 (define (gen-live-afters-instr lives instr)
   ; (printf "gen-live-afters-instr ~a ~a~n" lives instr)
   (match instr
-    [`(,(or 'addq 'subq) ,arg1 ,arg2)
+    [(list (or 'addq 'subq) arg1 arg2)
      (let [(lives (match arg2
                     [`(,(or 'var 'reg) ,v) (set-add lives v)]
                     [_ lives]))]
@@ -258,10 +258,10 @@
          [`(,(or 'var 'reg) ,v) (set-add lives v)]
          [_ lives]))]
 
-    [`(,(or 'pushq 'popq) (,(or 'var 'reg) ,v))
+    [(list (or 'pushq 'popq) (list (or 'var 'reg) v))
      (set-remove lives v)]
 
-    [`(movq ,arg1 ,arg2)
+    [(list 'movq arg1 arg2)
      (let [(lives (match arg2
                     [`(,(or 'var 'reg) ,v) (set-remove lives v)]
                     [_ lives]))]
@@ -277,6 +277,49 @@
     [`(retq) lives]
 
     [_ (error 'gen-live-afters-instr "unsupported instruction form: ~s~n" instr)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Interference graphs
+
+(define (build-interference-graph pgm live-sets)
+  (match pgm
+    [(list-rest 'program vs instrs)
+     (printf "program vs ~s instrs ~s~n" vs instrs)
+     (let [(graph (make-graph vs))]
+       (map (lambda (instr lives)
+              (build-int-graph instr (set->list lives) graph))
+            instrs live-sets)
+       graph)]
+    [_ (error 'build-interference-graph "unsupported program: ~a~n" pgm)]))
+
+(define (build-int-graph instr lives graph)
+  (match instr
+    [`(,(or 'addq 'subq) (,_ ,s) (,_ ,d))
+     (map (lambda (live)
+            (unless (equal? live d)
+              (add-edge graph d live))) lives)]
+
+    [`(,(or 'pushq 'popq 'negq) (,_ ,d))
+     (map (lambda (live)
+            (unless (equal? live d)
+              (add-edge graph d live))) lives)]
+
+    [`(movq (,_ ,s) (,_ ,d))
+     (map (lambda (live)
+            (unless (or (equal? live s) (equal? live d))
+              (add-edge graph d live))) lives)]
+
+    [`(retq) '()]
+
+    [`(callq ,_)
+     ; TODO: Find something like a cartesian product or list comprehension etc.
+     ; and get rid of this awful nested map.
+     (map (lambda (live)
+            (map (lambda (save) (add-edge graph save live))
+                 (set->list caller-save)))
+          lives)]
+
+    [_ (error 'build-graph "unsupported instruction: ~a~n" instr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Assigning vars to their locations on the machine
@@ -467,10 +510,13 @@ main:\n")
 
 (define (print-lives-x86 path)
   (let* [(pgm (read-program path))
-         (lives (gen-live-afters pgm))]
+         (lives (gen-live-afters pgm))
+         (int-graph (build-interference-graph pgm lives))]
     (printf "pgm: ~s~n~n" (cddr pgm))
     (printf "lives: ~s~n~n" lives)
-    (pretty-print (map list (cddr pgm) lives))))
+    (printf "interference graph: ~s~n~n" int-graph)
+    (pretty-print (map list (cddr pgm) lives))
+    (print-dot int-graph "dot.dot")))
 
 ; (print-lives-rkt "tests/uniquify_5.rkt")
 ; (print-lives-rkt "tests/r0_1.rkt")
