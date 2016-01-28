@@ -232,7 +232,7 @@
 ;; Live-after sets
 
 ; NOTE: This should be run _before_ assign-homes as this assumes variable
-; arguments. We just ignore non-var arguments.
+; arguments.
 
 (define (gen-live-afters pgm)
   (match pgm
@@ -252,21 +252,21 @@
   (match instr
     [`(,(or 'addq 'subq) ,arg1 ,arg2)
      (let [(lives (match arg2
-                    [`(var ,v) (set-add lives v)]
+                    [`(,(or 'var 'reg) ,v) (set-add lives v)]
                     [_ lives]))]
        (match arg1
-         [`(var ,v) (set-add lives v)]
+         [`(,(or 'var 'reg) ,v) (set-add lives v)]
          [_ lives]))]
 
-    [`(,(or 'pushq 'popq) (var ,v))
+    [`(,(or 'pushq 'popq) (,(or 'var 'reg) ,v))
      (set-remove lives v)]
 
     [`(movq ,arg1 ,arg2)
      (let [(lives (match arg2
-                    [`(var ,v) (set-remove lives v)]
+                    [`(,(or 'var 'reg) ,v) (set-remove lives v)]
                     [_ lives]))]
        (match arg1
-         [`(var ,v) (set-add lives v)]
+         [`(,(or 'var 'reg) ,v) (set-add lives v)]
          [_ lives]))]
 
     [`(negq ,_) lives]
@@ -458,12 +458,20 @@ main:\n")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (print-lives path)
+(define (print-lives-rkt path)
   (let* [(pgm (instr-sel (flatten (uniquify (read-program path)))))
          (lives (gen-live-afters pgm))]
     (printf "pgm: ~s~n~n" (cddr pgm))
     (printf "lives: ~s~n~n" lives)
     (pretty-print (map list (cddr pgm) lives))))
 
-(print-lives "tests/uniquify_5.rkt")
-(print-lives "tests/r0_1.rkt")
+(define (print-lives-x86 path)
+  (let* [(pgm (read-program path))
+         (lives (gen-live-afters pgm))]
+    (printf "pgm: ~s~n~n" (cddr pgm))
+    (printf "lives: ~s~n~n" lives)
+    (pretty-print (map list (cddr pgm) lives))))
+
+; (print-lives-rkt "tests/uniquify_5.rkt")
+; (print-lives-rkt "tests/r0_1.rkt")
+(print-lives-x86 "tests/lives_1.rkt")
