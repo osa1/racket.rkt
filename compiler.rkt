@@ -321,6 +321,36 @@
     [_ (error 'build-graph "unsupported instruction: ~a~n" instr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Move relation graph
+
+(define (mk-move-relation pgm)
+  (match pgm
+    [(list-rest 'program vs instrs)
+     (let [(graph (make-graph vs))]
+       (map (lambda (instr) (mk-move-rel-iter graph instr)) instrs)
+       graph)]
+    [_ (error 'mk-move-relation "unsupported program: ~a~n" pgm)]))
+
+(define (mk-move-rel-iter graph instr)
+  (define (can-relate? arg)
+    (match arg
+      [`(,(or 'reg 'stk 'var) ,_) #t]
+      [_ #f]))
+
+  (define (extract arg)
+    (match arg
+      [`(,(or 'reg 'stk 'var) ,v) v]
+      [_ arg]))
+
+  (define (mk-edge graph arg1 arg2)
+    (when (and (can-relate? arg1) (can-relate? arg2))
+      (add-edge graph (extract arg1) (extract arg2))))
+
+  (match instr
+    [`(movq ,s ,d) (mk-edge graph s d)]
+    [_ '()]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Register allocation
 
 ; TODO: We can re-use stack locations when spilling, but that's not implemented
@@ -331,12 +361,12 @@
 (define general-registers
   (append (set->list callee-save) (set->list caller-save)))
 
-(define (reg-alloc inter-graph [regs general-registers])
+(define (reg-alloc inter-graph move-rels [regs general-registers])
   (let [(inter-graph (hash-copy inter-graph))]
     (hash-remove! inter-graph 'rax)
-    (reg-alloc-iter inter-graph (make-immutable-hash) 0 regs)))
+    (reg-alloc-iter inter-graph move-rels (make-immutable-hash) 0 regs)))
 
-(define (reg-alloc-iter inter-graph mapping last-stack-loc regs)
+(define (reg-alloc-iter inter-graph move-rels mapping last-stack-loc regs)
   (if (eq? (hash-count inter-graph) (hash-count mapping))
     (values mapping (- last-stack-loc))
     (let* [(not-mapped (set-subtract (list->set (hash-keys inter-graph))
@@ -360,15 +390,28 @@
       ; (printf "next-reg: ~s~n" next-reg)
       ; (printf "mapping: ~s~n" mapping)
       ; (printf "updated mapping: ~s~n~n~n" (hash-set mapping most-constrained next-reg))
+      ; (printf "move rels: ~s~n" move-rels)
 
       (if (null? available-regs-lst)
         ; no regs available, spill
-        (reg-alloc-iter inter-graph
+        (reg-alloc-iter inter-graph move-rels
                         (hash-set mapping most-constrained (- last-stack-loc 8))
                         (- last-stack-loc 8)
                         regs)
-        ; use the available reg
-        (reg-alloc-iter inter-graph
+        ; use the available reg, but look at move-related registers first
+        ; (let* [(move-rel-vars (set->list (hash-ref move-rels most-constrained (set))))
+        ;        ; move-related registers
+        ;        (move-rel-regs
+        ;          (filter-nulls
+        ;            (map (lambda (arg) (hash-ref mapping arg '())) move-rel-vars)))]
+
+        ;   (let [(mapping (cond [(not (null? move-rel-regs))
+        ;                         (hash-set mapping most-constrained (car move-rel-regs))]
+        ;                        [#t
+        ;                         (hash-set mapping most-constrained (car available-regs-lst))]))]
+        ;     (reg-alloc-iter inter-graph move-rels mapping last-stack-loc regs)))))))
+        ; ignore move related regs
+        (reg-alloc-iter inter-graph move-rels
                         (hash-set mapping most-constrained (car available-regs-lst))
                         last-stack-loc
                         regs)))))
@@ -396,8 +439,9 @@
   (match pgm
     [(list-rest 'program vs instrs)
      (let* ([live-sets (gen-live-afters pgm)]
-            [inter-graph (build-interference-graph pgm live-sets)])
-       (let-values ([(homes stack-size) (reg-alloc inter-graph)])
+            [inter-graph (build-interference-graph pgm live-sets)]
+            [move-rel (mk-move-relation pgm)])
+       (let-values ([(homes stack-size) (reg-alloc inter-graph move-rel)])
          ; (printf "all-vars: ~s~n" all-vars)
          `(program (,stack-size)
                    ,@(map (lambda (instr) (assign-home-instr homes instr)) instrs))))]
@@ -562,13 +606,16 @@ main:\n")
   (let* [(pgm (read-program path))
          (lives (gen-live-afters pgm))
          (int-graph (build-interference-graph pgm lives))
-         (allocations (reg-alloc int-graph regs))]
-    (printf "pgm: ~s~n~n" (cddr pgm))
-    (printf "lives: ~s~n~n" lives)
-    (printf "interference graph: ~s~n~n" int-graph)
-    (pretty-print (map list (cddr pgm) lives))
-    (print-dot int-graph (string-append path ".dot"))
-    (printf "allocations: ~s~n" allocations)))
+         (move-rels (mk-move-relation pgm))]
+    (let-values [((allocations last-stack-loc) (reg-alloc int-graph move-rels regs))]
+      (printf "pgm: ~s~n~n" (cddr pgm))
+      (printf "lives: ~s~n~n" lives)
+      (printf "interference graph: ~s~n~n" int-graph)
+      (pretty-print (map list (cddr pgm) lives))
+      (print-dot int-graph (string-append path ".int.dot"))
+      (print-dot move-rels (string-append path ".mov.dot"))
+      (printf "allocations: ~s~n" allocations)
+      (printf "move relations: ~s~n" move-rels))))
 
 ; (print-lives-rkt "tests/uniquify_5.rkt")
 ; (print-lives-rkt "tests/r0_1.rkt")
