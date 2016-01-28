@@ -324,14 +324,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Register allocation
 
-(define (reg-alloc inter-graph)
+; TODO: We can re-use stack locations when spilling, but that's not implemented
+; at the moment.
+
+; This is an ordered list! We should first use the registers that come first in
+; the list. Latter ones are the ones we need to save.
+(define general-registers
+  (append (set->list callee-save) (set->list caller-save)))
+
+(define (reg-alloc inter-graph [regs general-registers])
   (let [(inter-graph (hash-copy inter-graph))]
     (hash-remove! inter-graph 'rax)
-    (reg-alloc-iter inter-graph (make-immutable-hash))))
+    (reg-alloc-iter inter-graph (make-immutable-hash) -8 regs)))
 
-(define all-regs (list->set (vector->list general-registers)))
-
-(define (reg-alloc-iter inter-graph mapping)
+(define (reg-alloc-iter inter-graph mapping next-stack-loc regs)
   (if (eq? (hash-count inter-graph) (hash-count mapping))
     mapping
     (let* [(not-mapped (set-subtract (list->set (hash-keys inter-graph))
@@ -344,12 +350,11 @@
                                 (map (lambda (nb) (hash-ref mapping nb '()))
                                      (set->list (adjacent inter-graph most-constrained))))))
 
-           ; NOTE: I think we could slight improve this by pushing caller-saved
-           ; registers down in the regs list to allocate them last.
-           (available-regs (set-subtract all-regs used-regs))
+           (available-regs
+             (filter (lambda (reg) (not (set-member? used-regs reg))) regs))
 
            ; TODO: implement spilling when we run out of available registers
-           (next-reg (car (set->list available-regs)))]
+           (available-regs-lst (set->list available-regs))]
 
       ; (printf "not-mapped: ~s~n" not-mapped)
       ; (printf "most constrained: ~s~n" most-constrained)
@@ -357,7 +362,17 @@
       ; (printf "mapping: ~s~n" mapping)
       ; (printf "updated mapping: ~s~n~n~n" (hash-set mapping most-constrained next-reg))
 
-      (reg-alloc-iter inter-graph (hash-set mapping most-constrained next-reg)))))
+      (if (null? available-regs-lst)
+        ; no regs available, spill
+        (reg-alloc-iter inter-graph
+                        (hash-set mapping most-constrained next-stack-loc)
+                        (- next-stack-loc 8)
+                        regs)
+        ; use the available reg
+        (reg-alloc-iter inter-graph
+                        (hash-set mapping most-constrained (car available-regs-lst))
+                        next-stack-loc
+                        regs)))))
 
 (define (find-most-constrained inter-graph not-mapped)
   (let* [(cs (filter-nulls
@@ -569,11 +584,11 @@ main:\n")
 ; This takes as input a file path of a pseudo-x86 (with variables) probal, and
 ; compiles it using register allocation etc. Also generates a .dot file for
 ; interference graph to the same path.
-(define (print-lives-x86 path)
+(define (print-lives-x86 path [regs general-registers])
   (let* [(pgm (read-program path))
          (lives (gen-live-afters pgm))
          (int-graph (build-interference-graph pgm lives))
-         (allocations (reg-alloc int-graph))]
+         (allocations (reg-alloc int-graph regs))]
     (printf "pgm: ~s~n~n" (cddr pgm))
     (printf "lives: ~s~n~n" lives)
     (printf "interference graph: ~s~n~n" int-graph)
@@ -584,3 +599,4 @@ main:\n")
 ; (print-lives-rkt "tests/uniquify_5.rkt")
 ; (print-lives-rkt "tests/r0_1.rkt")
 (print-lives-x86 "tests/lives_1.rkt")
+(print-lives-x86 "tests/lives_1.rkt" (list))
