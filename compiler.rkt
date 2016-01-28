@@ -478,18 +478,23 @@ main:\n")
 (define main-conclusion "\tretq\n")
 
 (define (mk-pgm-prelude stack-size)
-  (format
+  (let [(ls
 "\tpushq %rbp
-\tmovq %rsp, %rbp
-\tsubq $~a, %rsp\n" stack-size))
+\tmovq %rsp, %rbp\n")]
+    (if (eq? stack-size 0)
+      ls
+      (string-append ls (format "\tsubq $~a, %rsp\n" stack-size)))))
 
 (define (mk-pgm-conclusion stack-size)
-  (format
+  (let [(ls1
 "\tmovq %rax, %rdi
-\tcallq print_int
-\taddq $~a, %rsp
-\tmovq $0, %rax
-\tpopq %rbp\n" stack-size))
+\tcallq print_int\n")
+        (ls2
+"\tmovq $0, %rax
+\tpopq %rbp\n")]
+    (if (eq? stack-size 0)
+      (string-append ls1 "\n" ls2)
+      (string-append ls1 "\n" (format "\taddq $~a, %rsp\n" stack-size) ls2))))
 
 (define (print-x86_64 pgm)
   (match pgm
@@ -497,7 +502,9 @@ main:\n")
      (let ([stmt-lines (map print-x86_64-stmt stmts)])
        (string-append main-prelude
                       (mk-pgm-prelude s)
+                      "\n"
                       (string-join stmt-lines)
+                      "\n"
                       (mk-pgm-conclusion s)
                       main-conclusion))]
 
