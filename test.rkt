@@ -35,3 +35,5 @@
                 (range 1 5))
 
 (compiler-tests "r1" r1-passes "r1" (range 1 20))
+
+(compiler-tests "forum" r1-passes "forum" (range 1 2))
