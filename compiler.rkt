@@ -334,11 +334,11 @@
 (define (reg-alloc inter-graph [regs general-registers])
   (let [(inter-graph (hash-copy inter-graph))]
     (hash-remove! inter-graph 'rax)
-    (reg-alloc-iter inter-graph (make-immutable-hash) -8 regs)))
+    (reg-alloc-iter inter-graph (make-immutable-hash) 0 regs)))
 
-(define (reg-alloc-iter inter-graph mapping next-stack-loc regs)
+(define (reg-alloc-iter inter-graph mapping last-stack-loc regs)
   (if (eq? (hash-count inter-graph) (hash-count mapping))
-    mapping
+    (values mapping (- last-stack-loc))
     (let* [(not-mapped (set-subtract (list->set (hash-keys inter-graph))
                                      (list->set (hash-keys mapping))))
 
@@ -364,13 +364,13 @@
       (if (null? available-regs-lst)
         ; no regs available, spill
         (reg-alloc-iter inter-graph
-                        (hash-set mapping most-constrained next-stack-loc)
-                        (- next-stack-loc 8)
+                        (hash-set mapping most-constrained (- last-stack-loc 8))
+                        (- last-stack-loc 8)
                         regs)
         ; use the available reg
         (reg-alloc-iter inter-graph
                         (hash-set mapping most-constrained (car available-regs-lst))
-                        next-stack-loc
+                        last-stack-loc
                         regs)))))
 
 (define (find-most-constrained inter-graph not-mapped)
@@ -396,27 +396,13 @@
   (match pgm
     [(list-rest 'program vs instrs)
      (let* ([live-sets (gen-live-afters pgm)]
-            [inter-graph (build-interference-graph pgm live-sets)]
-            [homes (reg-alloc inter-graph)]
-
-            [stack-size (* 8 (length vs))]
-            [var-asgns (assign-vars 0 (hash) vs)])
-       ; (printf "all-vars: ~s~n" all-vars)
-       `(program (,stack-size)
-                 ,@(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
+            [inter-graph (build-interference-graph pgm live-sets)])
+       (let-values ([(homes stack-size) (reg-alloc inter-graph)])
+         ; (printf "all-vars: ~s~n" all-vars)
+         `(program (,stack-size)
+                   ,@(map (lambda (instr) (assign-home-instr homes instr)) instrs))))]
 
     [_ (error 'assign-homes "unsupported form: ~s~n" pgm)]))
-
-(define (assign-vars stack-offset var-offsets all-vars)
-  (match all-vars
-    [(list) var-offsets]
-    [(list-rest var vars)
-     (match (hash-ref var-offsets var '())
-       [(list) (assign-vars (- stack-offset 8)
-                            (hash-set var-offsets var (- stack-offset 8))
-                            vars)]
-       [_ (assign-vars stack-offset var-offsets vars)])]
-    [_ (error 'assign-vars "unsupported form: ~s~n" all-vars)]))
 
 (define (assign-home-instr asgns instr)
   (match instr
@@ -438,9 +424,11 @@
     [`(reg ,_) arg]
     [`(stack ,_) arg]
     [`(var ,var)
-     (match (hash-ref asgns var '())
-       [`() (error 'assign-home-arg "can't find var in assignments: ~s ~s~n" var asgns)]
-       [ret `(stack ,ret)])]
+     (let [(asgn (hash-ref asgns var '()))]
+       (cond [(null? asgn)
+              (error 'assign-home-arg "can't find var in assignments: ~s ~s~n" var asgns)]
+             [(fixnum? asgn) `(stack ,asgn)]
+             [#t `(reg ,asgn)]))]
     [_ (error 'assign-home-arg "unsupported form: ~s~n" arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
