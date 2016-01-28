@@ -566,6 +566,9 @@ main:\n")
     (printf "lives: ~s~n~n" lives)
     (pretty-print (map list (cddr pgm) lives))))
 
+; This takes as input a file path of a pseudo-x86 (with variables) probal, and
+; compiles it using register allocation etc. Also generates a .dot file for
+; interference graph to the same path.
 (define (print-lives-x86 path)
   (let* [(pgm (read-program path))
          (lives (gen-live-afters pgm))
@@ -575,7 +578,7 @@ main:\n")
     (printf "lives: ~s~n~n" lives)
     (printf "interference graph: ~s~n~n" int-graph)
     (pretty-print (map list (cddr pgm) lives))
-    (print-dot int-graph "dot.dot")
+    (print-dot int-graph (string-append path ".dot"))
     (printf "allocations: ~s~n" allocations)))
 
 ; (print-lives-rkt "tests/uniquify_5.rkt")
