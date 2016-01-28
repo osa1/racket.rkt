@@ -13,6 +13,11 @@ pngs:
 		dot -Tpng $$dotfile > "$${dotfile%.dot}.png"; \
 	done;
 
+test: test1 | pngs
+
+test1: runtime.o
+	racket test.rkt
+
 runtime.o: public/runtime.c
 	$(CC) $^ -c -g -o $@
 
