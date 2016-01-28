@@ -189,8 +189,7 @@
   (match pgm
     [(list-rest 'program vs stmts)
      ; (printf "stmts: ~s~n" stmts)
-     (let ([total-vars (length vs)])
-       `(program ,(* 8 total-vars) ,@(append-map instr-sel-stmt stmts)))]
+     `(program ,vs ,@(append-map instr-sel-stmt stmts))]
 
     [_ (error 'instr-sel "unhandled form: ~s~n" pgm)]))
 
@@ -284,7 +283,7 @@
 (define (build-interference-graph pgm live-sets)
   (match pgm
     [(list-rest 'program vs instrs)
-     (printf "program vs ~s instrs ~s~n" vs instrs)
+     ; (printf "program vs ~s instrs ~s~n" vs instrs)
      (let [(graph (make-graph vs))]
        (map (lambda (instr lives)
               (build-int-graph instr (set->list lives) graph))
@@ -395,38 +394,18 @@
 ; Output: x86 without any (var)s.
 (define (assign-homes pgm)
   (match pgm
-    [(list-rest 'program stack-size instrs)
-     (let* ([all-vars (collect-vars (set) instrs)]
-            [var-asgns (assign-vars 0 (hash) (set->list all-vars))])
+    [(list-rest 'program vs instrs)
+     (let* ([live-sets (gen-live-afters pgm)]
+            [inter-graph (build-interference-graph pgm live-sets)]
+            [homes (reg-alloc inter-graph)]
+
+            [stack-size (* 8 (length vs))]
+            [var-asgns (assign-vars 0 (hash) vs)])
        ; (printf "all-vars: ~s~n" all-vars)
-       `(program (,stack-size) ,@(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
+       `(program (,stack-size)
+                 ,@(map (lambda (instr) (assign-home-instr var-asgns instr)) instrs)))]
 
     [_ (error 'assign-homes "unsupported form: ~s~n" pgm)]))
-
-(define (collect-vars vars instrs)
-  (match instrs
-    [(list) vars]
-    [(list-rest instr instrs)
-     (collect-vars (collect-vars-instr vars instr) instrs)]
-    [_ (error 'collect-vars "unsupported form: ~s~n" instrs)]))
-
-(define (collect-vars-instr vars instr)
-  (match instr
-    [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
-     (collect-vars-arg (collect-vars-arg vars arg1) arg2)]
-    [`(,(or 'pushq 'popq 'negq) ,arg)
-     (collect-vars-arg vars arg)]
-    [`(callq ,_) vars]
-    [`(retq) vars]
-    [_ (error 'collect-vars-instr "unsupported form: ~s~n" instr)]))
-
-(define (collect-vars-arg vars arg)
-  (match arg
-    [`(int ,_) vars]
-    [`(reg ,_) vars]
-    [`(stack ,_) vars]
-    [`(var ,v) (set-add vars v)]
-    [_ (error 'collect-vars-arg "unsupported form: ~s~n" arg)]))
 
 (define (assign-vars stack-offset var-offsets all-vars)
   (match all-vars
@@ -598,5 +577,6 @@ main:\n")
 
 ; (print-lives-rkt "tests/uniquify_5.rkt")
 ; (print-lives-rkt "tests/r0_1.rkt")
-(print-lives-x86 "tests/lives_1.rkt")
-(print-lives-x86 "tests/lives_1.rkt" (list))
+
+; (print-lives-x86 "tests/lives_1.rkt")
+; (print-lives-x86 "tests/lives_1.rkt" (list))
