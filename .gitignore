@@ -4,3 +4,4 @@ tests/*.s
 .gdb_history
 *.dot
 *.png
+*.out
