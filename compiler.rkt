@@ -594,12 +594,18 @@ main:\n")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (print-lives instrs livess)
+  (for-each (lambda (instr lives)
+              (printf "~a\t~a~n" instr lives)) instrs livess))
+
 (define (print-lives-rkt path)
   (let* [(pgm (instr-sel (flatten (uniquify (read-program path)))))
          (lives (gen-live-afters pgm))]
-    (printf "pgm: ~s~n~n" (cddr pgm))
-    (printf "lives: ~s~n~n" lives)
-    (pretty-print (map list (cddr pgm) lives))))
+    ; (printf "pgm: ~s~n~n" (cddr pgm))
+    ; (printf "lives: ~s~n~n" lives)
+    ; (pretty-print (map list (cddr pgm) lives))))
+    (print-lives (cddr pgm) lives)
+    (newline)))
 
 ; This takes as input a file path of a pseudo-x86 (with variables) probal, and
 ; compiles it using register allocation etc. Also generates a .dot file for
@@ -610,8 +616,7 @@ main:\n")
          (int-graph (build-interference-graph pgm lives))
          (move-rels (mk-move-relation pgm))]
     (let-values [((allocations last-stack-loc) (reg-alloc int-graph move-rels regs))]
-      (printf "pgm: ~s~n~n" (cddr pgm))
-      (printf "lives: ~s~n~n" lives)
+      (print-lives (cddr pgm) lives)
       (printf "interference graph: ~s~n~n" int-graph)
       (pretty-print (map list (cddr pgm) lives))
       (print-dot int-graph (string-append path ".int.dot"))
