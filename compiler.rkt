@@ -323,15 +323,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Move relation graph
 
-(define (mk-move-relation pgm)
+(define (mk-move-relation pgm int-graph)
   (match pgm
     [(list-rest 'program vs instrs)
      (let [(graph (make-graph vs))]
-       (map (lambda (instr) (mk-move-rel-iter graph instr)) instrs)
+       (map (lambda (instr) (mk-move-rel-iter graph int-graph instr)) instrs)
        graph)]
     [_ (error 'mk-move-relation "unsupported program: ~a~n" pgm)]))
 
-(define (mk-move-rel-iter graph instr)
+(define (mk-move-rel-iter graph int-graph instr)
   (define (can-relate? arg)
     (match arg
       [`(,(or 'reg 'stk 'var) ,_) #t]
@@ -344,7 +344,11 @@
 
   (define (mk-edge graph arg1 arg2)
     (when (and (can-relate? arg1) (can-relate? arg2))
-      (add-edge graph (extract arg1) (extract arg2))))
+      ; but do they interfere?
+      (let* [(arg1-adjs (hash-ref int-graph (extract arg1) (set)))
+             (interfere (set-member? arg1-adjs (extract arg2)))]
+        (unless interfere
+          (add-edge graph (extract arg1) (extract arg2))))))
 
   (match instr
     [`(movq ,s ,d) (mk-edge graph s d)]
@@ -366,18 +370,19 @@
     (hash-remove! inter-graph 'rax)
     (reg-alloc-iter inter-graph move-rels (make-immutable-hash) 0 regs)))
 
-(define (reg-alloc-iter inter-graph move-rels mapping last-stack-loc regs)
-  (if (eq? (hash-count inter-graph) (hash-count mapping))
+(define (reg-alloc-iter int-graph move-rels mapping last-stack-loc regs)
+  (if (eq? (hash-count int-graph) (hash-count mapping))
     (values mapping (- last-stack-loc))
-    (let* [(not-mapped (set-subtract (list->set (hash-keys inter-graph))
-                                     (list->set (hash-keys mapping))))
+    (let* [(all-vars    (list->set (hash-keys int-graph)))
+           (mapped-vars (list->set (hash-keys mapping)))
+           (not-mapped  (set-subtract all-vars mapped-vars))
 
-           (most-constrained (find-most-constrained inter-graph (set->list not-mapped)))
+           (most-constrained (find-most-constrained int-graph (set->list not-mapped)))
 
            (used-regs
-             (list->set (filter (lambda (m) (not (null? m)))
-                                (map (lambda (nb) (hash-ref mapping nb '()))
-                                     (set->list (adjacent inter-graph most-constrained))))))
+             (list->set (filter-nulls
+                          (map (lambda (nb) (hash-ref mapping nb '()))
+                               (set->list (adjacent int-graph most-constrained))))))
 
            (available-regs
              (filter (lambda (reg) (not (set-member? used-regs reg))) regs))
@@ -385,36 +390,38 @@
            ; TODO: implement spilling when we run out of available registers
            (available-regs-lst (set->list available-regs))]
 
-      ; (printf "not-mapped: ~s~n" not-mapped)
-      ; (printf "most constrained: ~s~n" most-constrained)
-      ; (printf "next-reg: ~s~n" next-reg)
-      ; (printf "mapping: ~s~n" mapping)
-      ; (printf "updated mapping: ~s~n~n~n" (hash-set mapping most-constrained next-reg))
-      ; (printf "move rels: ~s~n" move-rels)
+      (let* [(move-rel-vars (hash-ref move-rels most-constrained (set)))
+             (interfered-vars (hash-ref int-graph most-constrained (set)))
 
-      (if (null? available-regs-lst)
-        ; no regs available, spill
-        (reg-alloc-iter inter-graph move-rels
-                        (hash-set mapping most-constrained (- last-stack-loc 8))
-                        (- last-stack-loc 8)
-                        regs)
-        ; use the available reg, but look at move-related registers first
-        ; (let* [(move-rel-vars (set->list (hash-ref move-rels most-constrained (set))))
-        ;        ; move-related registers
-        ;        (move-rel-regs
-        ;          (filter-nulls
-        ;            (map (lambda (arg) (hash-ref mapping arg '())) move-rel-vars)))]
+             (move-rel-regs
+               (filter-nulls
+                 (map (lambda (arg) (hash-ref mapping arg '()))
+                      (set->list move-rel-vars))))
 
-        ;   (let [(mapping (cond [(not (null? move-rel-regs))
-        ;                         (hash-set mapping most-constrained (car move-rel-regs))]
-        ;                        [#t
-        ;                         (hash-set mapping most-constrained (car available-regs-lst))]))]
-        ;     (reg-alloc-iter inter-graph move-rels mapping last-stack-loc regs)))))))
-        ; ignore move related regs
-        (reg-alloc-iter inter-graph move-rels
-                        (hash-set mapping most-constrained (car available-regs-lst))
-                        last-stack-loc
-                        regs)))))
+             (interfered-regs
+               (filter-nulls
+                 (map (lambda (arg) (hash-ref mapping arg '()))
+                      (set->list interfered-vars))))
+
+             (move-rel-regs (set->list
+                              (set-subtract (list->set move-rel-regs)
+                                            (list->set interfered-regs))))]
+
+        (cond [(not (null? move-rel-regs))
+               (reg-alloc-iter int-graph move-rels
+                               (hash-set mapping most-constrained (car move-rel-regs))
+                               last-stack-loc regs)]
+
+              [(not (null? available-regs-lst))
+               (reg-alloc-iter int-graph move-rels
+                               (hash-set mapping most-constrained (car available-regs-lst))
+                               last-stack-loc regs)]
+
+              [#t
+               (reg-alloc-iter int-graph move-rels
+                               (hash-set mapping most-constrained (- last-stack-loc 8))
+                               (- last-stack-loc 8)
+                               regs)])))))
 
 (define (find-most-constrained inter-graph not-mapped)
   (let* [(cs (filter-nulls
@@ -439,9 +446,9 @@
   (match pgm
     [(list-rest 'program vs instrs)
      (let* ([live-sets (gen-live-afters pgm)]
-            [inter-graph (build-interference-graph pgm live-sets)]
-            [move-rel (mk-move-relation pgm)])
-       (let-values ([(homes stack-size) (reg-alloc inter-graph move-rel)])
+            [int-graph (build-interference-graph pgm live-sets)]
+            [move-rel (mk-move-relation pgm int-graph)])
+       (let-values ([(homes stack-size) (reg-alloc int-graph move-rel)])
          ; (printf "all-vars: ~s~n" all-vars)
          `(program (,(align-stack stack-size))
                    ,@(map (lambda (instr) (assign-home-instr homes instr)) instrs))))]
@@ -480,8 +487,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Instruction patching
 ;;
-;; From the book, it's not clear what we're supposed to do here. So I'm just
-;; doing this:
 ;; If the instructions takes two arguments and both of the arguments are memory
 ;; locations, just make the destination a %rax, then movq %rax mem.
 
@@ -513,6 +518,20 @@
        (list stmt))]
 
     [_ (list stmt)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Eliminate redundant movs
+
+(define (elim-movs pgm)
+  (match pgm
+    [(list-rest 'program s instrs)
+     `(program ,s ,@(filter-nulls (map elim-mov-instr instrs)))]
+    [_ (error 'patch-instructions "unsupported form: ~s~n" pgm)]))
+
+(define (elim-mov-instr instr)
+  (match instr
+    [`(movq ,arg1 ,arg2) (if (equal? arg1 arg2) '() instr)]
+    [_ instr]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Print X86_64
@@ -584,6 +603,7 @@ main:\n")
     ("instr-sel" ,instr-sel ,interp-x86)
     ("assign-homes" ,assign-homes ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
+    ("elim-movs" ,elim-movs ,interp-x86)
     ("print-x86" ,print-x86_64 #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -599,33 +619,33 @@ main:\n")
               (printf "~a\t~a~n" instr lives)) instrs livess))
 
 (define (print-lives-rkt path)
-  (let* [(pgm (instr-sel (flatten (uniquify (read-program path)))))
-         (lives (gen-live-afters pgm))]
-    ; (printf "pgm: ~s~n~n" (cddr pgm))
-    ; (printf "lives: ~s~n~n" lives)
-    ; (pretty-print (map list (cddr pgm) lives))))
-    (print-lives (cddr pgm) lives)
-    (newline)))
+  (print-lives-x86-pgm path (instr-sel (flatten (uniquify (read-program path))))))
 
 ; This takes as input a file path of a pseudo-x86 (with variables) probal, and
 ; compiles it using register allocation etc. Also generates a .dot file for
 ; interference graph to the same path.
-(define (print-lives-x86 path [regs general-registers])
-  (let* [(pgm (read-program path))
-         (lives (gen-live-afters pgm))
+(define (print-lives-x86-pgm path pgm [regs general-registers])
+  (let* [(lives (gen-live-afters pgm))
          (int-graph (build-interference-graph pgm lives))
-         (move-rels (mk-move-relation pgm))]
+         (move-rels (mk-move-relation pgm int-graph))]
     (let-values [((allocations last-stack-loc) (reg-alloc int-graph move-rels regs))]
       (print-lives (cddr pgm) lives)
       (printf "interference graph: ~s~n~n" int-graph)
-      (pretty-print (map list (cddr pgm) lives))
+      (newline)
       (print-dot int-graph (string-append path ".int.dot"))
       (print-dot move-rels (string-append path ".mov.dot"))
       (printf "allocations: ~s~n" allocations)
-      (printf "move relations: ~s~n" move-rels))))
+      (newline)
+      (printf "move relations: ~s~n" move-rels)
+      (newline))))
+
+(define (print-lives-x86 path [regs general-registers])
+  (let* [(pgm (read-program path))]
+    (print-lives-x86-pgm path pgm regs)))
 
 ; (print-lives-rkt "tests/uniquify_5.rkt")
 ; (print-lives-rkt "tests/r0_1.rkt")
 
 ; (print-lives-x86 "tests/lives_1.rkt")
 ; (print-lives-x86 "tests/lives_1.rkt" (list))
+; (print-lives-rkt "tests/flatten_3.rkt")
