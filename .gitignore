@@ -5,3 +5,5 @@ tests/*.s
 *.dot
 *.png
 *.out
+*.hi
+AnnotateRegs
