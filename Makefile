@@ -33,8 +33,9 @@ runtime.o: public/runtime.c
 clean:
 	rm -f *.o
 	rm -f $(execs)
-	rm -r tests/*.s
+	rm -f tests/*.s
 	rm -f tests/*.png
 	rm -f tests/*.dot
 	rm -f *.png
 	rm -f *.dot
+	rm -f *.hi
