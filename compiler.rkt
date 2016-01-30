@@ -443,10 +443,12 @@
             [move-rel (mk-move-relation pgm)])
        (let-values ([(homes stack-size) (reg-alloc inter-graph move-rel)])
          ; (printf "all-vars: ~s~n" all-vars)
-         `(program (,stack-size)
+         `(program (,(align-stack stack-size))
                    ,@(map (lambda (instr) (assign-home-instr homes instr)) instrs))))]
 
     [_ (error 'assign-homes "unsupported form: ~s~n" pgm)]))
+
+(define (align-stack stack) (+ stack (modulo stack 16)))
 
 (define (assign-home-instr asgns instr)
   (match instr
