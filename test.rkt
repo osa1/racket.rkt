@@ -37,3 +37,5 @@
 (compiler-tests "r1" r1-passes "r1" (range 1 20))
 
 (compiler-tests "forum" r1-passes "forum" (range 1 2))
+
+(compiler-tests "crazy" r1-passes "crazy" (range 1 3))
