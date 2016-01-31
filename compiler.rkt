@@ -534,6 +534,30 @@
     [_ instr]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Save regs: This pass saves caller-save registers when necessary (e.g. when
+;; the registers are live after a function call)
+
+(define (save-regs pgm)
+  (match pgm
+    [(list-rest 'program meta instrs)
+     (let [(lives (gen-live-afters pgm))]
+       `(program ,meta ,@(append-map save-regs-instr lives instrs)))]
+    [_ (error 'save-regs "unsupported form: ~s~n" pgm)]))
+
+(define (save-regs-instr lives instr)
+  (match instr
+    [`(callq ,_)
+     (let* [(should-save (set->list (set-intersect caller-save lives)))
+            (align-stack (not (even? (length should-save))))]
+       (append (map (lambda (reg) `(pushq (reg ,reg))) should-save)
+               (if align-stack `((subq (int 8) (reg rsp))) `())
+               (list instr)
+               (if align-stack `((addq (int 8) (reg rsp))) `())
+               (map (lambda (reg) `(popq (reg ,reg))) (reverse should-save))))]
+
+    [_ (list instr)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Print X86_64
 
 (define main-prelude
@@ -582,7 +606,7 @@ main:\n")
   (match stmt
     [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
-    [`(,(or 'negq 'pushq 'pushq 'callq) ,arg1)
+    [`(,(or 'negq 'pushq 'popq 'callq) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
     [`(retq) "\tret\n"]
     [_ (error 'print-x86_64-stmt "unsupported form: ~s~n" stmt)]))
@@ -604,6 +628,7 @@ main:\n")
     ("assign-homes" ,assign-homes ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)
+    ("save-regs" ,save-regs ,interp-x86)
     ("print-x86" ,print-x86_64 #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
