@@ -34,7 +34,7 @@
                 "r0"
                 (range 1 5))
 
-(compiler-tests "r1" r1-passes "r1" (range 1 20))
+(compiler-tests "r1" r1-passes "r1" (range 1 22))
 (compiler-tests "r1a" r1-passes "r1a" (range 1 9))
 
 (compiler-tests "forum" r1-passes "forum" (range 1 2))
