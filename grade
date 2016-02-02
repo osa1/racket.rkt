@@ -2,3 +2,10 @@ ASSIGNMENT 1:
 19/19 test cases interpreted successfully.
 19/19 test cases compiled and executed correctly.
 Great work!
+
+ASSIGNMENT 2: All test cases compile successfully.  Register
+allocation is correct, but I note that you don't seem to be avoiding
+the use of caller-save registers that conflict with calls, but are
+instead pushing and popping the live variables. This is a good
+solution, but it can result in excessive code size in some cases, as
+can be seen in r1a_5 for example. Nevertheless, it works well, so full credit.
