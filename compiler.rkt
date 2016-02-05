@@ -9,7 +9,8 @@
 (provide r1-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
-         uniquify flatten instr-sel assign-homes patch-instructions print-x86_64)
+         uniquify flatten instr-sel assign-homes patch-instructions print-x86_64
+         typecheck-ignore)
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
@@ -20,6 +21,15 @@
 ; exp  ::= arg | (read) | (- arg) | (+ arg arg)
 ; stms ::= (assign var exp) | (return arg)
 ; C0   ::= (program (var*) stmt+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type checking
+
+;; This is used for ignoring type-checking step. The problem with type-checking
+;; is that it's only defined in front-end language. When we want to run
+;; compiler-tests on some intermediate language etc. we have to either implement
+;; a type checker for all the intermediate languages, or skip the type-checking.
+(define (typecheck-ignore _) #t)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Uniquify

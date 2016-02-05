@@ -5,17 +5,17 @@
 
 (require "compiler.rkt")
 
-(compiler-tests "first assignment"
+(compiler-tests "first assignment" typecheck-ignore
                 r1-passes
                 "uniquify"
                 (range 1 6))
 
-(compiler-tests "first assignment"
+(compiler-tests "first assignment" typecheck-ignore
                 r1-passes
                 "flatten"
                 (range 1 5))
 
-(compiler-tests "select instructions"
+(compiler-tests "select instructions" typecheck-ignore
                 `(("instr-sel" ,instr-sel ,interp-x86)
                   ("assign-homes" ,assign-homes ,interp-x86)
                   ("patch-instructions" ,patch-instructions ,interp-x86)
@@ -23,20 +23,20 @@
                 "select_instructions"
                 (range 1 4))
 
-(compiler-tests "patch instructions"
+(compiler-tests "patch instructions" typecheck-ignore
                 `(("patch-instructions" ,patch-instructions ,interp-x86)
                   ("print-x86" ,print-x86_64 ,interp-x86))
                 "patch_instructions"
                 (range 1 4))
 
-(compiler-tests "r0"
+(compiler-tests "r0" typecheck-ignore
                 r1-passes
                 "r0"
                 (range 1 5))
 
-(compiler-tests "r1" r1-passes "r1" (range 1 22))
-(compiler-tests "r1a" r1-passes "r1a" (range 1 9))
+(compiler-tests "r1" typecheck-ignore r1-passes "r1" (range 1 22))
+(compiler-tests "r1a" typecheck-ignore r1-passes "r1a" (range 1 9))
 
-(compiler-tests "forum" r1-passes "forum" (range 1 2))
+(compiler-tests "forum" typecheck-ignore r1-passes "forum" (range 1 2))
 
-(compiler-tests "crazy" r1-passes "crazy" (range 1 3))
+(compiler-tests "crazy" typecheck-ignore r1-passes "crazy" (range 1 3))
