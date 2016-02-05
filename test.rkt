@@ -40,3 +40,20 @@
 (compiler-tests "forum" typecheck r1-passes "forum" (range 1 2))
 
 (compiler-tests "crazy" typecheck r1-passes "crazy" (range 1 3))
+
+(define (typecheck-pgm file [should-fail? #f])
+  (let [(pgm (read-program file))]
+    (if (or (typecheck pgm) should-fail?)
+      (begin (display file) (display " "))
+      (error 'typecheck-pgm "type checking failed: ~a~n" file))))
+
+(typecheck-pgm "tests/ty_1.rkt")
+(typecheck-pgm "tests/ty_2.rkt")
+(typecheck-pgm "tests/ty_3.rkt")
+(typecheck-pgm "tests/ty_4.rkt")
+(typecheck-pgm "tests/ty_5.rkt")
+(typecheck-pgm "tests/ty_6.rkt" #t)
+(typecheck-pgm "tests/ty_7.rkt" #t)
+(typecheck-pgm "tests/ty_8.rkt" #t)
+(typecheck-pgm "tests/ty_9.rkt" #t)
+(typecheck-pgm "tests/ty_10.rkt" #t)
