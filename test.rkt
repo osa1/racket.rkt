@@ -5,12 +5,12 @@
 
 (require "compiler.rkt")
 
-(compiler-tests "first assignment" typecheck-ignore
+(compiler-tests "first assignment" typecheck
                 r1-passes
                 "uniquify"
                 (range 1 6))
 
-(compiler-tests "first assignment" typecheck-ignore
+(compiler-tests "first assignment" typecheck
                 r1-passes
                 "flatten"
                 (range 1 5))
@@ -29,14 +29,14 @@
                 "patch_instructions"
                 (range 1 4))
 
-(compiler-tests "r0" typecheck-ignore
+(compiler-tests "r0" typecheck
                 r1-passes
                 "r0"
                 (range 1 5))
 
-(compiler-tests "r1" typecheck-ignore r1-passes "r1" (range 1 22))
-(compiler-tests "r1a" typecheck-ignore r1-passes "r1a" (range 1 9))
+(compiler-tests "r1" typecheck r1-passes "r1" (range 1 22))
+(compiler-tests "r1a" typecheck r1-passes "r1a" (range 1 9))
 
-(compiler-tests "forum" typecheck-ignore r1-passes "forum" (range 1 2))
+(compiler-tests "forum" typecheck r1-passes "forum" (range 1 2))
 
-(compiler-tests "crazy" typecheck-ignore r1-passes "crazy" (range 1 3))
+(compiler-tests "crazy" typecheck r1-passes "crazy" (range 1 3))

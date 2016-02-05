@@ -10,7 +10,7 @@
          ; export individual passes for testing purposes
          ; (see test.rkt)
          uniquify flatten instr-sel assign-homes patch-instructions print-x86_64
-         typecheck-ignore)
+         typecheck typecheck-ignore)
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
@@ -31,6 +31,35 @@
 ;; a type checker for all the intermediate languages, or skip the type-checking.
 (define (typecheck-ignore _) #t)
 
+(define (typecheck pgm)
+  (match pgm
+    [`(program ,e) (typecheck-iter e (hash))]
+    [_ (error 'typecheck "Unsupported program: ~s~n" pgm)]))
+
+(define (typecheck-iter expr env)
+  (match expr
+    [(? fixnum?) 'Integer]
+    [(? boolean?) 'Bool]
+    [(? symbol?) (hash-ref env expr)]
+
+    [`(- ,e1)
+     (if (eq? (typecheck-iter e1 env) 'Integer) 'Integer #f)]
+
+    [`(+ ,e1 ,e2)
+      (if (eq? (typecheck-iter e1 env) 'Integer)
+        (if (eq? (typecheck-iter e2 env) 'Integer)
+          'Integer
+          #f)
+        #f)]
+
+    [`(let ([,var ,e1]) ,body)
+     (let [(e1-ty (typecheck-iter e1 env))]
+       (typecheck-iter body (hash-set env var e1-ty)))]
+
+    [`(read) 'Integer]
+
+    [_ (error 'typecheck-iter "Unsupported form: ~s~n" expr)]))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Uniquify
 
@@ -41,10 +70,7 @@
     [_ (error 'uniquify "Expected a (program ...) form, found: ~s~n" pgm)]))
 
 (define (uniquify-expr rns e0)
-  ; (printf "rns: ~s~n" rns)
-
   (match e0
-
     [(or (? fixnum?) `(read))
      e0]
 
