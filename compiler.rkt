@@ -46,11 +46,37 @@
      (if (eq? (typecheck-iter e1 env) 'Integer) 'Integer #f)]
 
     [`(+ ,e1 ,e2)
-      (if (eq? (typecheck-iter e1 env) 'Integer)
-        (if (eq? (typecheck-iter e2 env) 'Integer)
-          'Integer
-          #f)
-        #f)]
+     (if (eq? (typecheck-iter e1 env) 'Integer)
+       (if (eq? (typecheck-iter e2 env) 'Integer)
+         'Integer
+         #f)
+       #f)]
+
+    [`(and ,e1 ,e2)
+     (if (eq? (typecheck-iter e1 env) 'Bool)
+       (if (eq? (typecheck-iter e2 env) 'Bool)
+         'Bool
+         #f)
+       #f)]
+
+    [`(not ,e1)
+     (if (eq? (typecheck-iter e1 env) 'Bool) 'Bool #f)]
+
+    [`(eq? ,e1 ,e2)
+     (let [(e1-ty (typecheck-iter e1 env))
+           (e2-ty (typecheck-iter e2 env))]
+       (if (and (not (eq? e1-ty #f)) (eq? e1-ty e2-ty))
+         'Bool
+         #f))]
+
+    [`(if ,e1 ,e2 ,e3)
+     (if (eq? (typecheck-iter e1 env) 'Bool)
+       (let [(e2-ty (typecheck-iter e2 env))
+             (e3-ty (typecheck-iter e3 env))]
+         (if (and (not (eq? e2-ty #f)) (eq? e2-ty e3-ty))
+           e2-ty
+           #f))
+       #f)]
 
     [`(let ([,var ,e1]) ,body)
      (let [(e1-ty (typecheck-iter e1 env))]
