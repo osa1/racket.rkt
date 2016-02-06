@@ -34,7 +34,7 @@
 (define (typecheck pgm)
   (match pgm
     [`(program ,e) (typecheck-iter e (hash))]
-    [_ (error 'typecheck "Unsupported program: ~s~n" pgm)]))
+    [_ (unsupported-form 'typecheck pgm)]))
 
 (define (typecheck-iter expr env)
   (match expr
@@ -84,7 +84,7 @@
 
     [`(read) 'Integer]
 
-    [_ (error 'typecheck-iter "Unsupported form: ~s~n" expr)]))
+    [_ (unsupported-form 'typecheck-iter expr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Desugar
@@ -94,7 +94,7 @@
 (define (desugar pgm)
   (match pgm
     [`(program ,e) `(program ,(desugar-expr e))]
-    [_ (error 'desugar "Unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'desugar pgm)]))
 
 (define (desugar-expr e0)
   (match e0
@@ -119,7 +119,7 @@
 
     [`(read) e0]
 
-    [_ (error 'desugar-expr "Unuspported form: ~s~n" e0)]))
+    [_ (unsupported-form 'desugar-expr e0)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Uniquify
@@ -128,7 +128,7 @@
   ; (printf "pgm: ~s~n" pgm)
   (match pgm
     [`(program ,e) `(program ,(uniquify-expr '() e))]
-    [_ (error 'uniquify "Expected a (program ...) form, found: ~s~n" pgm)]))
+    [_ (unsupported-form 'uniquify pgm)]))
 
 (define (uniquify-expr rns e0)
   (match e0
@@ -151,7 +151,7 @@
           ,(uniquify-expr rns1 body)))]
 
     [unsupported
-     (error 'uniquify-expr "unsupported form: ~s~n" unsupported)]))
+     (unsupported-form 'uniquify-expr unsupported)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Flatten
@@ -166,7 +166,7 @@
          ; (printf "stats after remove-var-asgns: ~s~n" (remove-var-asgns stats))
          `(program ,(collect-binds pgm) ,@(remove-var-asgns stats))))]
 
-    [_ (error 'flatten "Expected a (program ...) form, found ~s~n" pgm)]))
+    [_ (unsupported-form 'flatten pgm)]))
 
 (define (collect-binds pgm)
   ; (printf "collect-binds: ~s~n" pgm)
@@ -174,7 +174,7 @@
     [(list) '()]
     [(cons `(assign ,x ,_) t)
      (cons x (collect-binds t))]
-    [_ (error 'collect-binds "unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'collect-binds pgm)]))
 
 (define (arg? e) (or (fixnum? e) (symbol? e)))
 
@@ -212,7 +212,7 @@
                                      body)])
            (values binds pgm body))))]
 
-    [_ (error 'flatten-expr "unsupported form: ~s~n" expr)]))
+    [_ (unsupported-form 'flatten-expr expr)]))
 
 ;; Remove statements in form (assign x y) where y is a variable.
 ;; Does this by renaming x with y in the statements that follow this statement.
@@ -288,7 +288,7 @@
      ; (printf "stmts: ~s~n" stmts)
      `(program ,vs ,@(append-map instr-sel-stmt stmts))]
 
-    [_ (error 'instr-sel "unhandled form: ~s~n" pgm)]))
+    [_ (unsupported-form 'instr-sel pgm)]))
 
 (define (instr-sel-stmt stmt)
   (match stmt
@@ -314,7 +314,7 @@
      `(,(instr-sel-arg bind-to arg1)
        (addq ,(arg->x86-arg arg2) ,(arg->x86-arg bind-to)))]
 
-    [_ (error 'instr-sel-expr "unsupported form: ~s~n" expr)]))
+    [_ (unsupported-form 'instr-sel-expr expr)]))
 
 (define (instr-sel-arg bind-to arg)
   `(movq ,(arg->x86-arg arg) ,(arg->x86-arg bind-to)))
@@ -322,7 +322,7 @@
 (define (arg->x86-arg arg)
   (cond [(symbol? arg) `(var ,arg)]
         [(fixnum? arg) `(int ,arg)]
-        [else (error 'arg->x86-arg "unsupported arg: ~s~n" arg)]))
+        [else (unsupported-form 'arg->x86-arg arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Live-after sets
@@ -335,7 +335,7 @@
     [(list-rest 'program _ instrs)
      ; generating in reversed order to avoid stack overflows
      (gen-live-afters-instrs (set) '() (reverse instrs))]
-    [_ (error 'gen-live-afters "unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'gen-live-afters pgm)]))
 
 (define (gen-live-afters-instrs lives acc instrs)
   (match instrs
@@ -372,7 +372,7 @@
 
     [`(retq) lives]
 
-    [_ (error 'gen-live-afters-instr "unsupported instruction form: ~s~n" instr)]))
+    [_ (unsupported-form 'gen-live-afters-instr instr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interference graphs
@@ -386,7 +386,7 @@
               (build-int-graph instr (set->list lives) graph))
             instrs live-sets)
        graph)]
-    [_ (error 'build-interference-graph "unsupported program: ~a~n" pgm)]))
+    [_ (unsupported-form 'build-interference-graph pgm)]))
 
 (define (build-int-graph instr lives graph)
   (match instr
@@ -415,7 +415,7 @@
                  (set->list caller-save)))
           lives)]
 
-    [_ (error 'build-graph "unsupported instruction: ~a~n" instr)]))
+    [_ (unsupported-form 'build-graph instr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Move relation graph
@@ -426,7 +426,7 @@
      (let [(graph (make-graph vs))]
        (map (lambda (instr) (mk-move-rel-iter graph int-graph instr)) instrs)
        graph)]
-    [_ (error 'mk-move-relation "unsupported program: ~a~n" pgm)]))
+    [_ (unsupported-form 'mk-move-relation pgm)]))
 
 (define (mk-move-rel-iter graph int-graph instr)
   (define (can-relate? arg)
@@ -550,7 +550,7 @@
          `(program (,(align-stack stack-size))
                    ,@(map (lambda (instr) (assign-home-instr homes instr)) instrs))))]
 
-    [_ (error 'assign-homes "unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'assign-homes pgm)]))
 
 (define (align-stack stack) (+ stack (modulo stack 16)))
 
@@ -566,7 +566,7 @@
 
     [`(retq) instr]
 
-    [_ (error 'assign-home-instr "unsupported form: ~s~n" instr)]))
+    [_ (unsupported-form 'assign-home-instr instr)]))
 
 (define (assign-home-arg asgns arg)
   (match arg
@@ -579,7 +579,7 @@
               (error 'assign-home-arg "can't find var in assignments: ~s ~s~n" var asgns)]
              [(fixnum? asgn) `(stack ,asgn)]
              [#t `(reg ,asgn)]))]
-    [_ (error 'assign-home-arg "unsupported form: ~s~n" arg)]))
+    [_ (unsupported-form 'assign-home-arg arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Instruction patching
@@ -591,13 +591,13 @@
   (match pgm
     [(list-rest 'program s stmts)
      `(program ,s ,@(append-map patch-instructions-stmt stmts))]
-    [_ (error 'patch-instructions "unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'patch-instructions pgm)]))
 
 (define (arg-mem? arg)
   (match arg
     [`(stack ,_) #t]
     [`(,(or 'reg 'int) ,_) #f]
-    [_ (error 'arg-mem? "illegal arg: ~s~n" arg)]))
+    [_ (unsupported-form 'arg-mem? arg)]))
 
 (define (patch-instructions-stmt stmt)
   (match stmt
@@ -623,7 +623,7 @@
   (match pgm
     [(list-rest 'program s instrs)
      `(program ,s ,@(filter-nulls (map elim-mov-instr instrs)))]
-    [_ (error 'patch-instructions "unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'patch-instructions pgm)]))
 
 (define (elim-mov-instr instr)
   (match instr
@@ -639,7 +639,7 @@
     [(list-rest 'program meta instrs)
      (let [(lives (gen-live-afters pgm))]
        `(program ,meta ,@(append-map save-regs-instr lives instrs)))]
-    [_ (error 'save-regs "unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'save-regs pgm)]))
 
 (define (save-regs-instr lives instr)
   (match instr
@@ -694,7 +694,7 @@ main:\n")
                       (mk-pgm-conclusion s)
                       main-conclusion))]
 
-    [_ (error 'printx86_64 "unsupported form: ~s~n" pgm)]))
+    [_ (unsupported-form 'printx86_64 pgm)]))
 
 (define instr3-format "\t~a ~a, ~a\n")
 (define instr2-format "\t~a ~a\n")
@@ -706,7 +706,7 @@ main:\n")
     [`(,(or 'negq 'pushq 'popq 'callq) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
     [`(retq) "\tret\n"]
-    [_ (error 'print-x86_64-stmt "unsupported form: ~s~n" stmt)]))
+    [_ (unsupported-form 'print-x86_64-stmt stmt)]))
 
 (define (print-x86_64-arg arg)
   (match arg
@@ -714,7 +714,7 @@ main:\n")
     [`(reg ,reg) (format "%~s" reg)]
     [`(stack ,offset) (format "~s(%rbp)" offset)]
     [(? symbol?) arg] ;; must be a function call
-    [_ (error 'print-x86_64-arg "unsupported form: ~s~n" arg)]))
+    [_ (unsupported-form 'print-x86_64-arg arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -734,6 +734,9 @@ main:\n")
 
 (define (not-null? e) (not (null? e)))
 (define (filter-nulls lst) (filter not-null? lst))
+(define (unsupported-form fname form)
+  (error fname "Unsupported form: ~s~n" form))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
