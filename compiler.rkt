@@ -87,6 +87,41 @@
     [_ (error 'typecheck-iter "Unsupported form: ~s~n" expr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Desugar
+;;
+;; Currently only syntactic sugar is `and`.
+
+(define (desugar pgm)
+  (match pgm
+    [`(program ,e) `(program ,(desugar-expr e))]
+    [_ (error 'desugar "Unsupported form: ~s~n" pgm)]))
+
+(define (desugar-expr e0)
+  (match e0
+    [(or (? fixnum?) (? boolean?) (? symbol?)) e0]
+
+    [`(,(or '- 'not) ,e1)
+     (list (car e0) (desugar-expr e1))]
+
+    [`(,(or '+ 'eq?) ,e1 ,e2)
+     (list (car e0) (desugar-expr e1) (desugar-expr e2))]
+
+    [`(and ,e1 ,e2)
+     (let [(e1-ds (desugar-expr e1))
+           (e2-ds (desugar-expr e2))]
+       `(if (eq? ,e1-ds #t) ,e2-ds #f))]
+
+    [`(if ,e1 ,e2 ,e3)
+     (list 'if (desugar-expr e1) (desugar-expr e2) (desugar-expr e3))]
+
+    [`(let ([,var ,e1]) ,e2)
+     `(let ([,var ,(desugar-expr e1)]) ,(desugar-expr e2))]
+
+    [`(read) e0]
+
+    [_ (error 'desugar-expr "Unuspported form: ~s~n" e0)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Uniquify
 
 (define (uniquify pgm)
@@ -684,7 +719,8 @@ main:\n")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define r1-passes
-  `(("uniquify" ,uniquify ,interp-scheme)
+  `(("desugar" ,desugar, interp-scheme)
+    ("uniquify" ,uniquify ,interp-scheme)
     ("flatten" ,flatten ,interp-C)
     ("instr-sel" ,instr-sel ,interp-x86)
     ("assign-homes" ,assign-homes ,interp-x86)
