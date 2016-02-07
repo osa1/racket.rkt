@@ -267,24 +267,35 @@
     [(cons `(return ,y1) t)
      (if (eq? y1 x)
        (cons `(return ,y) (rename-stmts x y t))
-       (cons `(return ,y1) (rename-stmts x y t)))]))
+       (cons `(return ,y1) (rename-stmts x y t)))]
+
+    [(cons `(if ,e1 ,pgm-t ,pgm-f) t)
+     (cons `(if ,(rename-expr x y e1) ,(rename-stmts x y pgm-t) ,(rename-stmts x y pgm-f))
+           (rename-stmts x y t))]
+
+    [(cons unsupported _)
+     (unsupported-form 'rename-stmts unsupported)]))
 
 (define (rename-expr x y expr)
   (match expr
     [`(read) expr]
 
-    [`(- ,e1)
-     `(- ,(rename-arg x y e1))]
+    [`(,(or '- 'not) ,e1)
+     `(,(car expr) ,(rename-arg x y e1))]
 
-    [`(+ ,e1 ,e2)
-     `(+ ,(rename-arg x y e1) ,(rename-arg x y e2))]
+    [`(,(or '+ 'eq?) ,e1 ,e2)
+     `(,(car expr) ,(rename-arg x y e1) ,(rename-arg x y e2))]
 
-    [_ (rename-arg x y expr)]))
+    [(or (? fixnum?) (? boolean?) (? symbol?))
+     (rename-arg x y expr)]
+
+    [_ (unsupported-form 'rename-expr expr)]))
 
 (define (rename-arg x y arg)
   (match arg
-    [(? fixnum?) arg]
-    [x1 (if (eq? x1 x) y arg)]))
+    [(or (? fixnum?) (? boolean?)) arg]
+    [(? symbol?) (if (eq? arg x) y arg)]
+    [_ (unsupported-form 'rename-arg arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Instruction selection
