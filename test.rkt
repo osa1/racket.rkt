@@ -58,37 +58,42 @@
 (typecheck-pgm "tests/ty_9.rkt" #t)
 (typecheck-pgm "tests/ty_10.rkt" #t)
 
-(define conditionals-passes
-  `(("desugar" ,desugar ,interp-scheme)
-    ("uniquify" ,uniquify ,interp-scheme)
-    ("flatten" ,flatten ,interp-C)
-    ("select-instructions" ,instr-sel ,interp-x86)
-    ("assign-homes" ,assign-homes ,interp-x86)))
+; (define conditionals-passes
+;   `(("desugar" ,desugar ,interp-scheme)
+;     ("uniquify" ,uniquify ,interp-scheme)
+;     ("flatten" ,flatten ,interp-C)
+;     ("select-instructions" ,instr-sel ,interp-x86)
+;     ("assign-homes" ,assign-homes ,interp-x86)
+;     ("patch-instructions" ,patch-instructions ,interp-x86)
+;     ("elim-movs" ,elim-movs ,interp-x86)
+;     ("save-regs" ,save-regs ,interp-x86)))
+;
+; (interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 5))
 
-(interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 5))
+(compiler-tests "conditionals" typecheck r1-passes "cond" (range 1 5))
 
-(define (show-steps steps file)
-  (let [(pgm (read-program file))]
-    (printf "initial program:~n~a~n~n" pgm)
-    (show-steps-iter steps pgm)))
-
-(define (show-steps-iter steps pgm)
-  (match steps
-    ['() '()]
-    [(list-rest `(,step-name ,step) steps)
-     (printf "Running step ~s~n" step-name)
-     (let [(step-ret (step pgm))]
-       (pretty-print step-ret)
-       (newline)
-       (show-steps-iter steps step-ret))]))
-
-(define steps
-  `(("desugar" ,desugar)
-    ("uniquify" ,uniquify)
-    ("flatten" ,flatten)
-    ("select-instructions" ,instr-sel)
-    ("assign-homes" ,assign-homes)))
-
+; (define (show-steps steps file)
+;   (let [(pgm (read-program file))]
+;     (printf "initial program:~n~a~n~n" pgm)
+;     (show-steps-iter steps pgm)))
+;
+; (define (show-steps-iter steps pgm)
+;   (match steps
+;     ['() '()]
+;     [(list-rest `(,step-name ,step) steps)
+;      (printf "Running step ~s~n" step-name)
+;      (let [(step-ret (step pgm))]
+;        (pretty-print step-ret)
+;        (newline)
+;        (show-steps-iter steps step-ret))]))
+;
+; (define steps
+;   `(("desugar" ,desugar)
+;     ("uniquify" ,uniquify)
+;     ("flatten" ,flatten)
+;     ("select-instructions" ,instr-sel)
+;     ("assign-homes" ,assign-homes)))
+;
 ; (show-steps steps "tests/cond_1.rkt")
 ; (show-steps steps "tests/cond_2.rkt")
 ; (show-steps steps "tests/cond_3.rkt")

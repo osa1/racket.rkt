@@ -849,6 +849,35 @@
     [_ (list instr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Lower conditionals -- e.g. replace if blocks with jumps
+
+(define (lower-conditionals pgm)
+  (match pgm
+    [(list-rest 'program meta instrs)
+     `(program ,meta ,@(append-map lower-conditionals-instr instrs))]
+    [_ (unsupported-form 'lower-conditionals pgm)]))
+
+(define (lower-conditionals-instr instr)
+  (match instr
+    [`(if (eq? ,arg #t) ,pgm-t ,pgm-f)
+     (let [(then-lbl (gensym "t_branch"))
+           (end-lbl  (gensym "end_branch"))
+           (t-instrs (append-map lower-conditionals-instr pgm-t))
+           (f-instrs (append-map lower-conditionals-instr pgm-f))]
+       `((cmpq ,arg (int 1))
+         (je ,then-lbl)
+         ,@f-instrs
+         (je ,end-lbl)
+         (label ,then-lbl)
+         ,@t-instrs
+         (label ,end-lbl)))]
+
+    [`(if ,_ ,_ ,_ ,_ ,_)
+     (error 'lower-conditionals "Found if with meta data!~n~s~n" instr)]
+
+    [_ (list instr)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Print X86_64
 
 (define main-prelude
@@ -895,10 +924,12 @@ main:\n")
 
 (define (print-x86_64-stmt stmt)
   (match stmt
-    [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'cmpq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
-    [`(,(or 'negq 'pushq 'popq 'callq) ,arg1)
+    [`(,(or 'negq 'pushq 'popq 'callq 'je) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
+    [`(label ,lbl)
+     (string-append "\n" (symbol->string lbl) ":\n")]
     [`(retq) "\tret\n"]
     [_ (unsupported-form 'print-x86_64-stmt stmt)]))
 
@@ -907,7 +938,7 @@ main:\n")
     [`(int ,int) (format "$~s" int)]
     [`(reg ,reg) (format "%~s" reg)]
     [`(stack ,offset) (format "~s(%rbp)" offset)]
-    [(? symbol?) arg] ;; must be a function call
+    [(? symbol?) arg] ; must be a function call or jmp
     [_ (unsupported-form 'print-x86_64-arg arg)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -921,6 +952,7 @@ main:\n")
     ("patch-instructions" ,patch-instructions ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)
     ("save-regs" ,save-regs ,interp-x86)
+    ("lower-conditionals" ,lower-conditionals ,interp-x86)
     ("print-x86" ,print-x86_64 #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
