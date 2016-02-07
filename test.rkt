@@ -57,3 +57,10 @@
 (typecheck-pgm "tests/ty_8.rkt" #t)
 (typecheck-pgm "tests/ty_9.rkt" #t)
 (typecheck-pgm "tests/ty_10.rkt" #t)
+
+(define conditionals-passes
+  `(("desugar" ,desugar ,interp-scheme)
+    ("uniquify" ,uniquify ,interp-scheme)
+    ("flatten" ,flatten ,interp-scheme)))
+
+(interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 2))

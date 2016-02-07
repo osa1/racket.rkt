@@ -9,8 +9,8 @@
 (provide r1-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
-         uniquify flatten instr-sel assign-homes patch-instructions print-x86_64
-         typecheck typecheck-ignore)
+         typecheck typecheck-ignore
+         desugar uniquify flatten instr-sel assign-homes patch-instructions print-x86_64)
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
@@ -132,14 +132,17 @@
 
 (define (uniquify-expr rns e0)
   (match e0
-    [(or (? fixnum?) `(read))
+    [(or (? fixnum?) (? boolean?) `(read))
      e0]
 
-    [`(- ,e1)
-     `(- ,(uniquify-expr rns e1))]
+    [`(,(or '- 'not) ,e1)
+     (list (car e0) (uniquify-expr rns e1))]
 
-    [`(+ ,e1 ,e2)
-     `(+ ,(uniquify-expr rns e1) ,(uniquify-expr rns e2))]
+    [`(,(or '+ 'eq?) ,e1 ,e2)
+     (list (car e0) (uniquify-expr rns e1) (uniquify-expr rns e2))]
+
+    [`(if ,e1 ,e2 ,e3)
+     (list 'if (uniquify-expr rns e1) (uniquify-expr rns e2) (uniquify-expr rns e3))]
 
     [(? symbol?)
      (car (lookup e0 rns))]
@@ -164,41 +167,48 @@
        (let [(stats (reverse (cons `(return ,e) pgm)))]
          ; (printf "stats before remove-var-asgns: ~s~n" stats)
          ; (printf "stats after remove-var-asgns: ~s~n" (remove-var-asgns stats))
-         `(program ,(collect-binds pgm) ,@(remove-var-asgns stats))))]
+         `(program ,(set->list (collect-binds pgm)) ,@(remove-var-asgns stats))))]
 
     [_ (unsupported-form 'flatten pgm)]))
 
 (define (collect-binds pgm)
   ; (printf "collect-binds: ~s~n" pgm)
   (match pgm
-    [(list) '()]
+    [(list) (set)]
+
     [(cons `(assign ,x ,_) t)
-     (cons x (collect-binds t))]
+     (set-add (collect-binds t) x)]
+
+    [(cons `(if ,x ,pgm1 ,pgm2) t)
+     (set-union (if (symbol? x) (set x) (set))
+                (collect-binds pgm1)
+                (collect-binds pgm2)
+                (collect-binds t))]
+
     [_ (unsupported-form 'collect-binds pgm)]))
 
 (define (arg? e) (or (fixnum? e) (symbol? e)))
 
-; flatten-expr : [(var, var)] -> [stmt] -> expr -> arg
 (define (flatten-expr binds pgm expr)
   (match expr
 
-    [(? fixnum?)
+    [(or (? fixnum?) (? boolean?))
      (values binds pgm expr)]
 
     [`(read)
      (let [(fresh (gensym "tmp"))]
        (values binds (cons `(assign ,fresh (read)) pgm) fresh))]
 
-    [`(- ,e1)
+    [`(,(or '- 'not) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let [(fresh (gensym "tmp"))]
-         (values binds (cons `(assign ,fresh (- ,e1)) pgm) fresh)))]
+         (values binds (cons `(assign ,fresh (,(car expr) ,e1)) pgm) fresh)))]
 
-    [`(+ ,e1 ,e2)
+    [`(,(or '+ 'eq?) ,e1 ,e2)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let-values ([(binds pgm e2) (flatten-expr binds pgm e2)])
          (let [(fresh (gensym "tmp"))]
-           (values binds (cons `(assign ,fresh (+ ,e1 ,e2)) pgm) fresh))))]
+           (values binds (cons `(assign ,fresh (,(car expr) ,e1 ,e2)) pgm) fresh))))]
 
     [(? symbol?)
      (values binds pgm (car (lookup expr binds)))]
@@ -211,6 +221,15 @@
                                      (cons `(assign ,fresh ,e1) pgm)
                                      body)])
            (values binds pgm body))))]
+
+    [`(if ,e1 ,e2 ,e3)
+     (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
+       (let [(fresh (gensym "tmp-if"))]
+         (let-values ([(_ pgm-t ret-t) (flatten-expr binds '() e2)])
+           (let-values ([(_ pgm-f ret-f) (flatten-expr binds '() e3)])
+             (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-t) pgm-t)))
+                    (pgm-f (reverse (cons `(assign ,fresh ,ret-f) pgm-f)))]
+               (values binds (cons `(if (eq? ,e1 #t) ,pgm-t ,pgm-f) pgm) fresh))))))]
 
     [_ (unsupported-form 'flatten-expr expr)]))
 
