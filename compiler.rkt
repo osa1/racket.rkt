@@ -250,6 +250,12 @@
        (remove-var-asgns (rename-stmts x y t))
        (cons `(assign ,x ,y) (remove-var-asgns t)))]
 
+    ;; FIXME: This is not quite right: Last statement of if branches are always
+    ;; assignments to a variable. Disabling this for now.
+    ; [(cons `(if ,e ,pgm-t ,pgm-f) t)
+    ;  (cons `(if ,e ,(remove-var-asgns pgm-t) ,(remove-var-asgns pgm-f))
+    ;        (remove-var-asgns t))]
+
     [(cons s t)
      (cons s (remove-var-asgns t))]))
 
@@ -387,15 +393,25 @@
 ; NOTE: This should be run _before_ assign-homes as this assumes variable
 ; arguments.
 
+; OUTPUT: (values updated pgm, a list of live-after sets).
+; We update the program to annotate branches of if-statements with live-after
+; set lists, to be able to build interference graph by traversing the branches.
 (define (gen-live-afters pgm)
   (match pgm
-    [(list-rest 'program _ instrs)
-     ; generating in reversed order to avoid stack overflows
-     (let-values [((_ live-afters) (gen-live-afters-instrs (set) '() (reverse instrs)))]
-       live-afters)]
+    [(list-rest 'program metadata instrs)
+     (let-values [((instrs live-before live-afters)
+                   (gen-live-afters-instrs
+                     (reverse instrs)
+                     ; accumulator for live-after sets, live-after set for the
+                     ; last (first in the list, as we reverse the instructions)
+                     ; instruction is an empty set so we add it here
+                     (list (set))))]
+       (values `(program ,metadata ,@(reverse instrs)) live-afters))]
     [_ (unsupported-form 'gen-live-afters pgm)]))
 
-(define (gen-live-afters-instrs lives acc instrs)
+;; NOTE: Instructions should be reversed! E.g. first instruction in this
+;; argument should be the last instruction in the block!
+(define (gen-live-afters-instrs instrs live-afters)
   (match instrs
     [(list)
      ; We also need to return live set for the whole block here to be able to
@@ -411,42 +427,74 @@
      ;
      ;    (live-before true-branch) \union (live-before false-branch) \union {y}
      ;
-     (values lives acc)]
+     ; Head of live-afters is live-after of current instruction, so it's
+     ; life-before of the first instruction in the block.
+     (values '() (car live-afters) (cdr live-afters))]
 
     [(cons instr instrs)
-     ; Notice how this works for the first instruction in the list: First
-     ; instruction in the list is actually the last instruction in the block,
-     ; because we process instructions in reverse. So here we push the initial
-     ; live set (which is an empty set) to the live sets list, which means we
-     ; always have an empty live set as last instruction's live set.
-     (gen-live-afters-instrs (gen-live-afters-instr lives instr) (cons lives acc) instrs)]))
+     (let [(current-live-after (car live-afters))]
+       (let-values [((instr current-live-before) (gen-live-afters-instr instr current-live-after))]
+         (let-values [((instrs live-before live-afters)
+                       (gen-live-afters-instrs instrs (cons current-live-before live-afters)))]
+           (values (cons instr instrs) live-before live-afters))))]))
 
-(define (gen-live-afters-instr lives instr)
+(define (gen-live-afters-instr instr lives)
   ; (printf "gen-live-afters-instr ~a ~a~n" lives instr)
   (match instr
-    [`(,(or 'addq 'subq) ,arg1 ,arg2) (add-live lives arg1 arg2)]
+    [`(,(or 'addq 'subq 'cmpq) ,arg1 ,arg2)
+     (values instr (add-live lives arg1 arg2))]
 
-    [`(pushq ,arg1) (add-live lives arg1)]
+    [`(pushq ,arg1)
+     (values instr (add-live lives arg1))]
 
-    [`(popq ,arg1) (remove-live lives arg1)]
+    [`(popq ,arg1)
+     (values instr (remove-live lives arg1))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; XXX: We will have to update this two if we decide to use *ax in the
+    ;; future.
+
+    [`(sete ,_)
+     (values instr lives)]
+
+    [`(movzbq (byte-reg al) ,arg2)
+     (values instr (remove-live lives arg2))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [(list 'movq arg1 arg2)
-     (add-live (remove-live lives arg2) arg1)]
+     (values instr (add-live (remove-live lives arg2) arg1))]
 
-    [`(negq ,arg1) (add-live lives arg1)]
+    [`(negq ,arg1)
+     (values instr (add-live lives arg1))]
 
     ; not sure about this part, what to do about function arguments? what about
     ; caller-save registers?
-    [`(callq ,_) (set-remove lives 'rax)]
+    [`(callq ,_)
+     (values instr (set-remove lives 'rax))]
 
-    [`(retq) lives]
+    [`(retq)
+     (values instr lives)]
 
-    [`(if (eq? ,arg #t) ,pgm-t ,pgm-f)
-     (let-values [((lives-before-t lives-t) (gen-live-afters-instrs lives '() (reverse pgm-t)))
-                  ((lives-before-f lives-f) (gen-live-afters-instrs lives '() (reverse pgm-f)))]
+    [(or `(if (eq? ,arg #t) ,pgm-t ,pgm-f)
+         ; It's important that we handle this pattern here. We sometimes
+         ; (redundantly) generate live-afters in some later passes for things
+         ; like saving caller-save registers etc.
+         `(if (eq? ,arg #t) ,pgm-t ,_ ,pgm-f ,_))
+     (let-values [((pgm-t-reversed lives-before-t lives-t)
+                   (gen-live-afters-instrs (reverse pgm-t) (list lives)))
+
+                  ((pgm-f-reversed lives-before-f lives-f)
+                   (gen-live-afters-instrs (reverse pgm-f) (list lives)))]
+       ; (printf "lives-before-t: ~s~n" lives-before-t)
+       ; (printf "lives-after-t: ~s~n" lives-before-f)
+       ; (assert lives-before-t set-equal?)
+       ; (assert lives-before-f set-equal?)
        (let* [(lives-if-wo-cond (set-union lives-before-t lives-before-f))
               (if-lives (add-live lives-if-wo-cond arg))]
-         `(if-lives lives-t lives-f)))]
+         (values `(if (eq? ,arg #t) ,(reverse pgm-t-reversed) ,lives-t
+                                    ,(reverse pgm-f-reversed) ,lives-f)
+                 if-lives)))]
 
     [_ (unsupported-form 'gen-live-afters-instr instr)]))
 
@@ -486,6 +534,13 @@
             (unless (equal? live d)
               (add-edge graph d live))) lives)]
 
+    [`(cmpq ,_ ,_) '()]
+    [`(sete ,_) '()]
+    [`(movzbq (byte-reg al) (,_ ,d))
+     (map (lambda (live)
+            (unless (equal? live d)
+              (add-edge graph d live))) lives)]
+
     [`(,(or 'pushq 'popq 'negq) (,_ ,d))
      (map (lambda (live)
             (unless (equal? live d)
@@ -505,6 +560,13 @@
             (map (lambda (save) (add-edge graph save live))
                  (set->list caller-save)))
           lives)]
+
+    [`(if (eq? (,_ ,s) #t) ,pgm-t ,t-lives ,pgm-f ,f-lives)
+     (build-int-graph-instrs pgm-t t-lives graph)
+     (build-int-graph-instrs pgm-f f-lives graph)]
+
+    [`(if (eq? (,_ ,_) #t) ,_ ,_)
+     (error 'build-int-graph "if doesn't have live-after annotations on branches!~n~s~n" instr)]
 
     [_ (unsupported-form 'build-int-graph instr)]))
 
@@ -633,13 +695,15 @@
 (define (assign-homes pgm)
   (match pgm
     [(list-rest 'program vs instrs)
-     (let* ([live-sets (gen-live-afters pgm)]
-            [int-graph (build-interference-graph pgm live-sets)]
-            [move-rel (mk-move-relation pgm int-graph)])
-       (let-values ([(homes stack-size) (reg-alloc int-graph move-rel)])
-         ; (printf "all-vars: ~s~n" all-vars)
-         `(program (,(align-stack stack-size))
-                   ,@(assign-home-instrs homes instrs))))]
+     (let-values [((pgm live-after-sets) (gen-live-afters pgm))]
+       (let* ([int-graph (build-interference-graph pgm live-after-sets)]
+              [move-rel (mk-move-relation pgm int-graph)])
+         (let-values ([(homes stack-size) (reg-alloc int-graph move-rel)])
+           `(program (,(align-stack stack-size))
+                     ; Note that here we use the original instructions, e.g.
+                     ; not the ones with live-after annotations on if branches.
+                     ; Either way should work here.
+                     ,@(assign-home-instrs homes instrs)))))]
 
     [_ (unsupported-form 'assign-homes pgm)]))
 
@@ -655,7 +719,7 @@
         ,(assign-home-instrs asgns pgm-t)
         ,(assign-home-instrs asgns pgm-f))]
 
-    [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'cmpq) ,arg1 ,arg2)
      (list (car instr) (assign-home-arg asgns arg1) (assign-home-arg asgns arg2))]
 
     [`(,(or 'negq 'pushq 'popq) ,arg)
@@ -664,6 +728,11 @@
     [`(callq ,_) instr]
 
     [`(retq) instr]
+
+    [`(sete (byte-reg al)) instr]
+
+    [`(movzbq (byte-reg al) ,arg)
+     `(movzbq (byte-reg al) ,(assign-home-arg asgns arg))]
 
     [_ (unsupported-form 'assign-home-instr instr)]))
 
@@ -736,7 +805,7 @@
 (define (save-regs pgm)
   (match pgm
     [(list-rest 'program meta instrs)
-     (let [(lives (gen-live-afters pgm))]
+     (let-values [((pgm lives) (gen-live-afters pgm))]
        `(program ,meta ,@(append-map save-regs-instr lives instrs)))]
     [_ (unsupported-form 'save-regs pgm)]))
 
