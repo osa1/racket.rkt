@@ -391,45 +391,78 @@
   (match pgm
     [(list-rest 'program _ instrs)
      ; generating in reversed order to avoid stack overflows
-     (gen-live-afters-instrs (set) '() (reverse instrs))]
+     (let-values [((_ live-afters) (gen-live-afters-instrs (set) '() (reverse instrs)))]
+       live-afters)]
     [_ (unsupported-form 'gen-live-afters pgm)]))
 
 (define (gen-live-afters-instrs lives acc instrs)
   (match instrs
-    [(list) acc]
+    [(list)
+     ; We also need to return live set for the whole block here to be able to
+     ; process if-statements properly. Suppose we have something like this:
+     ;
+     ;   (if (eq? y #t) ((assign a b)) ((assign c d)))  -- lives: ???
+     ;   ...                                            -- lives: { b, d }
+     ;
+     ; The ??? part should be { b, d, a, c, y }, but we can only generate this
+     ; if we know live-before set of the first instructions in branches.
+     ;
+     ; Then we can just do
+     ;
+     ;    (live-before true-branch) \union (live-before false-branch) \union {y}
+     ;
+     (values lives acc)]
+
     [(cons instr instrs)
+     ; Notice how this works for the first instruction in the list: First
+     ; instruction in the list is actually the last instruction in the block,
+     ; because we process instructions in reverse. So here we push the initial
+     ; live set (which is an empty set) to the live sets list, which means we
+     ; always have an empty live set as last instruction's live set.
      (gen-live-afters-instrs (gen-live-afters-instr lives instr) (cons lives acc) instrs)]))
 
 (define (gen-live-afters-instr lives instr)
   ; (printf "gen-live-afters-instr ~a ~a~n" lives instr)
   (match instr
-    [(list (or 'addq 'subq) arg1 arg2)
-     (let [(lives (match arg2
-                    [`(,(or 'var 'reg) ,v) (set-add lives v)]
-                    [_ lives]))]
-       (match arg1
-         [`(,(or 'var 'reg) ,v) (set-add lives v)]
-         [_ lives]))]
+    [`(,(or 'addq 'subq) ,arg1 ,arg2) (add-live lives arg1 arg2)]
 
-    [(list (or 'pushq 'popq) (list (or 'var 'reg) v))
-     (set-remove lives v)]
+    [`(pushq ,arg1) (add-live lives arg1)]
+
+    [`(popq ,arg1) (remove-live lives arg1)]
 
     [(list 'movq arg1 arg2)
-     (let [(lives (match arg2
-                    [`(,(or 'var 'reg) ,v) (set-remove lives v)]
-                    [_ lives]))]
-       (match arg1
-         [`(,(or 'var 'reg) ,v) (set-add lives v)]
-         [_ lives]))]
+     (add-live (remove-live lives arg2) arg1)]
 
-    [`(negq ,_) lives]
+    [`(negq ,arg1) (add-live lives arg1)]
 
-    ; not sure about this part
+    ; not sure about this part, what to do about function arguments? what about
+    ; caller-save registers?
     [`(callq ,_) (set-remove lives 'rax)]
 
     [`(retq) lives]
 
+    [`(if (eq? ,arg #t) ,pgm-t ,pgm-f)
+     (let-values [((lives-before-t lives-t) (gen-live-afters-instrs lives '() (reverse pgm-t)))
+                  ((lives-before-f lives-f) (gen-live-afters-instrs lives '() (reverse pgm-f)))]
+       (let* [(lives-if-wo-cond (set-union lives-before-t lives-before-f))
+              (if-lives (add-live lives-if-wo-cond arg))]
+         `(if-lives lives-t lives-f)))]
+
     [_ (unsupported-form 'gen-live-afters-instr instr)]))
+
+(define (add-live lives . args)
+  (foldl (lambda (arg lives)
+           (match arg
+             [`(,(or 'var 'reg) ,v) (set-add lives v)]
+             [_ lives]))
+         lives args))
+
+(define (remove-live lives . args)
+  (foldl (lambda (arg lives)
+           (match arg
+             [`(,(or 'var 'reg) ,v) (set-remove lives v)]
+             [_ lives]))
+         lives args))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interference graphs
@@ -439,11 +472,12 @@
     [(list-rest 'program vs instrs)
      ; (printf "program vs ~s instrs ~s~n" vs instrs)
      (let [(graph (make-graph vs))]
-       (map (lambda (instr lives)
-              (build-int-graph instr (set->list lives) graph))
-            instrs live-sets)
+       (build-int-graph-instrs instrs live-sets graph)
        graph)]
     [_ (unsupported-form 'build-interference-graph pgm)]))
+
+(define (build-int-graph-instrs instrs live-sets graph)
+  (map (lambda (instr lives) (build-int-graph instr (set->list lives) graph)) instrs live-sets))
 
 (define (build-int-graph instr lives graph)
   (match instr
@@ -472,7 +506,7 @@
                  (set->list caller-save)))
           lives)]
 
-    [_ (unsupported-form 'build-graph instr)]))
+    [_ (unsupported-form 'build-int-graph instr)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Move relation graph
@@ -605,14 +639,22 @@
        (let-values ([(homes stack-size) (reg-alloc int-graph move-rel)])
          ; (printf "all-vars: ~s~n" all-vars)
          `(program (,(align-stack stack-size))
-                   ,@(map (lambda (instr) (assign-home-instr homes instr)) instrs))))]
+                   ,@(assign-home-instrs homes instrs))))]
 
     [_ (unsupported-form 'assign-homes pgm)]))
 
 (define (align-stack stack) (+ stack (modulo stack 16)))
 
+(define (assign-home-instrs asgns instrs)
+  (map (lambda (instr) (assign-home-instr asgns instr)) instrs))
+
 (define (assign-home-instr asgns instr)
   (match instr
+    [`(,if (eq? ,arg1 #t) ,pgm-t ,pgm-f)
+     `(if (eq? ,(assign-home-arg asgns arg1) #t)
+        ,(assign-home-instrs asgns pgm-t)
+        ,(assign-home-instrs asgns pgm-f))]
+
     [`(,(or 'addq 'subq 'movq) ,arg1 ,arg2)
      (list (car instr) (assign-home-arg asgns arg1) (assign-home-arg asgns arg2))]
 
