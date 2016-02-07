@@ -10,7 +10,9 @@
          ; export individual passes for testing purposes
          ; (see test.rkt)
          typecheck typecheck-ignore
-         desugar uniquify flatten instr-sel assign-homes patch-instructions print-x86_64)
+         desugar uniquify flatten instr-sel assign-homes patch-instructions
+         elim-movs save-regs
+         print-x86_64)
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
 ;       | var | (let ([var exp]) exp)
@@ -782,6 +784,10 @@
              (list 'movq '(reg rax) arg2))
        (list stmt))]
 
+    [`(if ,cond ,pgm-t ,pgm-f)
+     `((if ,cond ,(append-map patch-instructions-stmt pgm-t)
+                 ,(append-map patch-instructions-stmt pgm-f)))]
+
     [_ (list stmt)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -790,12 +796,18 @@
 (define (elim-movs pgm)
   (match pgm
     [(list-rest 'program s instrs)
-     `(program ,s ,@(filter-nulls (map elim-mov-instr instrs)))]
+     `(program ,s ,@(elim-mov-instrs instrs))]
     [_ (unsupported-form 'patch-instructions pgm)]))
+
+(define (elim-mov-instrs instrs)
+  (filter-nulls (map elim-mov-instr instrs)))
 
 (define (elim-mov-instr instr)
   (match instr
     [`(movq ,arg1 ,arg2) (if (equal? arg1 arg2) '() instr)]
+    [`(if ,cond ,pgm-t ,pgm-f)
+     `(if ,cond ,(elim-mov-instrs pgm-t)
+                ,(elim-mov-instrs pgm-f))]
     [_ instr]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -805,9 +817,15 @@
 (define (save-regs pgm)
   (match pgm
     [(list-rest 'program meta instrs)
+     ;; FIXME: Bad! We generate live vars again!
      (let-values [((pgm lives) (gen-live-afters pgm))]
-       `(program ,meta ,@(append-map save-regs-instr lives instrs)))]
+       ; We should use the program with annotated live vars on if branches
+       ; here.
+       `(program ,meta ,@(save-regs-instrs lives (cddr pgm))))]
     [_ (unsupported-form 'save-regs pgm)]))
+
+(define (save-regs-instrs lives instrs)
+  (append-map save-regs-instr lives instrs))
 
 (define (save-regs-instr lives instr)
   (match instr
@@ -819,6 +837,14 @@
                (list instr)
                (if align-stack `((addq (int 8) (reg rsp))) `())
                (map (lambda (reg) `(popq (reg ,reg))) (reverse should-save))))]
+
+    [`(if ,_ ,_ ,_)
+     (error 'save-regs-instr "If block doesn't have live var annotations!~n~s~n" instr)]
+
+    [`(if ,cond ,pgm-t ,lives-t ,pgm-f ,lives-f)
+     ; We remove annotations here, probably OK
+     `((if ,cond ,(save-regs-instrs lives-t pgm-t)
+                 ,(save-regs-instrs lives-f pgm-f)))]
 
     [_ (list instr)]))
 
