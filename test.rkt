@@ -63,4 +63,4 @@
     ("uniquify" ,uniquify ,interp-scheme)
     ("flatten" ,flatten ,interp-scheme)))
 
-(interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 2))
+(interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 3))
