@@ -10,7 +10,7 @@
          ; export individual passes for testing purposes
          ; (see test.rkt)
          typecheck typecheck-ignore
-         desugar uniquify flatten instr-sel assign-homes patch-instructions
+         desugar choose-branch uniquify flatten instr-sel assign-homes patch-instructions
          elim-movs save-regs
          print-x86_64)
 
@@ -124,6 +124,58 @@
     [_ (unsupported-form 'desugar-expr e0)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Choose branch
+
+;; TODO: I'm very tired right now -- this does more than what it advertises --
+;; it simplifies eq?s etc.
+
+(define (choose-branch pgm)
+  (match pgm
+    [`(program ,e)
+     `(program ,(choose-branch-expr e))]
+    [_ (unsupported-form 'choose-branch pgm)]))
+
+;; TODO: We can be much more aggressive here, by doing a simple form of
+;; compile-time evaluation.
+(define (choose-branch-expr e0)
+  (match e0
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; Important cases
+
+    [`(if ,e1 ,e2 ,e3)
+     (match (choose-branch-expr e1)
+       [#t (choose-branch-expr e2)]
+       [#f (choose-branch-expr e3)]
+       [e1 `(if ,e1 ,(choose-branch-expr e2) ,(choose-branch-expr e3))])]
+
+    [`(eq? ,e1 ,e2)
+     (let [(e1 (choose-branch-expr e1))
+           (e2 (choose-branch-expr e2))]
+       (if (and (atom? e1) (atom? e2))
+         (if (equal? e1 e2) #t #f)
+         `(eq? ,e1 ,e2)))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; Simple cases
+
+    [(or (? fixnum?) (? boolean?) (? symbol?) `(read))
+     e0]
+
+    [`(,(or '- 'not) ,e1)
+     (list (car e0) (choose-branch-expr e1))]
+
+    [`(+ ,e1 ,e2)
+     (list '+ (choose-branch-expr e1) (choose-branch-expr e2))]
+
+    [`(let ([,var ,e1]) ,body)
+     `(let ([,var ,(choose-branch-expr e1)]) ,(choose-branch-expr body))]
+
+    [_ (unsupported-form 'choose-branch-expr e0)]))
+
+(define (atom? e) (or (fixnum? e) (boolean? e) (symbol? e)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Uniquify
 
 (define (uniquify pgm)
@@ -227,14 +279,24 @@
                                      body)])
            (values binds pgm body))))]
 
+    [`(if (eq? ,e1 ,e2) ,e3 ,e4)
+     (let [(fresh (gensym "tmp-if"))]
+       (let*-values [((binds pgm e1)  (flatten-expr binds pgm e1))
+                     ((binds pgm e2)  (flatten-expr binds pgm e2))
+                     ((_ pgm-t ret-t) (flatten-expr binds '() e3))
+                     ((_ pgm-f ret-f) (flatten-expr binds '() e4))]
+         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-t) pgm-t)))
+                (pgm-f (reverse (cons `(assign ,fresh ,ret-f) pgm-f)))]
+           (values binds (cons `(if (eq? ,e1 ,e2) ,pgm-t ,pgm-f) pgm) fresh))))]
+
     [`(if ,e1 ,e2 ,e3)
-     (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-       (let [(fresh (gensym "tmp-if"))]
-         (let-values ([(_ pgm-t ret-t) (flatten-expr binds '() e2)])
-           (let-values ([(_ pgm-f ret-f) (flatten-expr binds '() e3)])
-             (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-t) pgm-t)))
-                    (pgm-f (reverse (cons `(assign ,fresh ,ret-f) pgm-f)))]
-               (values binds (cons `(if (eq? ,e1 #t) ,pgm-t ,pgm-f) pgm) fresh))))))]
+     (let [(fresh (gensym "tmp-if"))]
+       (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
+                     [(_ pgm-t ret-t) (flatten-expr binds '() e2)]
+                     [(_ pgm-f ret-f) (flatten-expr binds '() e3)])
+         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-t) pgm-t)))
+                (pgm-f (reverse (cons `(assign ,fresh ,ret-f) pgm-f)))]
+           (values binds (cons `(if (eq? ,e1 #t) ,pgm-t ,pgm-f) pgm) fresh))))]
 
     [_ (unsupported-form 'flatten-expr expr)]))
 
@@ -344,8 +406,8 @@
     [`(return ,arg)
      `((movq ,(arg->x86-arg arg) (reg rax)))]
 
-    [`(if (eq? ,arg #t) ,pgm-t ,pgm-f)
-     `((if (eq? ,(arg->x86-arg arg) #t)
+    [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+     `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
          ,(append-map instr-sel-stmt pgm-t)
          ,(append-map instr-sel-stmt pgm-f)))]
 
@@ -478,11 +540,11 @@
     [`(retq)
      (values instr lives)]
 
-    [(or `(if (eq? ,arg #t) ,pgm-t ,pgm-f)
+    [(or `(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
          ; It's important that we handle this pattern here. We sometimes
          ; (redundantly) generate live-afters in some later passes for things
          ; like saving caller-save registers etc.
-         `(if (eq? ,arg #t) ,pgm-t ,_ ,pgm-f ,_))
+         `(if (eq? ,arg1 ,arg2) ,pgm-t ,_ ,pgm-f ,_))
      (let-values [((pgm-t-reversed lives-before-t lives-t)
                    (gen-live-afters-instrs (reverse pgm-t) (list lives)))
 
@@ -493,9 +555,9 @@
        ; (assert lives-before-t set-equal?)
        ; (assert lives-before-f set-equal?)
        (let* [(lives-if-wo-cond (set-union lives-before-t lives-before-f))
-              (if-lives (add-live lives-if-wo-cond arg))]
-         (values `(if (eq? ,arg #t) ,(reverse pgm-t-reversed) ,lives-t
-                                    ,(reverse pgm-f-reversed) ,lives-f)
+              (if-lives (add-live lives-if-wo-cond arg1 arg2))]
+         (values `(if (eq? ,arg1 ,arg2) ,(reverse pgm-t-reversed) ,lives-t
+                                        ,(reverse pgm-f-reversed) ,lives-f)
                  if-lives)))]
 
     [_ (unsupported-form 'gen-live-afters-instr instr)]))
@@ -563,11 +625,11 @@
                  (set->list caller-save)))
           lives)]
 
-    [`(if (eq? (,_ ,s) #t) ,pgm-t ,t-lives ,pgm-f ,f-lives)
+    [`(if (eq? ,_ ,_) ,pgm-t ,t-lives ,pgm-f ,f-lives)
      (build-int-graph-instrs pgm-t t-lives graph)
      (build-int-graph-instrs pgm-f f-lives graph)]
 
-    [`(if (eq? (,_ ,_) #t) ,_ ,_)
+    [`(if (eq? ,_ ,_) ,_ ,_)
      (error 'build-int-graph "if doesn't have live-after annotations on branches!~n~s~n" instr)]
 
     [_ (unsupported-form 'build-int-graph instr)]))
@@ -716,8 +778,8 @@
 
 (define (assign-home-instr asgns instr)
   (match instr
-    [`(,if (eq? ,arg1 #t) ,pgm-t ,pgm-f)
-     `(if (eq? ,(assign-home-arg asgns arg1) #t)
+    [`(,if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+     `(if (eq? ,(assign-home-arg asgns arg1) ,(assign-home-arg asgns arg2))
         ,(assign-home-instrs asgns pgm-t)
         ,(assign-home-instrs asgns pgm-f))]
 
@@ -859,12 +921,12 @@
 
 (define (lower-conditionals-instr instr)
   (match instr
-    [`(if (eq? ,arg #t) ,pgm-t ,pgm-f)
+    [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
      (let [(then-lbl (gensym "t_branch"))
            (end-lbl  (gensym "end_branch"))
            (t-instrs (append-map lower-conditionals-instr pgm-t))
            (f-instrs (append-map lower-conditionals-instr pgm-f))]
-       `((cmpq ,arg (int 1))
+       `((cmpq ,arg1 ,arg2)
          (je ,then-lbl)
          ,@f-instrs
          (je ,end-lbl)
@@ -924,13 +986,25 @@ main:\n")
 
 (define (print-x86_64-stmt stmt)
   (match stmt
+    [`(cmpq (int ,_) (int ,_))
+     (error 'print-x86_64-stmt "~ncmpq has two literal arguments: ~s~n" stmt)]
+
+    ;; Special case for cmpq: If one of the arguments is literal and the other
+    ;; one is mem/reg, the literal one should come first.
+    [`(cmpq (reg ,r) (int ,i))
+     (print-x86_64-stmt `(cmpq (int ,i) (reg ,r)))]
+
     [`(,(or 'addq 'subq 'movq 'cmpq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
+
     [`(,(or 'negq 'pushq 'popq 'callq 'je) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
+
     [`(label ,lbl)
      (string-append "\n" (symbol->string lbl) ":\n")]
+
     [`(retq) "\tret\n"]
+
     [_ (unsupported-form 'print-x86_64-stmt stmt)]))
 
 (define (print-x86_64-arg arg)
@@ -945,6 +1019,11 @@ main:\n")
 
 (define r1-passes
   `(("desugar" ,desugar, interp-scheme)
+
+    ;; TODO: Think about the best place for this. One of the goals here is to
+    ;; avoid generating illegal instructions for code like (if (eq? 1 1) _ _).
+    ("choose-branch" ,choose-branch ,interp-x86)
+
     ("uniquify" ,uniquify ,interp-scheme)
     ("flatten" ,flatten ,interp-C)
     ("instr-sel" ,instr-sel ,interp-x86)
