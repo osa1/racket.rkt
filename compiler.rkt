@@ -6,7 +6,7 @@
 (require "public/utilities.rkt")
 (require "public/interp.rkt")
 
-(provide r1-passes
+(provide r1-passes r2-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
          typecheck typecheck-ignore
@@ -1037,6 +1037,8 @@ main:\n")
     ("save-regs" ,save-regs ,interp-x86)
     ("lower-conditionals" ,lower-conditionals ,interp-x86)
     ("print-x86" ,print-x86_64 #f)))
+
+(define r2-passes r1-passes)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utilities
