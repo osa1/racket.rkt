@@ -505,7 +505,7 @@
 (define (gen-live-afters-instr instr lives)
   ; (printf "gen-live-afters-instr ~a ~a~n" lives instr)
   (match instr
-    [`(,(or 'addq 'subq 'cmpq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'cmpq 'xorq) ,arg1 ,arg2)
      (values instr (add-live lives arg1 arg2))]
 
     [`(pushq ,arg1)
@@ -593,7 +593,7 @@
 
 (define (build-int-graph instr lives graph)
   (match instr
-    [`(,(or 'addq 'subq) (,_ ,s) (,_ ,d))
+    [`(,(or 'addq 'subq 'xorq) (,_ ,s) (,_ ,d))
      (map (lambda (live)
             (unless (equal? live d)
               (add-edge graph d live))) lives)]
@@ -783,7 +783,7 @@
         ,(assign-home-instrs asgns pgm-t)
         ,(assign-home-instrs asgns pgm-f))]
 
-    [`(,(or 'addq 'subq 'movq 'cmpq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'cmpq 'xorq) ,arg1 ,arg2)
      (list (car instr) (assign-home-arg asgns arg1) (assign-home-arg asgns arg2))]
 
     [`(,(or 'negq 'pushq 'popq) ,arg)
@@ -994,7 +994,7 @@ main:\n")
     [`(cmpq (reg ,r) (int ,i))
      (print-x86_64-stmt `(cmpq (int ,i) (reg ,r)))]
 
-    [`(,(or 'addq 'subq 'movq 'cmpq 'movzbq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'cmpq 'movzbq 'xorq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
 
     [`(,(or 'negq 'pushq 'popq 'callq 'je 'jmp 'sete) ,arg1)
