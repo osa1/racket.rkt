@@ -43,9 +43,11 @@
 
 (define (typecheck-pgm file [should-fail? #f])
   (let [(pgm (read-program file))]
-    (if (or (typecheck pgm) should-fail?)
-      (begin (display file) (display " "))
-      (error 'typecheck-pgm "type checking failed: ~a~n" file))))
+    (if should-fail?
+      (when (typecheck pgm)
+        (error 'typecheck-pgm "ill-typed program passed the type cheking: ~a~n" file))
+      (when (not (typecheck pgm))
+        (error 'typecheck-pgm "can't typecheck well-typed program: ~a~n" file)))))
 
 (typecheck-pgm "tests/ty_1.rkt")
 (typecheck-pgm "tests/ty_2.rkt")
@@ -72,7 +74,8 @@
 
 (interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 5))
 
-(compiler-tests "conditionals" typecheck r1-passes "cond" (range 1 5))
+(compiler-tests "conditionals-1" typecheck r1-passes "ty" (range 1 6))
+(compiler-tests "conditionals-2" typecheck r1-passes "cond" (range 1 5))
 
 ; (define (show-steps steps file)
 ;   (let [(pgm (read-program file))]
