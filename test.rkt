@@ -77,6 +77,9 @@
 (compiler-tests "conditionals-1" typecheck r1-passes "ty" (range 1 6))
 (compiler-tests "conditionals-2" typecheck r1-passes "cond" (range 1 5))
 
+(interp-tests "r2" typecheck r2-passes interp-scheme "r2" (range 1 24))
+(compiler-tests "r2" typecheck r2-passes "r2" (range 1 24))
+
 ; (define (show-steps steps file)
 ;   (let [(pgm (read-program file))]
 ;     (printf "initial program:~n~a~n~n" pgm)
@@ -97,10 +100,16 @@
 ;     ("choose-branch" ,choose-branch)
 ;     ("uniquify" ,uniquify)
 ;     ("flatten" ,flatten)
-;     ("select-instructions" ,instr-sel)))
+;     ("select-instructions" ,instr-sel)
+;     ("assign-homes" ,assign-homes)
+;     ("patch-instructions" ,patch-instructions)
+;     ("elim-movs" ,elim-movs)
+;     ("save-regs" ,save-regs)
+;     ("lower-conditionals" ,lower-conditionals)))
 ;     ; ("assign-homes" ,assign-homes)))
 ;
 ; (show-steps steps "tests/cond_1.rkt")
 ; (show-steps steps "tests/cond_2.rkt")
 ; (show-steps steps "tests/cond_3.rkt")
 ; (show-steps steps "tests/cond_4.rkt")
+; (show-steps steps "tests/r2_15.rkt")
