@@ -1026,7 +1026,7 @@ main:\n")
 
     ;; TODO: Think about the best place for this. One of the goals here is to
     ;; avoid generating illegal instructions for code like (if (eq? 1 1) _ _).
-    ("choose-branch" ,choose-branch ,interp-x86)
+    ("choose-branch" ,choose-branch ,interp-scheme)
 
     ("uniquify" ,uniquify ,interp-scheme)
     ("flatten" ,flatten ,interp-C)
