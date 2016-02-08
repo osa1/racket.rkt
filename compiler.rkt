@@ -929,7 +929,7 @@
        `((cmpq ,arg1 ,arg2)
          (je ,then-lbl)
          ,@f-instrs
-         (je ,end-lbl)
+         (jmp ,end-lbl)
          (label ,then-lbl)
          ,@t-instrs
          (label ,end-lbl)))]
