@@ -152,9 +152,14 @@
     [`(eq? ,e1 ,e2)
      (let [(e1 (choose-branch-expr e1))
            (e2 (choose-branch-expr e2))]
-       (if (and (atom? e1) (atom? e2))
-         (if (equal? e1 e2) #t #f)
-         `(eq? ,e1 ,e2)))]
+       (cond [(and (or (fixnum? e1) (boolean? e1))
+                   (or (fixnum? e2) (boolean? e2)))
+              (equal? e1 e2)]
+
+             [(and (symbol? e1) (symbol? e2) (equal? e1 e2))
+              #t]
+
+             [else `(eq? ,e1 ,e2)]))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ;; Simple cases
@@ -172,8 +177,6 @@
      `(let ([,var ,(choose-branch-expr e1)]) ,(choose-branch-expr body))]
 
     [_ (unsupported-form 'choose-branch-expr e0)]))
-
-(define (atom? e) (or (fixnum? e) (boolean? e) (symbol? e)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Uniquify
