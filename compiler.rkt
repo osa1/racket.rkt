@@ -11,7 +11,7 @@
          ; (see test.rkt)
          typecheck typecheck-ignore
          desugar choose-branch uniquify flatten instr-sel assign-homes patch-instructions
-         elim-movs save-regs
+         elim-movs save-regs lower-conditionals
          print-x86_64)
 
 ; exp ::= int | (read) | (- exp) | (+ exp exp)
@@ -994,10 +994,10 @@ main:\n")
     [`(cmpq (reg ,r) (int ,i))
      (print-x86_64-stmt `(cmpq (int ,i) (reg ,r)))]
 
-    [`(,(or 'addq 'subq 'movq 'cmpq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'cmpq 'movzbq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
 
-    [`(,(or 'negq 'pushq 'popq 'callq 'je) ,arg1)
+    [`(,(or 'negq 'pushq 'popq 'callq 'je 'jmp 'sete) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
 
     [`(label ,lbl)
@@ -1011,6 +1011,7 @@ main:\n")
   (match arg
     [`(int ,int) (format "$~s" int)]
     [`(reg ,reg) (format "%~s" reg)]
+    [`(byte-reg ,reg) (format "%~s" reg)]
     [`(stack ,offset) (format "~s(%rbp)" offset)]
     [(? symbol?) arg] ; must be a function call or jmp
     [_ (unsupported-form 'print-x86_64-arg arg)]))

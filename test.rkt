@@ -58,17 +58,19 @@
 (typecheck-pgm "tests/ty_9.rkt" #t)
 (typecheck-pgm "tests/ty_10.rkt" #t)
 
-; (define conditionals-passes
-;   `(("desugar" ,desugar ,interp-scheme)
-;     ("uniquify" ,uniquify ,interp-scheme)
-;     ("flatten" ,flatten ,interp-C)
-;     ("select-instructions" ,instr-sel ,interp-x86)
-;     ("assign-homes" ,assign-homes ,interp-x86)
-;     ("patch-instructions" ,patch-instructions ,interp-x86)
-;     ("elim-movs" ,elim-movs ,interp-x86)
-;     ("save-regs" ,save-regs ,interp-x86)))
-;
-; (interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 5))
+(define conditionals-passes
+  `(("desugar" ,desugar ,interp-scheme)
+    ("choose-branch" ,choose-branch ,interp-scheme)
+    ("uniquify" ,uniquify ,interp-scheme)
+    ("flatten" ,flatten ,interp-C)
+    ("select-instructions" ,instr-sel ,interp-x86)
+    ("assign-homes" ,assign-homes ,interp-x86)
+    ("patch-instructions" ,patch-instructions ,interp-x86)
+    ("elim-movs" ,elim-movs ,interp-x86)
+    ("save-regs" ,save-regs ,interp-x86)
+    ("lower-conditionals" ,lower-conditionals ,interp-x86)))
+
+(interp-tests "conditionals" typecheck conditionals-passes interp-scheme "cond" (range 1 5))
 
 (compiler-tests "conditionals" typecheck r1-passes "cond" (range 1 5))
 
@@ -89,11 +91,13 @@
 ;
 ; (define steps
 ;   `(("desugar" ,desugar)
+;     ("choose-branch" ,choose-branch)
 ;     ("uniquify" ,uniquify)
 ;     ("flatten" ,flatten)
-;     ("select-instructions" ,instr-sel)
-;     ("assign-homes" ,assign-homes)))
+;     ("select-instructions" ,instr-sel)))
+;     ; ("assign-homes" ,assign-homes)))
 ;
 ; (show-steps steps "tests/cond_1.rkt")
 ; (show-steps steps "tests/cond_2.rkt")
 ; (show-steps steps "tests/cond_3.rkt")
+; (show-steps steps "tests/cond_4.rkt")
