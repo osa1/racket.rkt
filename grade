@@ -9,3 +9,14 @@ the use of caller-save registers that conflict with calls, but are
 instead pushing and popping the live variables. This is a good
 solution, but it can result in excessive code size in some cases, as
 can be seen in r1a_5 for example. Nevertheless, it works well, so full credit.
+
+
+ASSIGNMENT 3: 
+Please export a value named "typechecker," as specified on the Piazza.
+
+23/23 test cases compiled and executed successfully. Well done! The
+interpreter rejects some of your cases, and I encourage you to try to
+make your compiler work with the interpreter so that you can more
+easily test against it as the compiler gets more compilcated. That's
+up to you, though, and as long as your compiler works with all our
+tests you're doing well.
