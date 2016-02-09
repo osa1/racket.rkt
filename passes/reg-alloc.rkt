@@ -204,14 +204,22 @@
   (match pgm
     [(list-rest 'program vs instrs)
      (let [(graph (make-graph vs))]
-       (map (lambda (instr) (mk-move-rel-iter graph int-graph instr)) instrs)
+       (mk-move-relation-instrs graph int-graph instrs)
        graph)]
     [_ (unsupported-form 'mk-move-relation pgm)]))
+
+(define (mk-move-relation-instrs graph int-graph instrs)
+  (map (lambda (instr) (mk-move-rel-iter graph int-graph instr)) instrs))
 
 (define (mk-move-rel-iter graph int-graph instr)
   (define (can-relate? arg)
     (match arg
       [`(,(or 'reg 'stk 'var) ,_) #t]
+
+      [`(if ,_ ,pgm-t ,pgm-f)
+       (mk-move-relation-instrs graph int-graph pgm-t)
+       (mk-move-relation-instrs graph int-graph pgm-f)]
+
       [_ #f]))
 
   (define (extract arg)
