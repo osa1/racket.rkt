@@ -157,36 +157,33 @@
 (define (build-int-graph instr lives graph)
   (match instr
     [`(,(or 'addq 'subq 'xorq) (,_ ,s) (,_ ,d))
-     (map (lambda (live)
-            (unless (equal? live d)
-              (add-edge graph d live))) lives)]
+     (for ([live lives])
+       (unless (equal? live d)
+         (add-edge graph d live)))]
 
-    [`(cmpq ,_ ,_) '()]
-    [`(sete ,_) '()]
+    [`(cmpq ,_ ,_) (void)]
+    [`(sete ,_) (void)]
     [`(movzbq (byte-reg al) (,_ ,d))
-     (map (lambda (live)
-            (unless (equal? live d)
-              (add-edge graph d live))) lives)]
+     (for ([live lives])
+       (unless (equal? live d)
+         (add-edge graph d live)))]
 
     [`(,(or 'pushq 'popq 'negq) (,_ ,d))
-     (map (lambda (live)
-            (unless (equal? live d)
-              (add-edge graph d live))) lives)]
+     (for ([live lives])
+       (unless (equal? live d)
+         (add-edge graph d live)))]
 
     [`(movq (,_ ,s) (,_ ,d))
-     (map (lambda (live)
-            (unless (or (equal? live s) (equal? live d))
-              (add-edge graph d live))) lives)]
+     (for ([live lives])
+       (unless (or (equal? live s) (equal? live d))
+         (add-edge graph d live)))]
 
-    [`(retq) '()]
+    [`(retq) (void)]
 
     [`(callq ,_)
-     ; TODO: Find something like a cartesian product or list comprehension etc.
-     ; and get rid of this awful nested map.
-     (map (lambda (live)
-            (map (lambda (save) (add-edge graph save live))
-                 (set->list caller-save)))
-          lives)]
+     (for ([live lives]
+           [save (set->list caller-save)])
+       (add-edge graph save live))]
 
     [`(if (eq? ,_ ,_) ,pgm-t ,t-lives ,pgm-f ,f-lives)
      (build-int-graph-instrs pgm-t t-lives graph)
@@ -209,7 +206,7 @@
     [_ (unsupported-form 'mk-move-relation pgm)]))
 
 (define (mk-move-relation-instrs graph int-graph instrs)
-  (map (lambda (instr) (mk-move-rel-iter graph int-graph instr)) instrs))
+  (for ([instr instrs]) (mk-move-rel-iter graph int-graph instr)))
 
 (define (mk-move-rel-iter graph int-graph instr)
   (define (can-relate? arg)
@@ -237,7 +234,7 @@
 
   (match instr
     [`(movq ,s ,d) (mk-edge graph s d)]
-    [_ '()]))
+    [_ (void)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Register allocation
