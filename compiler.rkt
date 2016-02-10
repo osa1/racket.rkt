@@ -20,9 +20,14 @@
 (provide r1-passes r2-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
+         typechecker
          typecheck typecheck-ignore
          desugar choose-branch uniquify flatten instr-sel assign-homes patch-instructions
          elim-movs save-regs lower-conditionals print-x86_64)
+
+; Synonym for typecheck, this is required by the assignment but I don't like
+; giving it a noun, as all other passes have verb names.
+(define typechecker typecheck)
 
 (define r1-passes
   `(("desugar" ,desugar, interp-scheme)
