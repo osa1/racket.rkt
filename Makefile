@@ -1,7 +1,8 @@
-SHELL := /bin/bash
-CC := gcc
+SHELL  = /bin/bash
+CC     = gcc
+CC_OPTS= -std=c11
 
-execs = test.exe
+execs =
 
 all: runtime.o $(execs)
 
@@ -19,7 +20,7 @@ test1: runtime.o
 	racket test.rkt
 
 runtime.o: public/runtime.c
-	$(CC) $^ -c -g -o $@
+	$(CC) $^ -c -g -o $@ $(CC_OPTS)
 
 %.o: %.c
 	$(CC) $^ -c -g -o $@
