@@ -6,5 +6,7 @@
 
 (define (filter-nulls lst) (filter not-null? lst))
 
+(define (id x) x)
+
 (define (unsupported-form fname form)
   (error fname "Unsupported form: ~s~n" form))

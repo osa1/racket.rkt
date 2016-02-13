@@ -18,7 +18,7 @@
     [`(,(or '- 'not) ,e1)
      (list (car e0) (desugar-expr e1))]
 
-    [`(,(or '+ 'eq?) ,e1 ,e2)
+    [`(,(or '+ 'eq? 'vector-ref) ,e1 ,e2)
      (list (car e0) (desugar-expr e1) (desugar-expr e2))]
 
     [`(and ,e1 ,e2)
@@ -33,5 +33,8 @@
      `(let ([,var ,(desugar-expr e1)]) ,(desugar-expr e2))]
 
     [`(read) e0]
+
+    [`(vector . ,elems)
+     `(vector ,@(map desugar-expr elems))]
 
     [_ (unsupported-form 'desugar-expr e0)]))

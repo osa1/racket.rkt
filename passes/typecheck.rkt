@@ -63,4 +63,28 @@
 
     [`(read) 'Integer]
 
-    [_ (unsupported-form 'typecheck-iter expr)]))
+    [`(vector . ,elems)
+     (let [(elem-types
+             (filter id (map (lambda (elem) (typecheck-iter elem env)) elems)))]
+       (if (eq? (length elem-types) (length elems))
+         (cons 'vector elem-types)
+         #f))]
+
+    [`(vector-ref ,vec ,idx)
+     (if (fixnum? idx)
+       (match (typecheck-iter vec env)
+         [`(vector . ,elems)
+          (if (< idx (length elems))
+            (let [(elem-types
+                    (filter id (map (lambda (elem) (typecheck-iter elem env)) elems)))]
+              (if (eq? (length elem-types) (length elems))
+                (list-ref elem-types idx)
+                #f))
+            #f)]
+         [_ #f])
+       #f)]
+
+    [_
+     ; Uhh.. test-typecheck is ignoring exceptions.
+     (printf "typecheck: unsupported form: ~s~n" expr)
+     (unsupported-form 'typecheck-iter expr)]))

@@ -37,6 +37,14 @@
 
 (define (arg? e) (or (fixnum? e) (symbol? e)))
 
+(define (flatten-expr-list binds pgm exprs)
+  (match exprs
+    [(list) (values binds pgm exprs)]
+    [(cons expr exprs)
+     (let*-values ([(binds pgm expr) (flatten-expr binds pgm expr)]
+                   [(binds pgm exprs) (flatten-expr-list binds pgm exprs)])
+       (values binds pgm (cons expr exprs)))]))
+
 (define (flatten-expr binds pgm expr)
   (match expr
 
@@ -52,7 +60,7 @@
        (let [(fresh (gensym "tmp"))]
          (values binds (cons `(assign ,fresh (,(car expr) ,e1)) pgm) fresh)))]
 
-    [`(,(or '+ 'eq?) ,e1 ,e2)
+    [`(,(or '+ 'eq? 'vector-ref) ,e1 ,e2)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let-values ([(binds pgm e2) (flatten-expr binds pgm e2)])
          (let [(fresh (gensym "tmp"))]
@@ -88,6 +96,11 @@
          (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-t) pgm-t)))
                 (pgm-f (reverse (cons `(assign ,fresh ,ret-f) pgm-f)))]
            (values binds (cons `(if (eq? ,e1 #t) ,pgm-t ,pgm-f) pgm) fresh))))]
+
+    [`(vector . ,elems)
+     (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
+       (let [(fresh (gensym "tmp-vec"))]
+         (values binds (cons `(assign ,fresh (vector ,@es)) pgm) fresh)))]
 
     [_ (unsupported-form 'flatten-expr expr)]))
 
@@ -144,11 +157,14 @@
     [`(,(or '- 'not) ,e1)
      `(,(car expr) ,(rename-arg x y e1))]
 
-    [`(,(or '+ 'eq?) ,e1 ,e2)
+    [`(,(or '+ 'eq? 'vector-ref) ,e1 ,e2)
      `(,(car expr) ,(rename-arg x y e1) ,(rename-arg x y e2))]
 
     [(or (? fixnum?) (? boolean?) (? symbol?))
      (rename-arg x y expr)]
+
+    [`(vector . ,as)
+     `(vector ,@(map (lambda (arg) (rename-arg x y)) as))]
 
     [_ (unsupported-form 'rename-expr expr)]))
 

@@ -76,6 +76,20 @@
 (interp-tests "r2" typecheck r2-passes interp-scheme "r2" (range 1 24))
 (compiler-tests "r2" typecheck r2-passes "r2" (range 1 24))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Vectors
+
+(define vec-passes
+  `(("desugar" ,desugar ,interp-scheme)
+    ("choose-branch" ,choose-branch ,interp-scheme)
+    ("uniquify" ,uniquify ,interp-scheme)
+    ("flatten" ,flatten ,interp-C)
+    ))
+
+(debug-level 2)
+
+(interp-tests "vec" typecheck vec-passes interp-scheme "vector" (range 1 3))
+
 ; (define (show-steps steps file)
 ;   (let [(pgm (read-program file))]
 ;     (printf "initial program:~n~a~n~n" pgm)
