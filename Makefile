@@ -1,6 +1,6 @@
 SHELL  = /bin/bash
 CC     = gcc
-CC_OPTS= -std=c11
+CC_OPTS= -std=c11 -Wall -Wpedantic -Wextra
 
 execs =
 
