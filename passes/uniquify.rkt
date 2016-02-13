@@ -20,20 +20,20 @@
     [`(,(or '+ 'eq? 'vector-ref) ,e1 ,e2)
      (list (car e0) (uniquify-expr rns e1) (uniquify-expr rns e2))]
 
-    [`(if ,e1 ,e2 ,e3)
-     (list 'if (uniquify-expr rns e1) (uniquify-expr rns e2) (uniquify-expr rns e3))]
+    [`(if ,e1 ,ret-ty ,e2 ,e3)
+     (list 'if (uniquify-expr rns e1) ret-ty (uniquify-expr rns e2) (uniquify-expr rns e3))]
 
     [(? symbol?)
      (hash-ref rns e0)]
 
-    [`(let ([,var ,e1]) ,body)
+    [`(let ([,var ,var-ty ,e1]) ,body)
      (let* ([fresh (gensym "x")]
             [rns1 (hash-set rns var fresh)])
-       `(let ([,fresh ,(uniquify-expr rns e1)])
+       `(let ([,fresh ,var-ty ,(uniquify-expr rns e1)])
           ,(uniquify-expr rns1 body)))]
 
-    [`(vector . ,elems)
-     `(vector ,@(map (lambda (elem) (uniquify-expr rns elem)) elems))]
+    [`(vector ,elem-tys . ,elems)
+     `(vector ,elem-tys ,@(map (lambda (elem) (uniquify-expr rns elem)) elems))]
 
     [unsupported
      (unsupported-form 'uniquify-expr unsupported)]))

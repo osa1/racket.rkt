@@ -4,7 +4,8 @@
 
 (provide expose-allocations)
 
-;; TODO: We need type of variables here. brb modifying the previous passes.
+;; NOTE: expose-allocations removes type annotations! Remove this if types are
+;; needed in some later pass.
 
 (define (expose-allocations pgm)
   (match pgm
@@ -13,4 +14,12 @@
     [_ (unsupported-form 'expose-allocations pgm)]))
 
 (define (expose-allocations-stmt stmt)
-  stmt)
+  (match stmt
+    [`(assign ,x ,_ ,arg) `((assign ,x ,arg))]
+
+    [`(if ,cond ,_ ,pgm-t ,pgm-f) `((if ,cond ,(append-map expose-allocations-stmt pgm-t)
+                                              ,(append-map expose-allocations-stmt pgm-f)))]
+
+    [`(return ,x) `((return ,x))]
+
+    [_ (unsupported-form 'expose-allocations-stmt stmt)]))

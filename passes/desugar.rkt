@@ -24,17 +24,17 @@
     [`(and ,e1 ,e2)
      (let [(e1-ds (desugar-expr e1))
            (e2-ds (desugar-expr e2))]
-       `(if (eq? ,e1-ds #t) ,e2-ds #f))]
+       `(if (eq? ,e1-ds #t) Bool ,e2-ds #f))]
 
-    [`(if ,e1 ,e2 ,e3)
-     (list 'if (desugar-expr e1) (desugar-expr e2) (desugar-expr e3))]
+    [`(if ,e1 ,ret-ty ,e2 ,e3)
+     (list 'if (desugar-expr e1) ret-ty (desugar-expr e2) (desugar-expr e3))]
 
-    [`(let ([,var ,e1]) ,e2)
-     `(let ([,var ,(desugar-expr e1)]) ,(desugar-expr e2))]
+    [`(let ([,var ,var-ty ,e1]) ,e2)
+     `(let ([,var ,var-ty ,(desugar-expr e1)]) ,(desugar-expr e2))]
 
     [`(read) e0]
 
-    [`(vector . ,elems)
-     `(vector ,@(map desugar-expr elems))]
+    [`(vector ,elem-tys . ,elems)
+     `(vector ,elem-tys ,@(map desugar-expr elems))]
 
     [_ (unsupported-form 'desugar-expr e0)]))

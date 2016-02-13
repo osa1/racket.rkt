@@ -21,11 +21,11 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ;; Important cases
 
-    [`(if ,e1 ,e2 ,e3)
+    [`(if ,e1 ,ret-ty ,e2 ,e3)
      (match (choose-branch-expr e1)
        [#t (choose-branch-expr e2)]
        [#f (choose-branch-expr e3)]
-       [e1 `(if ,e1 ,(choose-branch-expr e2) ,(choose-branch-expr e3))])]
+       [e1 `(if ,e1 ,ret-ty ,(choose-branch-expr e2) ,(choose-branch-expr e3))])]
 
     [`(eq? ,e1 ,e2)
      (let [(e1 (choose-branch-expr e1))
@@ -51,10 +51,10 @@
     [`(,(or '+ 'vector-ref) ,e1 ,e2)
      (list (car e0) (choose-branch-expr e1) (choose-branch-expr e2))]
 
-    [`(let ([,var ,e1]) ,body)
-     `(let ([,var ,(choose-branch-expr e1)]) ,(choose-branch-expr body))]
+    [`(let ([,var ,var-ty ,e1]) ,body)
+     `(let ([,var ,var-ty ,(choose-branch-expr e1)]) ,(choose-branch-expr body))]
 
-    [`(vector . ,elems)
-     `(vector ,@(map choose-branch-expr elems))]
+    [`(vector ,elem-tys . ,elems)
+     `(vector ,elem-tys ,@(map choose-branch-expr elems))]
 
     [_ (unsupported-form 'choose-branch-expr e0)]))

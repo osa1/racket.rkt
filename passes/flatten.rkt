@@ -1,11 +1,18 @@
 #lang racket
 
+(require (only-in "typecheck.rkt" op-ret-ty))
 (require "utils.rkt")
 
 (provide flatten)
 
 ;; NOTE: Flatten doesn't completely flatten the program. Namely, it returns
 ;; programs with if-expressions, which have two program branches.
+
+;; NOTE: Flatten annotates each assign and if with its type. So the form is
+;; now:
+;;
+;;   (assign var var-type expr)
+;;   (if cond ret-ty expr expr)
 
 (define (flatten pgm)
   (match pgm
@@ -24,10 +31,10 @@
   (match pgm
     [(list) (set)]
 
-    [(cons `(assign ,x ,_) t)
+    [(cons `(assign ,x ,_ ,_) t)
      (set-add (collect-binds t) x)]
 
-    [(cons `(if ,x ,pgm1 ,pgm2) t)
+    [(cons `(if ,x ,_ ,pgm1 ,pgm2) t)
      (set-union (if (symbol? x) (set x) (set))
                 (collect-binds pgm1)
                 (collect-binds pgm2)
@@ -53,54 +60,60 @@
 
     [`(read)
      (let [(fresh (gensym "tmp"))]
-       (values binds (cons `(assign ,fresh (read)) pgm) fresh))]
+       (values binds (cons `(assign ,fresh 'Integer (read)) pgm) fresh))]
 
     [`(,(or '- 'not) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let [(fresh (gensym "tmp"))]
-         (values binds (cons `(assign ,fresh (,(car expr) ,e1)) pgm) fresh)))]
+         (values binds (cons `(assign ,fresh ,(op-ret-ty (car expr))
+                                      (,(car expr) ,e1))
+                             pgm)
+                 fresh)))]
 
     [`(,(or '+ 'eq? 'vector-ref) ,e1 ,e2)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let-values ([(binds pgm e2) (flatten-expr binds pgm e2)])
          (let [(fresh (gensym "tmp"))]
-           (values binds (cons `(assign ,fresh (,(car expr) ,e1 ,e2)) pgm) fresh))))]
+           (values binds (cons `(assign ,fresh ,(op-ret-ty (car expr))
+                                        (,(car expr) ,e1 ,e2))
+                               pgm)
+                   fresh))))]
 
     [(? symbol?)
      (values binds pgm (hash-ref binds expr))]
 
-    [`(let ([,var ,e1]) ,body)
+    [`(let ([,var ,var-ty ,e1]) ,body)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let [(fresh (gensym (string-append "tmp_" (symbol->string var) "_")))]
          (let-values ([(binds pgm body)
                        (flatten-expr (hash-set binds var fresh)
-                                     (cons `(assign ,fresh ,e1) pgm)
+                                     (cons `(assign ,fresh ,var-ty ,e1) pgm)
                                      body)])
            (values binds pgm body))))]
 
-    [`(if (eq? ,e1 ,e2) ,e3 ,e4)
+    [`(if (eq? ,e1 ,e2) ,ret-ty ,e3 ,e4)
      (let [(fresh (gensym "tmp-if"))]
        (let*-values [((binds pgm e1)  (flatten-expr binds pgm e1))
                      ((binds pgm e2)  (flatten-expr binds pgm e2))
                      ((_ pgm-t ret-t) (flatten-expr binds '() e3))
                      ((_ pgm-f ret-f) (flatten-expr binds '() e4))]
-         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-t) pgm-t)))
-                (pgm-f (reverse (cons `(assign ,fresh ,ret-f) pgm-f)))]
-           (values binds (cons `(if (eq? ,e1 ,e2) ,pgm-t ,pgm-f) pgm) fresh))))]
+         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-ty ,ret-t) pgm-t)))
+                (pgm-f (reverse (cons `(assign ,fresh ,ret-ty ,ret-f) pgm-f)))]
+           (values binds (cons `(if (eq? ,e1 ,e2) ,ret-ty ,pgm-t ,pgm-f) pgm) fresh))))]
 
-    [`(if ,e1 ,e2 ,e3)
+    [`(if ,e1 ,ret-ty ,e2 ,e3)
      (let [(fresh (gensym "tmp-if"))]
        (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
                      [(_ pgm-t ret-t) (flatten-expr binds '() e2)]
                      [(_ pgm-f ret-f) (flatten-expr binds '() e3)])
-         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-t) pgm-t)))
-                (pgm-f (reverse (cons `(assign ,fresh ,ret-f) pgm-f)))]
-           (values binds (cons `(if (eq? ,e1 #t) ,pgm-t ,pgm-f) pgm) fresh))))]
+         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-ty ,ret-t) pgm-t)))
+                (pgm-f (reverse (cons `(assign ,fresh ,ret-ty ,ret-f) pgm-f)))]
+           (values binds (cons `(if (eq? ,e1 #t) ,ret-ty ,pgm-t ,pgm-f) pgm) fresh))))]
 
-    [`(vector . ,elems)
+    [`(vector ,elem-tys . ,elems)
      (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
        (let [(fresh (gensym "tmp-vec"))]
-         (values binds (cons `(assign ,fresh (vector ,@es)) pgm) fresh)))]
+         (values binds (cons `(assign ,fresh (vector ,@elem-tys) (vector ,@es)) pgm) fresh)))]
 
     [_ (unsupported-form 'flatten-expr expr)]))
 
@@ -113,10 +126,10 @@
   (match stmts
     [(list) '()]
 
-    [(cons `(assign ,x ,y) t)
+    [(cons `(assign ,x ,x-ty ,y) t)
      (if (symbol? y)
        (remove-var-asgns (rename-stmts x y t))
-       (cons `(assign ,x ,y) (remove-var-asgns t)))]
+       (cons `(assign ,x ,x-ty ,y) (remove-var-asgns t)))]
 
     ;; FIXME: This is not quite right: Last statement of if branches are always
     ;; assignments to a variable. Disabling this for now.
@@ -132,19 +145,19 @@
   (match stmts
     [(list) '()]
 
-    [(cons `(assign ,x1 ,y1) t)
+    [(cons `(assign ,x1 ,x-ty ,y1) t)
      (cond [(eq? x1 x)
             (error 'rename-stmts "BUG: the variable seen in LHS: ~s in ~s~n" x stmts)]
            [else
-            (cons `(assign ,x1 ,(rename-expr x y y1)) (rename-stmts x y t))])]
+            (cons `(assign ,x1 ,x-ty ,(rename-expr x y y1)) (rename-stmts x y t))])]
 
     [(cons `(return ,y1) t)
      (if (eq? y1 x)
        (cons `(return ,y) (rename-stmts x y t))
        (cons `(return ,y1) (rename-stmts x y t)))]
 
-    [(cons `(if ,e1 ,pgm-t ,pgm-f) t)
-     (cons `(if ,(rename-expr x y e1) ,(rename-stmts x y pgm-t) ,(rename-stmts x y pgm-f))
+    [(cons `(if ,e1 ,ret-ty ,pgm-t ,pgm-f) t)
+     (cons `(if ,(rename-expr x y e1) ,ret-ty ,(rename-stmts x y pgm-t) ,(rename-stmts x y pgm-f))
            (rename-stmts x y t))]
 
     [(cons unsupported _)

@@ -14,46 +14,49 @@
         [else
          (start-from step (cdr passes))]))
 
-(interp-tests "first assignment" typecheck r1-passes interp-scheme "uniquify" (range 1 6))
-(compiler-tests "first assignment" typecheck r1-passes "uniquify" (range 1 6))
+; (interp-tests "first assignment" typecheck r1-passes interp-scheme "uniquify" (range 1 6))
+(compiler-tests "first assignment" typechecker r1-passes "uniquify" (range 1 6))
 
-(interp-tests "first assignment" typecheck r1-passes interp-scheme "flatten" (range 1 5))
-(compiler-tests "first assignment" typecheck r1-passes "flatten" (range 1 5))
+; (interp-tests "first assignment" typecheck r1-passes interp-scheme "flatten" (range 1 5))
+(compiler-tests "first assignment" typechecker r1-passes "flatten" (range 1 5))
 
-(interp-tests "select instructions" typecheck-ignore (start-from "instr-sel" r1-passes) interp-C
-              "select_instructions" (range 1 4))
+; (interp-tests "select instructions" typecheck-ignore (start-from "instr-sel" r1-passes) interp-C
+;               "select_instructions" (range 1 4))
 (compiler-tests "select instructions" typecheck-ignore (start-from "instr-sel" r1-passes)
                 "select_instructions" (range 1 4))
 
 
-(interp-tests "patch instructions" typecheck-ignore (start-from "patch-instructions" r1-passes)
-              interp-x86 "patch_instructions" (range 1 4))
+; (interp-tests "patch instructions" typecheck-ignore (start-from "patch-instructions" r1-passes)
+;               interp-x86 "patch_instructions" (range 1 4))
 (compiler-tests "patch instructions" typecheck-ignore (start-from "patch-instructions" r1-passes)
                 "patch_instructions" (range 1 4))
 
-(interp-tests "r0" typecheck r1-passes interp-scheme "r0" (range 1 5))
-(compiler-tests "r0" typecheck r1-passes "r0" (range 1 5))
+; (interp-tests "r0" typecheck r1-passes interp-scheme "r0" (range 1 5))
+(compiler-tests "r0" typechecker r1-passes "r0" (range 1 5))
 
-(interp-tests "r1" typecheck r1-passes interp-scheme "r1" (range 1 22))
-(compiler-tests "r1" typecheck r1-passes "r1" (range 1 22))
+; (interp-tests "r1" typecheck r1-passes interp-scheme "r1" (range 1 22))
+(compiler-tests "r1" typechecker r1-passes "r1" (range 1 22))
 
 ; This fails because apparently x86 interpreter doesn't support pushq and popq
 ; (interp-tests "r1a" typecheck r1-passes interp-scheme "r1a" (range 1 9))
-(compiler-tests "r1a" typecheck r1-passes "r1a" (range 1 9))
+(compiler-tests "r1a" typechecker r1-passes "r1a" (range 1 9))
 
-(interp-tests "forum" typecheck r1-passes interp-scheme "forum" (range 1 2))
-(compiler-tests "forum" typecheck r1-passes "forum" (range 1 2))
+
+; (interp-tests "forum" typecheck r1-passes interp-scheme "forum" (range 1 2))
+(compiler-tests "forum" typechecker r1-passes "forum" (range 1 2))
+
 
 ; Similarly fails because of pushq/popq
 ; (interp-tests "crazy" typecheck r1-passes interp-scheme "crazy" (range 1 3))
-(compiler-tests "crazy" typecheck r1-passes "crazy" (range 1 3))
+(compiler-tests "crazy" typechecker r1-passes "crazy" (range 1 3))
 
 (define (typecheck-pgm file [should-fail? #f])
-  (let [(pgm (read-program file))]
+  (let* ([pgm (read-program file)]
+         [ret (typechecker pgm)])
     (if should-fail?
-      (when (typecheck pgm)
+      (when ret
         (error 'typecheck-pgm "ill-typed program passed the type cheking: ~a~n" file))
-      (when (not (typecheck pgm))
+      (unless ret
         (error 'typecheck-pgm "can't typecheck well-typed program: ~a~n" file)))))
 
 (typecheck-pgm "tests/ty_1.rkt")
@@ -67,14 +70,16 @@
 (typecheck-pgm "tests/ty_9.rkt" #t)
 (typecheck-pgm "tests/ty_10.rkt" #t)
 
-(interp-tests "conditionals-1" typecheck r2-passes interp-scheme "cond" (range 1 5))
-(compiler-tests "conditionals-1" typecheck r1-passes "cond" (range 1 5))
 
-(interp-tests "conditionals-2" typecheck r1-passes interp-scheme "ty" (range 1 6))
-(compiler-tests "conditionals-2" typecheck r1-passes "ty" (range 1 6))
+; (interp-tests "conditionals-1" typecheck r2-passes interp-scheme "cond" (range 1 5))
+(compiler-tests "conditionals-1" typechecker r1-passes "cond" (range 1 5))
 
-(interp-tests "r2" typecheck r2-passes interp-scheme "r2" (range 1 24))
-(compiler-tests "r2" typecheck r2-passes "r2" (range 1 24))
+
+; (interp-tests "conditionals-2" typecheck r1-passes interp-scheme "ty" (range 1 6))
+(compiler-tests "conditionals-2" typechecker r1-passes "ty" (range 1 6))
+
+; (interp-tests "r2" typecheck r2-passes interp-scheme "r2" (range 1 24))
+(compiler-tests "r2" typechecker r2-passes "r2" (range 1 24))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Vectors
@@ -84,11 +89,11 @@
     ("choose-branch" ,choose-branch ,interp-scheme)
     ("uniquify" ,uniquify ,interp-scheme)
     ("flatten" ,flatten ,interp-C)
+    ("expose-allocations" ,expose-allocations ,interp-C)
     ))
 
-(debug-level 2)
-
-(interp-tests "vec" typecheck vec-passes interp-scheme "vector" (range 1 3))
+; (debug-level 2)
+; (interp-tests "vec" typecheck vec-passes interp-scheme "vector" (range 1 3))
 
 ; (define (show-steps steps file)
 ;   (let [(pgm (read-program file))]
@@ -123,3 +128,6 @@
 ; (show-steps steps "tests/cond_3.rkt")
 ; (show-steps steps "tests/cond_4.rkt")
 ; (show-steps steps "tests/r2_15.rkt")
+
+(newline)
+(newline)

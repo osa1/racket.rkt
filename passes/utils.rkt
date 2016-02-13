@@ -10,3 +10,11 @@
 
 (define (unsupported-form fname form)
   (error fname "Unsupported form: ~s~n" form))
+
+(define (unzip lst)
+  (match lst
+    [`() (values '() '())]
+    [`((,x . ,y) . rest)
+     (let-values ([(xs ys) (unzip rest)])
+       (values (cons x xs) (cons y ys)))]))
+
