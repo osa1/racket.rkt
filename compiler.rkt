@@ -30,7 +30,7 @@
 (define typechecker typecheck)
 
 (define r1-passes
-  `(("desugar" ,desugar, interp-scheme)
+  `(("desugar" ,desugar ,interp-scheme)
 
     ;; TODO: Think about the best place for this. One of the goals here is to
     ;; avoid generating illegal instructions for code like (if (eq? 1 1) _ _).
