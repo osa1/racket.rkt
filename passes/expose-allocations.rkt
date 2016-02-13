@@ -15,10 +15,22 @@
 
 (define (expose-allocations-stmt stmt)
   (match stmt
-    [`(assign ,x ,_ ,arg) `((assign ,x ,arg))]
+    [`(assign ,x (vector . ,tys) (vector . ,elems))
+     (let ([words-needed
+             ; one byte for info, one byte for each element in the vector
+             (+ 8 (* 8 (length tys)))])
+       `((if (collection-needed? ,words-needed)
+           ((collect ,words-needed))
+           ())
 
-    [`(assign ,x (vector . ,tys) ,(vector . ,_))
-     (error "not implemented yet")]
+         (assign ,x (allocate ,(length tys) ,tys))
+
+         ,@(map (lambda (idx elem)
+                  `(vector-set! ,x ,idx ,elem))
+                (range (length elems))
+                elems)))]
+
+    [`(assign ,x ,_ ,arg) `((assign ,x ,arg))]
 
     [`(if ,cond ,_ ,pgm-t ,pgm-f) `((if ,cond ,(append-map expose-allocations-stmt pgm-t)
                                               ,(append-map expose-allocations-stmt pgm-f)))]
