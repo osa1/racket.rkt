@@ -9,6 +9,7 @@
 (require "passes/choose-branch.rkt")
 (require "passes/uniquify.rkt")
 (require "passes/flatten.rkt")
+(require "passes/expose-allocations.rkt")
 (require "passes/instr-sel.rkt")
 (require "passes/reg-alloc.rkt")
 (require "passes/patch-instructions.rkt")
@@ -20,10 +21,21 @@
 (provide r1-passes r2-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
+
+         ;; type checking
          typechecker
          typecheck typecheck-ignore
-         desugar choose-branch uniquify flatten instr-sel assign-homes patch-instructions
-         elim-movs save-regs lower-conditionals print-x86_64)
+
+         ;; scheme passes
+         desugar choose-branch uniquify flatten
+
+         ;; C passes
+         expose-allocations instr-sel
+
+         ;; asm passes
+         assign-homes patch-instructions elim-movs save-regs lower-conditionals
+
+         print-x86_64)
 
 ; Synonym for typecheck, this is required by the assignment but I don't like
 ; giving it a noun, as all other passes have verb names.
@@ -38,6 +50,7 @@
 
     ("uniquify" ,uniquify ,interp-scheme)
     ("flatten" ,flatten ,interp-C)
+    ("expose-allocations" ,expose-allocations ,interp-C)
     ("instr-sel" ,instr-sel ,interp-x86)
     ("assign-homes" ,assign-homes ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
