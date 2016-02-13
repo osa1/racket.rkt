@@ -1,5 +1,5 @@
 SHELL  = /bin/bash
-CC     = gcc
+CC     = clang
 CC_OPTS= -std=c11 -Wall -Wpedantic -Wextra
 
 execs =
@@ -19,11 +19,8 @@ test: test1 | pngs
 test1: runtime.o
 	racket test.rkt
 
-runtime.o: public/runtime.c
-	$(CC) $^ -c -g -o $@ $(CC_OPTS)
-
 %.o: %.c
-	$(CC) $^ -c -g -o $@
+	$(CC) $^ -c -g -o $@ $(CC_OPTS)
 
 %.o: %.s
 	$(CC) $^ -c -g -o $@
