@@ -8,12 +8,13 @@
 ;; is that it's only defined in front-end language. When we want to run
 ;; compiler-tests on some intermediate language etc. we have to either implement
 ;; a type checker for all the intermediate languages, or skip the type-checking.
-;;
 (define (typecheck-ignore _) #t)
 
 ;; This ignores the annotated program. Useful for compiler-tests.
 (define (typechecker pgm)
-  (with-handlers ([exn:fail? (lambda (_) #f)])
+  (with-handlers ([exn:fail? (lambda (e)
+                               ; (printf "Type checking failed: ~s~n" e)
+                               #f)])
     (begin (typecheck pgm) #t)))
 
 ;; Currently we only annotate vector, let and if expressions with types.
@@ -107,7 +108,8 @@
             (error 'typecheck
                    "Invalid vector index: ~s vector size: ~s expression: ~s~n"
                    idx (length elems) expr))
-          (values `(vector-ref ,vec ,idx) (list-ref elems idx))]
+          (let [(ret-ty (list-ref elems idx))]
+            (values `(vector-ref ,ret-ty ,vec ,idx) ret-ty))]
          [_ (ty-err vec 'Vector vec-ty)]))]
 
     [_ (unsupported-form 'typecheck-iter expr)]))

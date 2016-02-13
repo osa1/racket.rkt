@@ -51,6 +51,7 @@
 (compiler-tests "crazy" typechecker r1-passes "crazy" (range 1 3))
 
 (define (typecheck-pgm file [should-fail? #f])
+  (display (string-append "typecheck:" file " "))
   (let* ([pgm (read-program file)]
          [ret (typechecker pgm)])
     (if should-fail?
@@ -69,7 +70,8 @@
 (typecheck-pgm "tests/ty_8.rkt" #t)
 (typecheck-pgm "tests/ty_9.rkt" #t)
 (typecheck-pgm "tests/ty_10.rkt" #t)
-
+(typecheck-pgm "tests/vector_1.rkt")
+(typecheck-pgm "tests/vector_2.rkt")
 
 ; (interp-tests "conditionals-1" typecheck r2-passes interp-scheme "cond" (range 1 5))
 (compiler-tests "conditionals-1" typechecker r1-passes "cond" (range 1 5))
@@ -84,16 +86,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Vectors
 
-(define vec-passes
-  `(("desugar" ,desugar ,interp-scheme)
-    ("choose-branch" ,choose-branch ,interp-scheme)
-    ("uniquify" ,uniquify ,interp-scheme)
-    ("flatten" ,flatten ,interp-C)
-    ("expose-allocations" ,expose-allocations ,interp-C)
-    ))
-
 ; (debug-level 2)
 ; (interp-tests "vec" typecheck vec-passes interp-scheme "vector" (range 1 3))
+; (compiler-tests "vec" typechecker r2-passes "vector" (range 1 3))
 
 ; (define (show-steps steps file)
 ;   (let [(pgm (read-program file))]

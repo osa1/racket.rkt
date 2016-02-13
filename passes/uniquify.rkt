@@ -17,7 +17,7 @@
     [`(,(or '- 'not) ,e1)
      (list (car e0) (uniquify-expr rns e1))]
 
-    [`(,(or '+ 'eq? 'vector-ref) ,e1 ,e2)
+    [`(,(or '+ 'eq?) ,e1 ,e2)
      (list (car e0) (uniquify-expr rns e1) (uniquify-expr rns e2))]
 
     [`(if ,e1 ,ret-ty ,e2 ,e3)
@@ -31,6 +31,9 @@
             [rns1 (hash-set rns var fresh)])
        `(let ([,fresh ,var-ty ,(uniquify-expr rns e1)])
           ,(uniquify-expr rns1 body)))]
+
+    [`(vector-ref ,ret-ty ,e1 ,e2)
+     (list 'vector-ref ret-ty (uniquify-expr rns e1) (uniquify-expr rns e2))]
 
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map (lambda (elem) (uniquify-expr rns elem)) elems))]

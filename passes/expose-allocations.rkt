@@ -17,6 +17,9 @@
   (match stmt
     [`(assign ,x ,_ ,arg) `((assign ,x ,arg))]
 
+    [`(assign ,x (vector . ,tys) ,(vector . ,_))
+     (error "not implemented yet")]
+
     [`(if ,cond ,_ ,pgm-t ,pgm-f) `((if ,cond ,(append-map expose-allocations-stmt pgm-t)
                                               ,(append-map expose-allocations-stmt pgm-f)))]
 

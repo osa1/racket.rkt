@@ -14,7 +14,7 @@
 (define (unzip lst)
   (match lst
     [`() (values '() '())]
-    [`((,x . ,y) . rest)
+    [(list-rest (cons x y) rest)
      (let-values ([(xs ys) (unzip rest)])
-       (values (cons x xs) (cons y ys)))]))
-
+       (values (cons x xs) (cons y ys)))]
+    [_ (unsupported-form 'unzip lst)]))

@@ -48,11 +48,14 @@
     [`(,(or '- 'not) ,e1)
      (list (car e0) (choose-branch-expr e1))]
 
-    [`(,(or '+ 'vector-ref) ,e1 ,e2)
+    [`(,(or '+) ,e1 ,e2)
      (list (car e0) (choose-branch-expr e1) (choose-branch-expr e2))]
 
     [`(let ([,var ,var-ty ,e1]) ,body)
      `(let ([,var ,var-ty ,(choose-branch-expr e1)]) ,(choose-branch-expr body))]
+
+    [`(vector-ref ,ret-ty ,e1 ,e2)
+     (list 'vector-ref ret-ty (choose-branch-expr e1) (choose-branch-expr e2))]
 
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map choose-branch-expr elems))]

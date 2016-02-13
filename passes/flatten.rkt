@@ -70,7 +70,7 @@
                              pgm)
                  fresh)))]
 
-    [`(,(or '+ 'eq? 'vector-ref) ,e1 ,e2)
+    [`(,(or '+ 'eq?) ,e1 ,e2)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let-values ([(binds pgm e2) (flatten-expr binds pgm e2)])
          (let [(fresh (gensym "tmp"))]
@@ -109,6 +109,15 @@
          (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-ty ,ret-t) pgm-t)))
                 (pgm-f (reverse (cons `(assign ,fresh ,ret-ty ,ret-f) pgm-f)))]
            (values binds (cons `(if (eq? ,e1 #t) ,ret-ty ,pgm-t ,pgm-f) pgm) fresh))))]
+
+    [`(vector-ref ,ret-ty ,e1 ,e2)
+     (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
+                   [(binds pgm e2) (flatten-expr binds pgm e2)])
+       (let [(fresh (gensym "tmp"))]
+         (values binds (cons `(assign ,fresh ,ret-ty
+                                      (,(car expr) ,e1 ,e2))
+                             pgm)
+                 fresh)))]
 
     [`(vector ,elem-tys . ,elems)
      (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
