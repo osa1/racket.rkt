@@ -75,11 +75,7 @@
        (match (typecheck-iter vec env)
          [`(vector . ,elems)
           (if (< idx (length elems))
-            (let [(elem-types
-                    (filter id (map (lambda (elem) (typecheck-iter elem env)) elems)))]
-              (if (eq? (length elem-types) (length elems))
-                (list-ref elem-types idx)
-                #f))
+            (list-ref elems idx)
             #f)]
          [_ #f])
        #f)]
