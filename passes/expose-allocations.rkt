@@ -16,11 +16,11 @@
 (define (expose-allocations-stmt stmt)
   (match stmt
     [`(assign ,x (vector . ,tys) (vector . ,elems))
-     (let ([words-needed
+     (let ([bytes-needed
              ; one byte for info, one byte for each element in the vector
              (+ 8 (* 8 (length tys)))])
-       `((if (collection-needed? ,words-needed)
-           ((collect ,words-needed))
+       `((if (collection-needed? ,bytes-needed)
+           ((collect ,bytes-needed))
            ())
 
          (assign ,x (allocate ,(length tys) ,tys))
