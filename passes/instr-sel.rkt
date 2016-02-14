@@ -13,8 +13,9 @@
 
 (define (instr-sel pgm)
   (match pgm
-    [(list-rest 'program vs stmts)
+    [`(program ,vs . ,stmts)
      ; (printf "stmts: ~s~n" stmts)
+     ; NOTE: vs is not used during or after this pass
      `(program ,vs ,@(append-map instr-sel-stmt stmts))]
 
     [_ (unsupported-form 'instr-sel pgm)]))
@@ -31,6 +32,35 @@
      `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
          ,(append-map instr-sel-stmt pgm-t)
          ,(append-map instr-sel-stmt pgm-f)))]
+
+    [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
+     (let ([free-ptr-updated (gensym "free_ptr_updated")])
+       ; Here's how instructions used here work:
+       ;
+       ;    cmpq: is setting the comparison flags.
+       ;    setl: "set byte if less". result will be 1 if free-ptr-updated is
+       ;          less than fromspace_end.
+       `((movq (global-value free_ptr) (var ,free-ptr-updated))
+         (addq (int ,bytes-needed) (var ,free-ptr-updated))
+         (cmpq (var ,free-ptr-updated) (global-value fromspace_end))
+
+         ; NOTE the setl instead of sete! We need to check if free-ptr-updated
+         ; is bigger than fromspace_end!
+         ; TODO: We're assuming the space grows upwards here. Make sure this is
+         ; really the case? (it should be as this is heap)
+         (setl (byte-reg al))
+
+         ; reusing free-ptr-updated here for the eq? test
+         (movzbq (byte-reg al) (var ,free-ptr-updated))
+         ; do we really need eq? test here? generated code will suffer a little
+         (if (eq? (int 0) (var ,free-ptr-updated))
+           ; rax == 0 means free-ptr-updated is smaller than fromspace_end, so
+           ; no allocatins needed
+           ,(append-map instr-sel-stmt pgm-f)
+           ,(append-map instr-sel-stmt pgm-t))))]
+
+    [`(call-live-roots ,roots (collect ,bytes-needed))
+     (error 'call-live-roots "not implemented yet")]
 
     [_ (unsupported-form 'instr-sel-stmt stmt)]))
 
