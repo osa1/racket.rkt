@@ -326,7 +326,7 @@
 ; Output: x86 without any (var)s.
 (define (assign-homes pgm)
   (match pgm
-    [(list-rest 'program vs instrs)
+    [`(program ,_ . ,instrs)
      (let-values [((pgm live-after-sets) (gen-live-afters pgm))]
        (let* ([int-graph (build-interference-graph pgm live-after-sets)]
               [move-rel (mk-move-relation pgm int-graph)])
