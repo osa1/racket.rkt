@@ -1,5 +1,7 @@
 #lang racket
 
+(require racket/hash)
+
 (require (only-in "typecheck.rkt" op-ret-ty))
 (require "utils.rkt")
 
@@ -14,6 +16,8 @@
 ;;   (assign var var-type expr)
 ;;   (if cond ret-ty expr expr)
 
+;; NOTE: The variables in meta-data field of the program now has types.
+
 (define (flatten pgm)
   (match pgm
     [`(program ,e)
@@ -22,23 +26,23 @@
        (let [(stats (reverse (cons `(return ,e) pgm)))]
          ; (printf "stats before remove-var-asgns: ~s~n" stats)
          ; (printf "stats after remove-var-asgns: ~s~n" (remove-var-asgns stats))
-         `(program ,(set->list (collect-binds pgm)) ,@(remove-var-asgns stats))))]
+         `(program ,(collect-binds pgm) ,@(remove-var-asgns stats))))]
 
     [_ (unsupported-form 'flatten pgm)]))
 
 (define (collect-binds pgm)
   ; (printf "collect-binds: ~s~n" pgm)
   (match pgm
-    [(list) (set)]
+    [(list) (hash)]
 
-    [(cons `(assign ,x ,_ ,_) t)
-     (set-add (collect-binds t) x)]
+    [(cons `(assign ,x ,x-ty ,_) t)
+     (hash-set (collect-binds t) x x-ty)]
 
     [(cons `(if ,x ,_ ,pgm1 ,pgm2) t)
-     (set-union (if (symbol? x) (set x) (set))
-                (collect-binds pgm1)
-                (collect-binds pgm2)
-                (collect-binds t))]
+     (hash-union (collect-binds pgm1)
+                 (collect-binds pgm2)
+                 (collect-binds t)
+                 #:combine (lambda (v1 v2) v1))]
 
     [_ (unsupported-form 'collect-binds pgm)]))
 
@@ -115,7 +119,7 @@
                    [(binds pgm e2) (flatten-expr binds pgm e2)])
        (let [(fresh (gensym "tmp"))]
          (values binds (cons `(assign ,fresh ,ret-ty
-                                      (,(car expr) ,e1 ,e2))
+                                      (vector-ref ,e1 ,e2))
                              pgm)
                  fresh)))]
 
