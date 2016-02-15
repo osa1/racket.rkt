@@ -15,75 +15,79 @@
   (match pgm
     [`(program ,vs . ,stmts)
      ; (printf "stmts: ~s~n" stmts)
-     ; NOTE: vs is not used during or after this pass
-     `(program ,vs ,@(append-map instr-sel-stmt stmts))]
-
+     ; FIXME: We're creating fresh variables for allocation-related statements.
+     (let* ([new-vars (mutable-set)]
+            [instrs (append-map (lambda (stmt) (instr-sel-stmt new-vars stmt)) stmts)])
+       `(program ,(append vs (set->list new-vars)) ,@instrs))]
     [_ (unsupported-form 'instr-sel pgm)]))
 
-(define (instr-sel-stmt stmt)
-  (match stmt
-    [`(assign ,var ,expr)
-     (instr-sel-expr var expr)]
+; TEMP: I don't want to do big refactorings, adding a mutable argument for now.
+(define (instr-sel-stmt new-vars stmt)
+  (let iter ([stmt stmt])
+    (match stmt
+      [`(assign ,var ,expr)
+       (instr-sel-expr var expr)]
 
-    [`(return ,arg)
-     `((movq ,(arg->x86-arg arg) (reg rax)))]
+      [`(return ,arg)
+       `((movq ,(arg->x86-arg arg) (reg rax)))]
 
-    [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
-     `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
-         ,(append-map instr-sel-stmt pgm-t)
-         ,(append-map instr-sel-stmt pgm-f)))]
+      [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+       `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
+           ,(append-map iter pgm-t)
+           ,(append-map iter pgm-f)))]
 
-    [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
-     (let ([free-ptr-updated (gensym "free_ptr_updated")])
-       ; Here's how instructions used here work:
-       ;
-       ;    cmpq: is setting the comparison flags.
-       ;    setl: "set byte if less". result will be 1 if free-ptr-updated is
-       ;          less than fromspace_end.
-       `((movq (global-value free_ptr) (var ,free-ptr-updated))
-         (addq (int ,bytes-needed) (var ,free-ptr-updated))
-         (cmpq (var ,free-ptr-updated) (global-value fromspace_end))
+      [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
+       (let ([free-ptr-updated (gensym "free_ptr_updated")])
+         (set-add! new-vars free-ptr-updated)
+         ; Here's how instructions used here work:
+         ;
+         ;    cmpq: is setting the comparison flags.
+         ;    setl: "set byte if less". result will be 1 if free-ptr-updated is
+         ;          less than fromspace_end.
+         `((movq (global-value free_ptr) (var ,free-ptr-updated))
+           (addq (int ,bytes-needed) (var ,free-ptr-updated))
+           (cmpq (var ,free-ptr-updated) (global-value fromspace_end))
 
-         ; NOTE the setl instead of sete! We need to check if free-ptr-updated
-         ; is bigger than fromspace_end!
-         ; TODO: We're assuming the space grows upwards here. Make sure this is
-         ; really the case? (it should be as this is heap)
-         (setl (byte-reg al))
+           ; NOTE the setl instead of sete! We need to check if free-ptr-updated
+           ; is bigger than fromspace_end!
+           ; TODO: We're assuming the space grows upwards here. Make sure this is
+           ; really the case? (it should be as this is heap)
+           (setl (byte-reg al))
 
-         ; reusing free-ptr-updated here for the eq? test
-         (movzbq (byte-reg al) (var ,free-ptr-updated))
-         ; do we really need eq? test here? generated code will suffer a little
-         (if (eq? (int 0) (var ,free-ptr-updated))
-           ; rax == 0 means free-ptr-updated is smaller than fromspace_end, so
-           ; no allocatins needed
-           ,(append-map instr-sel-stmt pgm-f)
-           ,(append-map instr-sel-stmt pgm-t))))]
+           ; reusing free-ptr-updated here for the eq? test
+           (movzbq (byte-reg al) (var ,free-ptr-updated))
+           ; do we really need eq? test here? generated code will suffer a little
+           (if (eq? (int 0) (var ,free-ptr-updated))
+             ; rax == 0 means free-ptr-updated is smaller than fromspace_end, so
+             ; no allocatins needed
+             ,(append-map iter pgm-f)
+             ,(append-map iter pgm-t))))]
 
-    [`(call-live-roots ,roots (collect ,bytes-needed))
-     `(; Step 1: Move roots to the root stack
-       ,@(map (lambda (idx root)
-                `(movq ,root (offset (global-value rootstack_begin) ,(* 8 idx))))
-              (range (length roots)) roots)
+      [`(call-live-roots ,roots (collect ,bytes-needed))
+       `(; Step 1: Move roots to the root stack
+         ,@(map (lambda (idx root)
+                  `(movq ,(arg->x86-arg root) (offset (global-value rootstack_begin) ,(* 8 idx))))
+                (range (length roots)) roots)
 
-       ; Step 2: Set up arguments for `collect`
-       ; TODO: I don't understand why we need to pass root stack pointer here.
-       (movq (global-value rootstack_begin) (reg rdi))
-       (movq (int ,bytes-needed) (reg rsi))
+         ; Step 2: Set up arguments for `collect`
+         ; TODO: I don't understand why we need to pass root stack pointer here.
+         (movq (global-value rootstack_begin) (reg rdi))
+         (movq (int ,bytes-needed) (reg rsi))
 
-       ; Step 3: Call the collector
-       (callq collect)
+         ; Step 3: Call the collector
+         (callq collect)
 
-       ; Step 4: Move new roots back to the variables
-       ,@(map (lambda (idx root)
-                `(movq (offset (global-value rootstack_begin) ,(* 8 idx))
-                       ,(arg->x86-arg root)))
-              (range (length roots)) roots))]
+         ; Step 4: Move new roots back to the variables
+         ,@(map (lambda (idx root)
+                  `(movq (offset (global-value rootstack_begin) ,(* 8 idx))
+                         ,(arg->x86-arg root)))
+                (range (length roots)) roots))]
 
-    [`(vector-set! ,vec ,idx ,val)
-     (let ([offset (+ 8 (* 8 idx))])
-       `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
+      [`(vector-set! ,vec ,idx ,val)
+       (let ([offset (+ 8 (* 8 idx))])
+         `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
 
-    [_ (unsupported-form 'instr-sel-stmt stmt)]))
+      [_ (unsupported-form 'instr-sel-stmt stmt)])))
 
 (define (instr-sel-expr bind-to expr)
   (match expr

@@ -17,6 +17,8 @@
   (match arg
     [`(stack ,_) #t]
     [`(,(or 'reg 'int) ,_) #f]
+    [`(global-value ,_) #t]
+    [`(offset ,_ ,_) #t]
     [_ (unsupported-form 'arg-mem? arg)]))
 
 (define (patch-instructions-stmt stmt)

@@ -59,7 +59,7 @@ main:\n")
     [`(,(or 'addq 'subq 'movq 'cmpq 'movzbq 'xorq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
 
-    [`(,(or 'negq 'pushq 'popq 'callq 'je 'jmp 'sete) ,arg1)
+    [`(,(or 'negq 'pushq 'popq 'callq 'je 'jmp 'sete 'setl) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
 
     [`(label ,lbl)
@@ -75,5 +75,8 @@ main:\n")
     [`(reg ,reg) (format "%~s" reg)]
     [`(byte-reg ,reg) (format "%~s" reg)]
     [`(stack ,offset) (format "~s(%rbp)" offset)]
+    [`(global-value ,var) (format "$~s" var)]
+    [`(offset ,arg ,offset)
+     (format "~s(~a)" offset (print-x86_64-arg arg))]
     [(? symbol?) arg] ; must be a function call or jmp
     [_ (unsupported-form 'print-x86_64-arg arg)]))

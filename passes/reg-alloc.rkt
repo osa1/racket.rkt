@@ -81,7 +81,7 @@
     ;; XXX: We will have to update this two if we decide to use *ax in the
     ;; future.
 
-    [`(sete ,_)
+    [`(,(or 'sete 'setl) ,_)
      (values instr lives)]
 
     [`(movzbq (byte-reg al) ,arg2)
@@ -162,7 +162,7 @@
          (add-edge graph d live)))]
 
     [`(cmpq ,_ ,_) (void)]
-    [`(sete ,_) (void)]
+    [`(,(or 'sete 'setl) ,_) (void)]
     [`(movzbq (byte-reg al) (,_ ,d))
      (for ([live lives])
        (unless (equal? live d)
@@ -177,6 +177,16 @@
      (for ([live lives])
        (unless (or (equal? live s) (equal? live d))
          (add-edge graph d live)))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Handling movs with relative addressing: Since interference graph is all
+    ; about variables, these don't make any difference on the graph.
+
+    [(or `(movq ,_ (offset ,_ ,_))
+         `(movq (offset ,_ ,_) ,_))
+     (void)]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [`(retq) (void)]
 
@@ -239,18 +249,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Register allocation
 
-; TODO: We can re-use stack locations when spilling, but that's not implemented
-; at the moment.
-
 ; This is an ordered list! We should first use the registers that come first in
 ; the list. Latter ones are the ones we need to save.
 (define general-registers
   (append (set->list callee-save) (set->list caller-save)))
 
-(define (reg-alloc inter-graph move-rels [regs general-registers])
-  (let [(inter-graph (hash-copy inter-graph))]
-    (hash-remove! inter-graph 'rax)
-    (reg-alloc-iter inter-graph move-rels (make-immutable-hash) 0 regs)))
+(define (reg-alloc int-graph move-rels [regs general-registers])
+  (let [(int-graph (hash-copy int-graph))]
+    (hash-remove! int-graph 'rax)
+    (reg-alloc-iter int-graph move-rels (make-immutable-hash) 0 regs)))
 
 (define (reg-alloc-iter int-graph move-rels mapping last-stack-loc regs)
   (if (eq? (hash-count int-graph) (hash-count mapping))
@@ -269,7 +276,6 @@
            (available-regs
              (filter (lambda (reg) (not (set-member? used-regs reg))) regs))
 
-           ; TODO: implement spilling when we run out of available registers
            (available-regs-lst (set->list available-regs))]
 
       (let* [(move-rel-vars (hash-ref move-rels most-constrained (set)))
@@ -361,7 +367,7 @@
 
     [`(retq) instr]
 
-    [`(sete (byte-reg al)) instr]
+    [`(,(or 'sete 'setl) (byte-reg al)) instr]
 
     [`(movzbq (byte-reg al) ,arg)
      `(movzbq (byte-reg al) ,(assign-home-arg asgns arg))]
@@ -373,6 +379,10 @@
     [`(int ,_) arg]
     [`(reg ,_) arg]
     [`(stack ,_) arg]
+    [`(global-value ,_) arg]
+    [`(offset ,arg ,offset)
+     ; TODO: What happens if the pointer is on stack?
+     `(offset ,(assign-home-arg asgns arg) ,offset)]
     [`(var ,var)
      (let [(asgn (hash-ref asgns var '()))]
        (cond [(null? asgn)
