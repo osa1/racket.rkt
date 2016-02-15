@@ -18,6 +18,8 @@
     (begin (typecheck pgm) #t)))
 
 ;; Currently we only annotate vector, let and if expressions with types.
+;; TODO: This shouldn't be necessary. Apparently the typechecker is run as a
+;; pass by the compiler-tests.
 (define (typecheck pgm)
   (match pgm
     [`(program ,e)

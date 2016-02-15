@@ -19,6 +19,7 @@
        (values (cons x xs) (cons y ys)))]
     [_ (unsupported-form 'unzip lst)]))
 
+; TODO: Rewrite this as a fold
 ; Generates 64-bits
 (define (bitfield-from-bit-idxs bit-idxs)
   (let iter ([acc 0] [bit-idxs bit-idxs])
