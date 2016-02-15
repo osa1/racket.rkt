@@ -26,7 +26,7 @@
   (let iter ([stmt stmt])
     (match stmt
       [`(assign ,var ,expr)
-       (instr-sel-expr var expr)]
+       (instr-sel-expr new-vars var expr)]
 
       [`(return ,arg)
        `((movq ,(arg->x86-arg arg) (reg rax)))]
@@ -37,8 +37,10 @@
            ,(append-map iter pgm-f)))]
 
       [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
-       (let ([free-ptr-updated (gensym "free_ptr_updated")])
+       (let ([free-ptr-updated (gensym "free_ptr_updated")]
+             [fromspace-end (gensym "fromspace_end")])
          (set-add! new-vars free-ptr-updated)
+         (set-add! new-vars fromspace-end)
          ; Here's how instructions used here work:
          ;
          ;    cmpq: is setting the comparison flags.
@@ -46,7 +48,8 @@
          ;          less than fromspace_end.
          `((movq (global-value free_ptr) (var ,free-ptr-updated))
            (addq (int ,bytes-needed) (var ,free-ptr-updated))
-           (cmpq (var ,free-ptr-updated) (global-value fromspace_end))
+           (movq (global-value fromspace_end) (var ,fromspace-end))
+           (cmpq (var ,free-ptr-updated) (var ,fromspace-end))
 
            ; NOTE the setl instead of sete! We need to check if free-ptr-updated
            ; is bigger than fromspace_end!
@@ -64,32 +67,37 @@
              ,(append-map iter pgm-t))))]
 
       [`(call-live-roots ,roots (collect ,bytes-needed))
-       `(; Step 1: Move roots to the root stack
-         ,@(map (lambda (idx root)
-                  `(movq ,(arg->x86-arg root) (offset (global-value rootstack_begin) ,(* 8 idx))))
-                (range (length roots)) roots)
+       (let ([rootstack-ptr (gensym "rootstack")])
+         (set-add! new-vars rootstack-ptr)
+         `(; Step 1: Move roots to the root stack
+           (movq (global-value rootstack_begin) (var ,rootstack-ptr))
+           ,@(map (lambda (idx root)
+                    `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
+                  (range (length roots)) roots)
 
-         ; Step 2: Set up arguments for `collect`
-         ; TODO: I don't understand why we need to pass root stack pointer here.
-         (movq (global-value rootstack_begin) (reg rdi))
-         (movq (int ,bytes-needed) (reg rsi))
+           ; Step 2: Set up arguments for `collect`
+           ; TODO: I don't understand why we need to pass root stack pointer here.
+           (movq (global-value rootstack_begin) (reg rdi))
+           (movq (int ,bytes-needed) (reg rsi))
 
-         ; Step 3: Call the collector
-         (callq collect)
+           ; Step 3: Call the collector
+           (callq collect)
 
-         ; Step 4: Move new roots back to the variables
-         ,@(map (lambda (idx root)
-                  `(movq (offset (global-value rootstack_begin) ,(* 8 idx))
-                         ,(arg->x86-arg root)))
-                (range (length roots)) roots))]
+           ; Step 4: Move new roots back to the variables
+           (movq (global-value rootstack_begin) (var ,rootstack-ptr))
+           ,@(map (lambda (idx root)
+                    `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
+                           ,(arg->x86-arg root)))
+                  (range (length roots)) roots)))]
 
       [`(vector-set! ,vec ,idx ,val)
        (let ([offset (+ 8 (* 8 idx))])
+         ;; TODO: Does `offset` form work here? What happens if vec is on stack?
          `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
 
       [_ (unsupported-form 'instr-sel-stmt stmt)])))
 
-(define (instr-sel-expr bind-to expr)
+(define (instr-sel-expr new-vars bind-to expr)
   (match expr
     [(or (? fixnum?) (? symbol?) (? boolean?))
      `(,(instr-sel-arg bind-to expr))]
@@ -127,11 +135,17 @@
             [length-bits (arithmetic-shift (length obj-types) 1)]
             ; TODO: We need to do some range checking here.
             [bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7)]
-            [obj-tag (bitwise-ior length-bits bitfield)])
-     `(; Step 1: Copy the pointer
-       (movq (global-value free_ptr) ,(arg->x86-arg bind-to))
-       ; Step 2: Do the actual allocation (bump the pointer)
-       (addq (int ,alloc-size) (global-value free_ptr))))]
+            [obj-tag (bitwise-ior length-bits bitfield)]
+
+            [free-ptr (gensym "free_ptr")])
+       (set-add! new-vars free-ptr)
+       `(; Step 0: Read the free_ptr
+         (movq (global-value free_ptr) (var ,free-ptr))
+         ; Step 1: The pointer is now the address to our heap object
+         (movq (var ,free-ptr) ,(arg->x86-arg bind-to))
+         ; Step 2: Do the actual allocation (bump the pointer)
+         (addq (int ,alloc-size) (var ,free-ptr))
+         (movq (var ,free-ptr) (global-value free_ptr))))]
 
     [`(vector-ref ,vec ,idx)
      `((movq (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx))) ,(arg->x86-arg bind-to)))]

@@ -75,8 +75,7 @@ main:\n")
     [`(reg ,reg) (format "%~s" reg)]
     [`(byte-reg ,reg) (format "%~s" reg)]
     [`(stack ,offset) (format "~s(%rbp)" offset)]
-    [`(global-value ,var) (format "$~s" var)]
-    [`(offset ,arg ,offset)
-     (format "~s(~a)" offset (print-x86_64-arg arg))]
+    [`(global-value ,var) (format "~s(%rip)" var)]
+    [`(offset ,arg ,offset) (format "~s(~a)" offset (print-x86_64-arg arg))]
     [(? symbol?) arg] ; must be a function call or jmp
     [_ (unsupported-form 'print-x86_64-arg arg)]))
