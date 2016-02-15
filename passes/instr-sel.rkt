@@ -60,7 +60,23 @@
            ,(append-map instr-sel-stmt pgm-t))))]
 
     [`(call-live-roots ,roots (collect ,bytes-needed))
-     (error 'call-live-roots "not implemented yet")]
+     `(; Step 1: Move roots to the root stack
+       ,@(map (lambda (idx root)
+                `(movq ,root (offset (global-value rootstack_begin) ,(* 8 idx))))
+              (range (length roots)) roots)
+
+       ; Step 2: Set up arguments for `collect`
+       ; TODO: I don't understand why we need to pass root stack pointer here.
+       (movq (global-value rootstack_begin) (reg rdi))
+       (movq (int ,bytes-needed) (reg rsi))
+
+       ; Step 3: Call the collector
+       (callq collect)
+
+       ; Step 4: Move new roots back to the variables
+       ,@(map (lambda (idx root)
+                `(movq (offset (global-value rootstack_begin) ,(* 8 idx)) ,root))
+              (range (length roots)) roots))]
 
     [_ (unsupported-form 'instr-sel-stmt stmt)]))
 
@@ -89,6 +105,24 @@
     [`(+ ,arg1 ,arg2)
      `(,(instr-sel-arg bind-to arg1)
        (addq ,(arg->x86-arg arg2) ,(arg->x86-arg bind-to)))]
+
+    [`(allocate ,obj-types)
+     ; We need to allocate 8 bytes (for header) + 1 dword for each object
+     (let* ([alloc-size (+ 8 (* 8 (length obj-types)))]
+            [ptr-idxs (filter-nulls (map (lambda (idx obj-type)
+                                           (if (and (list? obj-type)
+                                                    (eq? (car obj-type) 'vector))
+                                             idx '()))
+                                         (range (length obj-types)) obj-types))]
+
+            [length-bits (arithmetic-shift (length obj-types) 1)]
+            ; TODO: We need to do some range checking here.
+            [bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7)]
+            [obj-tag (bitwise-ior length-bits bitfield)])
+     `(; Step 1: Copy the pointer
+       (movq (global-value free_ptr) ,bind-to)
+       ; Step 2: Do the actual allocation (bump the pointer)
+       (addq (int ,alloc-size) (global-value free_ptr))))]
 
     [_ (unsupported-form 'instr-sel-expr expr)]))
 

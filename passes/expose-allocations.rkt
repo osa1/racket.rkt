@@ -23,7 +23,7 @@
            ((collect ,bytes-needed))
            ())
 
-         (assign ,x (allocate ,(length tys) ,tys))
+         (assign ,x (allocate ,tys))
 
          ,@(map (lambda (idx elem)
                   `(vector-set! ,x ,idx ,elem))

@@ -18,3 +18,12 @@
      (let-values ([(xs ys) (unzip rest)])
        (values (cons x xs) (cons y ys)))]
     [_ (unsupported-form 'unzip lst)]))
+
+; Generates 64-bits
+(define (bitfield-from-bit-idxs bit-idxs)
+  (let iter ([acc 0] [bit-idxs bit-idxs])
+    (match bit-idxs
+      [`() acc]
+      [`(,idx . ,idxs)
+       (let ([mask (arithmetic-shift 1 idx)])
+         (iter (bitwise-ior acc mask) idxs))])))

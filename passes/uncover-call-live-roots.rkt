@@ -57,8 +57,8 @@
 
 (define (expr-lives expr)
   (match expr
-    [`(,(or '+ 'eq? 'allocate 'vector-ref) ,v1 ,v2) (add-live (set) v1 v2)]
-    [`(,(or '- 'not 'collection-needed?) ,v1) (add-live (set) v1 )]
+    [`(,(or '+ 'eq? 'vector-ref) ,v1 ,v2) (add-live (set) v1 v2)]
+    [`(,(or '- 'not 'allocate 'collection-needed?) ,v1) (add-live (set) v1 )]
     [`(read) (set)]
     [(? symbol?) (set expr)]
     [(or (? fixnum?) (? boolean?)) (set)]
