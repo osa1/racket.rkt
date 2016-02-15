@@ -11,12 +11,16 @@ main:\n")
 (define main-conclusion "\tretq")
 
 (define (mk-pgm-prelude stack-size)
-  (let [(ls
+  (string-append
 "\tpushq %rbp
-\tmovq %rsp, %rbp\n")]
-    (if (eq? stack-size 0)
-      ls
-      (string-append ls (format "\tsubq $~a, %rsp\n" stack-size)))))
+\tmovq %rsp, %rbp\n"
+
+;; Initialize RTS
+;; TODO: These should probably be some runtime parameters
+"\tmovq $10000, %rdi
+\tmovq $10000, %rsi
+\tcallq initialize\n"
+    (if (eq? stack-size 0) "" (format "\tsubq $~a, %rsp\n" stack-size))))
 
 (define (mk-pgm-conclusion stack-size)
   (let [(ls1
