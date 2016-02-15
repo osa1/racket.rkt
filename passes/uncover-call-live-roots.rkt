@@ -82,7 +82,7 @@
               (uncover-call-live-roots-iter vars stmts))]
 
        [`(collect ,bytes)
-        (cons `(call-live-roots (,(filter-allocateds vars (set->list stmt-lives))) (collect ,bytes))
+        (cons `(call-live-roots ,(filter-allocateds vars (set->list stmt-lives)) (collect ,bytes))
               (uncover-call-live-roots-iter vars stmts))]
 
        [_ (unsupported-form 'uncover-call-live-roots-iter stmt)])]))

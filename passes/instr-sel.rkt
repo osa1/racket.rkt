@@ -75,8 +75,13 @@
 
        ; Step 4: Move new roots back to the variables
        ,@(map (lambda (idx root)
-                `(movq (offset (global-value rootstack_begin) ,(* 8 idx)) ,root))
+                `(movq (offset (global-value rootstack_begin) ,(* 8 idx))
+                       ,(arg->x86-arg root)))
               (range (length roots)) roots))]
+
+    [`(vector-set! ,vec ,idx ,val)
+     (let ([offset (+ 8 (* 8 idx))])
+       `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
 
     [_ (unsupported-form 'instr-sel-stmt stmt)]))
 
@@ -120,9 +125,12 @@
             [bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7)]
             [obj-tag (bitwise-ior length-bits bitfield)])
      `(; Step 1: Copy the pointer
-       (movq (global-value free_ptr) ,bind-to)
+       (movq (global-value free_ptr) ,(arg->x86-arg bind-to))
        ; Step 2: Do the actual allocation (bump the pointer)
        (addq (int ,alloc-size) (global-value free_ptr))))]
+
+    [`(vector-ref ,vec ,idx)
+     `((movq (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx))) ,(arg->x86-arg bind-to)))]
 
     [_ (unsupported-form 'instr-sel-expr expr)]))
 
