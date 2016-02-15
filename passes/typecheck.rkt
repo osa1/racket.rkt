@@ -114,6 +114,22 @@
             (values `(vector-ref ,ret-ty ,vec ,idx) ret-ty))]
          [_ (ty-err vec 'Vector vec-ty)]))]
 
+    [`(vector-set! ,vec ,idx ,e)
+     (unless (fixnum? idx)
+       (error 'typecheck "vector-set! invalid index in ~s: ~s~n" vec idx))
+     (let-values ([(vec vec-ty) (typecheck-iter vec env)])
+       (match vec-ty
+         [`(vector . ,elems)
+          (unless (< idx (length elems))
+            (error 'typecheck
+                   "Invalid vector index: ~s vector size: ~s expression: ~s~n"
+                   idx (length elems) expr))
+          (let ([vec-elem-ty (list-ref elems idx)])
+            (let-values ([(e e-ty) (typecheck-iter e env)])
+              (assert-ty e vec-elem-ty e-ty)
+              (values `(vector-set! ,vec ,idx ,e) 'void)))]
+         [_ (ty-err vec 'Vector vec-ty)]))]
+
     [_ (unsupported-form 'typecheck-iter expr)]))
 
 (define (op-ret-ty op)
