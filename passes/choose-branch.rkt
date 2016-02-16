@@ -57,6 +57,9 @@
     [`(vector-ref ,ret-ty ,e1 ,e2)
      (list 'vector-ref ret-ty (choose-branch-expr e1) (choose-branch-expr e2))]
 
+    [`(vector-set! ,vec ,idx ,e)
+     (list 'vector-set! (choose-branch-expr vec) idx (choose-branch-expr e))]
+
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map choose-branch-expr elems))]
 

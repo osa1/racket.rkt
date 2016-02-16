@@ -37,6 +37,9 @@
     [`(vector-ref ,ret-ty ,e1 ,e2)
      (list 'vector-ref ret-ty (desugar-expr e1) (desugar-expr e2))]
 
+    [`(vector-set! ,vec ,idx ,e)
+     `(vector-set! ,(desugar-expr vec) ,idx ,(desugar-expr e))]
+
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map desugar-expr elems))]
 

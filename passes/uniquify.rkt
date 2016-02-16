@@ -35,6 +35,9 @@
     [`(vector-ref ,ret-ty ,e1 ,e2)
      (list 'vector-ref ret-ty (uniquify-expr rns e1) (uniquify-expr rns e2))]
 
+    [`(vector-set! ,vec ,idx ,e)
+     (list 'vector-set!  (uniquify-expr rns vec) idx (uniquify-expr rns e))]
+
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map (lambda (elem) (uniquify-expr rns elem)) elems))]
 

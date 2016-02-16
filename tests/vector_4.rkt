@@ -1,0 +1,8 @@
+(let ([t (vector 0 #f (vector 0))])
+  (let ([blah (vector-set! t 0 20)])
+    (let ([blah (vector-set! t 2 (vector 22))])
+      (let ([blah (vector-set! t 1 #t)])
+	(if (vector-ref t 1)
+	  (+ (vector-ref t 0)
+	     (vector-ref (vector-ref t 2) 0))
+	  123)))))

@@ -118,10 +118,16 @@
      (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
                    [(binds pgm e2) (flatten-expr binds pgm e2)])
        (let [(fresh (gensym "tmp"))]
-         (values binds (cons `(assign ,fresh ,ret-ty
-                                      (vector-ref ,e1 ,e2))
-                             pgm)
-                 fresh)))]
+         (values binds (cons `(assign ,fresh ,ret-ty (vector-ref ,e1 ,e2)) pgm) fresh)))]
+
+    [`(vector-set! ,vec ,idx ,e)
+     ;; Q: Why not make this a statement?
+     ;; A: Because functional programming (everything is an expression) with
+     ;;    side-effects. It sucks.
+     (let*-values ([(binds pgm vec) (flatten-expr binds pgm vec)]
+                   [(binds pgm e) (flatten-expr binds pgm e)])
+       (let [(fresh (gensym "void"))]
+         (values binds (cons `(assign ,fresh ,void (vector-set! ,vec ,idx ,e)) pgm) fresh)))]
 
     [`(vector ,elem-tys . ,elems)
      (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
@@ -190,7 +196,10 @@
      (rename-arg x y expr)]
 
     [`(vector . ,as)
-     `(vector ,@(map (lambda (arg) (rename-arg x y)) as))]
+     `(vector ,@(map (lambda (arg) (rename-arg x y arg)) as))]
+
+    [`(vector-set! ,vec ,idx ,e)
+     `(vector-set! ,(rename-arg x y vec) ,idx ,(rename-arg x y e))]
 
     [_ (unsupported-form 'rename-expr expr)]))
 

@@ -150,6 +150,10 @@
     [`(vector-ref ,vec ,idx)
      `((movq (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx))) ,(arg->x86-arg bind-to)))]
 
+    [`(vector-set! ,vec ,idx ,val)
+     ;; Note that we ignore bind-to here!
+     `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx)))))]
+
     [_ (unsupported-form 'instr-sel-expr expr)]))
 
 (define (instr-sel-arg bind-to arg)
