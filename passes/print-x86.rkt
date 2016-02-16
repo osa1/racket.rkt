@@ -1,6 +1,7 @@
 #lang racket
 
 (require "utils.rkt")
+(require "../settings.rkt")
 
 (provide print-x86_64)
 
@@ -17,9 +18,10 @@ main:\n")
 
 ;; Initialize RTS
 ;; TODO: These should probably be some runtime parameters
-"\tmovq $10000, %rdi
-\tmovq $10000, %rsi
-\tcallq initialize\n"
+(format
+"\tmovq $~a, %rdi
+\tmovq $~a, %rsi
+\tcallq initialize\n" (initial-root-stack-size) (initial-heap-size))
     (if (eq? stack-size 0) "" (format "\tsubq $~a, %rsp\n" stack-size))))
 
 (define (mk-pgm-conclusion stack-size)

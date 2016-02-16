@@ -1,6 +1,7 @@
 #lang racket
 
 (require "utils.rkt")
+(require "../settings.rkt")
 
 ; TODO: Remove this line, use either directly a hash map roll custom graph
 ; functions. (hash-ref parts is problematic)
@@ -294,12 +295,12 @@
                               (set-subtract (list->set move-rel-regs)
                                             (list->set interfered-regs))))]
 
-        (cond [(not (null? move-rel-regs))
+        (cond [(and (use-regs) (use-move-rels) (not (null? move-rel-regs)))
                (reg-alloc-iter int-graph move-rels
                                (hash-set mapping most-constrained (car move-rel-regs))
                                last-stack-loc regs)]
 
-              [(not (null? available-regs-lst))
+              [(and (use-regs) (not (null? available-regs-lst)))
                (reg-alloc-iter int-graph move-rels
                                (hash-set mapping most-constrained (car available-regs-lst))
                                last-stack-loc regs)]
