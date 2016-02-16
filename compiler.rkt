@@ -39,11 +39,7 @@
          print-x86_64)
 
 (define r1-passes
-  `(; typecheck is a compiler pass now, as it's now annotating programs with
-    ; type information. Unfortunately this also means none of the interpreters
-    ; work as they don't expect expressions with type annotations.
-    ("typecheck" ,typecheck ,interp-scheme)
-    ("desugar" ,desugar ,interp-scheme)
+  `(("desugar" ,desugar ,interp-scheme)
 
     ;; TODO: Think about the best place for this. One of the goals here is to
     ;; avoid generating illegal instructions for code like (if (eq? 1 1) _ _).
