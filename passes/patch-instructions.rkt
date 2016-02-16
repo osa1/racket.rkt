@@ -23,10 +23,10 @@
 
 (define (patch-instructions-stmt stmt)
   (match stmt
-    [`(movq ,arg1 ,arg2)
+    [`(,(or 'movq 'cmpq) ,arg1 ,arg2)
      (if (and (arg-mem? arg1) (arg-mem? arg2))
        (list `(movq ,arg1 (reg rax))
-             `(movq (reg rax) ,arg2))
+             `(,(car stmt) (reg rax) ,arg2))
        (list stmt))]
 
     [`(,(or 'addq 'subq) ,arg1 ,arg2)
