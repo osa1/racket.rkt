@@ -41,11 +41,3 @@
                  ,(append-map patch-instructions-instr pgm-f)))]
 
     [_ `(,instr)]))
-
-(define (arg-mem? arg)
-  (match arg
-    [`(stack ,_) #t]
-    [`(,(or 'reg 'int) ,_) #f]
-    [`(global-value ,_) #t]
-    [`(offset ,_ ,_) #t]
-    [_ (unsupported-form 'arg-mem? arg)]))

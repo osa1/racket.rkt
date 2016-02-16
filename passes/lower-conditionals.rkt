@@ -19,7 +19,11 @@
            (end-lbl  (gensym "end_branch"))
            (t-instrs (append-map lower-conditionals-instr pgm-t))
            (f-instrs (append-map lower-conditionals-instr pgm-f))]
-       `((cmpq ,arg1 ,arg2)
+       `(; If one of the arguments is a immediate value, it needs to be the
+         ; first one. This is just how cmpq works.
+         ,(if (arg-imm? arg2)
+            `(cmpq ,arg2 ,arg1)
+            `(cmpq ,arg1 ,arg2))
          (je ,then-lbl)
          ,@f-instrs
          (jmp ,end-lbl)
@@ -31,3 +35,9 @@
      (error 'lower-conditionals "Found if with meta data!~n~s~n" instr)]
 
     [_ (list instr)]))
+
+(define (arg-imm? arg)
+  (match arg
+    [`(int ,_) #t]
+    [`(,(or 'stack 'reg 'global-value 'offset) ,_) #f]
+    [_ (unsupported-form 'arg-imm? arg)]))

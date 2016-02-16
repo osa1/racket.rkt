@@ -115,9 +115,13 @@
        (xorq (int 1) ,(arg->x86-arg bind-to)))]
 
     [`(eq? ,arg1 ,arg2)
-     `((cmpq ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
-       (sete (byte-reg al))
-       (movzbq (byte-reg al) ,(arg->x86-arg bind-to)))]
+	 (let ([arg2-x86 (arg->x86-arg arg2)])
+       `(; cmpq wants immediate value to be the first arg
+	     ,(if (arg-imm? arg2-x86)
+			`(cmpq ,arg2-x86 ,(arg->x86-arg arg1))
+			`(cmpq ,(arg->x86-arg arg1) ,arg2-x86))
+         (sete (byte-reg al))
+         (movzbq (byte-reg al) ,(arg->x86-arg bind-to))))]
 
     [`(+ ,arg1 ,arg2)
      `(,(instr-sel-arg bind-to arg1)

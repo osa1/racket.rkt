@@ -28,3 +28,20 @@
       [`(,idx . ,idxs)
        (let ([mask (arithmetic-shift 1 idx)])
          (iter (bitwise-ior acc mask) idxs))])))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Find these guys a safe place
+
+(define (arg-imm? arg)
+  (match arg
+    [`(int ,_) #t]
+    [`(,(or 'stack 'reg 'global-value 'offset 'var) ,_) #f]
+    [_ (unsupported-form 'arg-imm? arg)]))
+
+(define (arg-mem? arg)
+  (match arg
+    [`(stack ,_) #t]
+    [`(,(or 'reg 'int) ,_) #f]
+    [`(global-value ,_) #t]
+    [`(offset ,_ ,_) #t]
+    [_ (unsupported-form 'arg-mem? arg)]))
