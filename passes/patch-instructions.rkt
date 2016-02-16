@@ -9,9 +9,30 @@
 
 (define (patch-instructions pgm)
   (match pgm
-    [(list-rest 'program s stmts)
-     `(program ,s ,@(append-map patch-instructions-stmt stmts))]
+    [(list-rest 'program s instrs)
+     `(program ,s ,@(append-map patch-instructions-instr instrs))]
     [_ (unsupported-form 'patch-instructions pgm)]))
+
+(define (patch-instructions-instr instr)
+  (match instr
+    [`(,(or 'movq 'cmpq) ,arg1 ,arg2)
+     (if (and (arg-mem? arg1) (arg-mem? arg2))
+       `((movq ,arg1 (reg rax))
+         (,(car instr) (reg rax) ,arg2))
+       `(,instr))]
+
+    [`(,(or 'addq 'subq) ,arg1 ,arg2)
+     (if (and (arg-mem? arg1) (arg-mem? arg2))
+       `((movq ,arg2 (reg rax))
+         (,(car instr) ,arg1 (reg rax))
+         (movq (reg rax) ,arg2))
+       `(,instr))]
+
+    [`(if ,cond ,pgm-t ,pgm-f)
+     `((if ,cond ,(append-map patch-instructions-instr pgm-t)
+                 ,(append-map patch-instructions-instr pgm-f)))]
+
+    [_ `(,instr)]))
 
 (define (arg-mem? arg)
   (match arg
@@ -20,24 +41,3 @@
     [`(global-value ,_) #t]
     [`(offset ,_ ,_) #t]
     [_ (unsupported-form 'arg-mem? arg)]))
-
-(define (patch-instructions-stmt stmt)
-  (match stmt
-    [`(,(or 'movq 'cmpq) ,arg1 ,arg2)
-     (if (and (arg-mem? arg1) (arg-mem? arg2))
-       (list `(movq ,arg1 (reg rax))
-             `(,(car stmt) (reg rax) ,arg2))
-       (list stmt))]
-
-    [`(,(or 'addq 'subq) ,arg1 ,arg2)
-     (if (and (arg-mem? arg1) (arg-mem? arg2))
-       (list (list 'movq arg2 '(reg rax))
-             (list (car stmt) arg1 '(reg rax))
-             (list 'movq '(reg rax) arg2))
-       (list stmt))]
-
-    [`(if ,cond ,pgm-t ,pgm-f)
-     `((if ,cond ,(append-map patch-instructions-stmt pgm-t)
-                 ,(append-map patch-instructions-stmt pgm-f)))]
-
-    [_ (list stmt)]))
