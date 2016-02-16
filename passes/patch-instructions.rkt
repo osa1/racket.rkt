@@ -4,8 +4,10 @@
 
 (provide patch-instructions)
 
-;; If the instructions takes two arguments and both of the arguments are memory
-;; locations, just make the destination a %rax, then movq %rax mem.
+;; Patch instructions so that:
+;;
+;; - We don't use memory locations in both arguments. (use rax as temp)
+;; - movzbq doesn't have memory location as its destination. (use rax as temp)
 
 (define (patch-instructions pgm)
   (match pgm
@@ -25,6 +27,12 @@
      (if (and (arg-mem? arg1) (arg-mem? arg2))
        `((movq ,arg2 (reg rax))
          (,(car instr) ,arg1 (reg rax))
+         (movq (reg rax) ,arg2))
+       `(,instr))]
+
+    [`(movzbq ,arg1 ,arg2)
+     (if (arg-mem? arg2)
+       `((movzbq ,arg1 (reg rax))
          (movq (reg rax) ,arg2))
        `(,instr))]
 
