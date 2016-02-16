@@ -39,7 +39,7 @@ static inline int is_forwarding(int64_t tag) {
 
 // Get the length field out of a tag.
 static inline int get_length(int64_t tag){
-  return (tag & TAG_LENGTH_MASK);
+  return (tag & TAG_LENGTH_MASK) >> 1;
 }
 
 // Get the "is pointer bitfield" out of a tag.
