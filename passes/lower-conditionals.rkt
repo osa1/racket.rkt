@@ -35,9 +35,3 @@
      (error 'lower-conditionals "Found if with meta data!~n~s~n" instr)]
 
     [_ (list instr)]))
-
-(define (arg-imm? arg)
-  (match arg
-    [`(int ,_) #t]
-    [`(,(or 'stack 'reg 'global-value 'offset) ,_) #f]
-    [_ (unsupported-form 'arg-imm? arg)]))
