@@ -10,6 +10,9 @@
 ;; This pass saves caller-save registers when necessary (e.g. when the registers
 ;; are live after a function call)
 
+; FIXME: Properly refactor this.
+(define caller-save-regs (list->set (set-map caller-save (lambda (reg) `(reg ,reg)))))
+
 (define (save-regs pgm)
   (match pgm
     [(list-rest 'program meta instrs)
@@ -26,13 +29,13 @@
 (define (save-regs-instr lives instr)
   (match instr
     [`(callq ,_)
-     (let* [(should-save (set->list (set-intersect caller-save lives)))
+     (let* [(should-save (set->list (set-intersect caller-save-regs lives)))
             (align-stack (not (even? (length should-save))))]
-       (append (map (lambda (reg) `(pushq (reg ,reg))) should-save)
+       (append (map (lambda (reg) `(pushq (reg ,(cadr reg)))) should-save)
                (if align-stack `((subq (int 8) (reg rsp))) `())
                (list instr)
                (if align-stack `((addq (int 8) (reg rsp))) `())
-               (map (lambda (reg) `(popq (reg ,reg))) (reverse should-save))))]
+               (map (lambda (reg) `(popq (reg ,(cadr reg)))) (reverse should-save))))]
 
     [`(if ,_ ,_ ,_)
      (error 'save-regs-instr "If block doesn't have live var annotations!~n~s~n" instr)]

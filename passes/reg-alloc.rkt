@@ -98,7 +98,7 @@
     ; not sure about this part, what to do about function arguments? what about
     ; caller-save registers?
     [`(callq ,_)
-     (values instr (set-remove lives 'rax))]
+     (values instr (set-remove lives '(reg rax)))]
 
     [`(retq)
      (values instr lives)]
@@ -128,8 +128,8 @@
 (define (add-live lives . args)
   (foldl (lambda (arg lives)
            (match arg
-             [`(,(or 'var 'reg) ,v) (set-add lives v)]
-             [`(offset (,(or 'var 'reg) ,v) ,_) (set-add lives v)]
+             [`(,(or 'var 'reg) ,_) (set-add lives arg)]
+             [`(offset (,(or 'var 'reg) ,_) ,_) (set-add lives (cadr arg))]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
              [_ (unsupported-form 'add-live arg)]))
@@ -138,7 +138,7 @@
 (define (remove-live lives . args)
   (foldl (lambda (arg lives)
            (match arg
-             [`(,(or 'var 'reg) ,v) (set-remove lives v)]
+             [`(,(or 'var 'reg) ,_) (set-remove lives arg)]
              ; [`(offset (,(or 'var 'reg) ,v) ,_) (set-remove lives v)]
              [`(offset (,(or 'var 'reg) ,_) ,_) lives]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
@@ -153,7 +153,7 @@
   (match pgm
     [(list-rest 'program vs instrs)
      ; (printf "program vs ~s instrs ~s~n" vs instrs)
-     (let [(graph (make-graph vs))]
+     (let [(graph (make-graph (map (lambda (v) `(var ,v)) vs)))]
        (build-int-graph-instrs instrs live-sets graph)
        graph)]
     [_ (unsupported-form 'build-interference-graph pgm)]))
@@ -163,24 +163,20 @@
 
 (define (build-int-graph instr lives graph)
   (match instr
-    [`(,(or 'addq 'subq 'xorq) (,_ ,s) (,_ ,d))
+    [`(,(or 'addq 'subq 'xorq) ,s ,d)
      (for ([live lives])
        (unless (equal? live d)
          (add-edge graph d live)))]
 
     [`(cmpq ,_ ,_) (void)]
-    [`(,(or 'sete 'setl) ,_) (void)]
-    [`(movzbq (byte-reg al) (,_ ,d))
+
+    [(or `(,(or 'sete 'setl 'pushq 'popq 'negq) ,d)
+         `(movzbq (byte-reg al) ,d))
      (for ([live lives])
        (unless (equal? live d)
          (add-edge graph d live)))]
 
-    [`(,(or 'pushq 'popq 'negq) (,_ ,d))
-     (for ([live lives])
-       (unless (equal? live d)
-         (add-edge graph d live)))]
-
-    [`(movq (,_ ,s) (,_ ,d))
+    [`(movq ,s ,d)
      (for ([live lives])
        (unless (or (equal? live s) (equal? live d))
          (add-edge graph d live)))]
@@ -188,8 +184,8 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Handling movs with relative addressing
 
-    [(or `(movq ,s (offset (,_ ,d) ,_))
-         `(movq (offset (,_ ,s) ,_) ,d))
+    [(or `(movq ,s (offset ,d ,_))
+         `(movq (offset ,s ,_) ,d))
      (for ([live lives])
        (unless (or (equal? live s) (equal? live d))
          (add-edge graph d live)))]
@@ -200,8 +196,8 @@
 
     [`(callq ,_)
      (for ([live lives]
-           [save (set->list caller-save)])
-       (add-edge graph save live))]
+           [save (cons 'rax (set->list caller-save))])
+       (add-edge graph `(reg ,save) live))]
 
     [`(if (eq? ,_ ,_) ,pgm-t ,t-lives ,pgm-f ,f-lives)
      (build-int-graph-instrs pgm-t t-lives graph)
@@ -218,7 +214,7 @@
 (define (mk-move-relation pgm int-graph)
   (match pgm
     [(list-rest 'program vs instrs)
-     (let [(graph (make-graph vs))]
+     (let [(graph (make-graph (map (lambda (v) `(var ,v)) vs)))]
        (mk-move-relation-instrs graph int-graph instrs)
        graph)]
     [_ (unsupported-form 'mk-move-relation pgm)]))
@@ -237,18 +233,13 @@
 
       [_ #f]))
 
-  (define (extract arg)
-    (match arg
-      [`(,(or 'reg 'stk 'var) ,v) v]
-      [_ arg]))
-
   (define (mk-edge graph arg1 arg2)
     (when (and (can-relate? arg1) (can-relate? arg2))
       ; but do they interfere?
-      (let* [(arg1-adjs (hash-ref int-graph (extract arg1) (set)))
-             (interfere (set-member? arg1-adjs (extract arg2)))]
+      (let* [(arg1-adjs (hash-ref int-graph arg1 (set)))
+             (interfere (set-member? arg1-adjs arg2))]
         (unless interfere
-          (add-edge graph (extract arg1) (extract arg2))))))
+          (add-edge graph arg1 arg2)))))
 
   (match instr
     [`(movq ,s ,d) (mk-edge graph s d)]
@@ -392,7 +383,7 @@
      ; TODO: What happens if the pointer is on stack?
      `(offset ,(assign-home-arg asgns arg) ,offset)]
     [`(var ,var)
-     (let [(asgn (hash-ref asgns var '()))]
+     (let [(asgn (hash-ref asgns `(var ,var) '()))]
        (cond [(null? asgn)
               (error 'assign-home-arg "can't find var in assignments: ~s ~s~n" var asgns)]
              [(fixnum? asgn) `(stack ,asgn)]

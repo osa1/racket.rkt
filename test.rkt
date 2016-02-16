@@ -68,7 +68,7 @@
 
 (debug-level 4)
 ; (interp-tests "vec" typecheck r3-passes interp-scheme "vector" (range 1 10))
-(compiler-tests "vec" typechecker r2-passes "vector" (range 1 5))
+(compiler-tests "vec" typechecker r2-passes "vector" (range 1 10))
 
 ; (define (show-steps steps file)
 ;   (let [(pgm (read-program file))]
