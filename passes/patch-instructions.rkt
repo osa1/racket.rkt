@@ -26,9 +26,18 @@
         (error 'patch-instructions-instr "Both arguments are stack offsets: ~s~n" instr)]
 
        [(and (arg-mem? arg1) (stack-offset? arg2))
-        ; We need two temp registers. We currently generate this code when both
-        ; vectors are on stack.
-        (error 'patch-instructions-instr "Second argument is a stack offset: ~s~n" instr)]
+        ; No way to do this without two spare registers!
+        ; (error 'patch-instructions-instr
+        ;        (string-append "Second argument is a stack offset: ~s~n"
+        ;                       "No way to do this without two temp registers!~n"
+        ;                       "(so, fix your codegen)~n")
+        ;        instr)
+        ; That's funny, it seems like I can use pusq/popq for mem->mem movs
+        (match arg2
+          [`(offset (stack ,stack-off) ,disp)
+           `((pushq ,arg1)
+             (movq (stack ,stack-off) (reg rax))
+             (popq (offset (reg rax) ,disp)))])]
 
        [(and (stack-offset? arg1) (arg-mem? arg2))
         (match arg1
@@ -36,6 +45,18 @@
            `((movq (stack ,stack-off) (reg rax))
              (movq (offset (reg rax) ,disp) (reg rax))
              (,(car instr) (reg rax) ,arg2))])]
+
+       [(stack-offset? arg1)
+        (match arg1
+          [`(offset (stack ,stack-off) ,disp)
+           `((movq (stack ,stack-off) (reg rax))
+             (movq (offset (reg rax) ,disp) ,arg2))])]
+
+       [(stack-offset? arg2)
+        (match arg2
+          [`(offset (stack ,stack-off) ,disp)
+           `((movq (stack ,stack-off) (reg rax))
+             (movq ,arg1 (offset (reg rax) ,disp)))])]
 
        [(and (arg-mem? arg1) (arg-mem? arg2))
         `((movq ,arg1 (reg rax))
