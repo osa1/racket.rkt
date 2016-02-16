@@ -129,14 +129,21 @@
   (foldl (lambda (arg lives)
            (match arg
              [`(,(or 'var 'reg) ,v) (set-add lives v)]
-             [_ lives]))
+             [`(offset (,(or 'var 'reg) ,v) ,_) (set-add lives v)]
+             [(or `(int ,_) `(stack ,_) `(global-value ,_))
+              lives]
+             [_ (unsupported-form 'add-live arg)]))
          lives args))
 
 (define (remove-live lives . args)
   (foldl (lambda (arg lives)
            (match arg
              [`(,(or 'var 'reg) ,v) (set-remove lives v)]
-             [_ lives]))
+             ; [`(offset (,(or 'var 'reg) ,v) ,_) (set-remove lives v)]
+             [`(offset (,(or 'var 'reg) ,_) ,_) lives]
+             [(or `(int ,_) `(stack ,_) `(global-value ,_))
+              lives]
+             [_ (unsupported-form 'remove-live arg)]))
          lives args))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -179,12 +186,13 @@
          (add-edge graph d live)))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    ; Handling movs with relative addressing: Since interference graph is all
-    ; about variables, these don't make any difference on the graph.
+    ; Handling movs with relative addressing
 
-    [(or `(movq ,_ (offset ,_ ,_))
-         `(movq (offset ,_ ,_) ,_))
-     (void)]
+    [(or `(movq ,s (offset (,_ ,d) ,_))
+         `(movq (offset (,_ ,s) ,_) ,d))
+     (for ([live lives])
+       (unless (or (equal? live s) (equal? live d))
+         (add-edge graph d live)))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
