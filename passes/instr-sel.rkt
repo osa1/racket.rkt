@@ -140,16 +140,13 @@
             ; TODO: We need to do some range checking here.
             [bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7)]
             [obj-tag (bitwise-ior length-bits bitfield)]
-
-            [free-ptr (gensym "free_ptr")])
-       (set-add! new-vars free-ptr)
+            [vec-arg (arg->x86-arg bind-to)])
        `(; Step 0: Read the free_ptr
-         (movq (global-value free_ptr) (var ,free-ptr))
-         ; Step 1: The pointer is now the address to our heap object
-         (movq (var ,free-ptr) ,(arg->x86-arg bind-to))
-         ; Step 2: Do the actual allocation (bump the pointer)
-         (addq (int ,alloc-size) (var ,free-ptr))
-         (movq (var ,free-ptr) (global-value free_ptr))))]
+         (movq (global-value free_ptr) ,vec-arg)
+         ; Step 1: Do the actual allocation (bump the pointer)
+         (addq (int ,alloc-size) (global-value free_ptr))
+         ; Step 2: Write the info tag
+         (movq (int ,obj-tag) (offset ,vec-arg 0))))]
 
     [`(vector-ref ,vec ,idx)
      `((movq (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx))) ,(arg->x86-arg bind-to)))]
