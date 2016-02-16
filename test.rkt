@@ -50,28 +50,8 @@
 ; (interp-tests "crazy" typecheck r1-passes interp-scheme "crazy" (range 1 3))
 (compiler-tests "crazy" typechecker r1-passes "crazy" (range 1 3))
 
-(define (typecheck-pgm file [should-fail? #f])
-  (display (string-append "typecheck:" file " "))
-  (let* ([pgm (read-program file)]
-         [ret (typechecker pgm)])
-    (if should-fail?
-      (when ret
-        (error 'typecheck-pgm "ill-typed program passed the type cheking: ~a~n" file))
-      (unless ret
-        (error 'typecheck-pgm "can't typecheck well-typed program: ~a~n" file)))))
-
-(typecheck-pgm "tests/ty_1.rkt")
-(typecheck-pgm "tests/ty_2.rkt")
-(typecheck-pgm "tests/ty_3.rkt")
-(typecheck-pgm "tests/ty_4.rkt")
-(typecheck-pgm "tests/ty_5.rkt")
-(typecheck-pgm "tests/ty_6.rkt" #t)
-(typecheck-pgm "tests/ty_7.rkt" #t)
-(typecheck-pgm "tests/ty_8.rkt" #t)
-(typecheck-pgm "tests/ty_9.rkt" #t)
-(typecheck-pgm "tests/ty_10.rkt" #t)
-(typecheck-pgm "tests/vector_1.rkt")
-(typecheck-pgm "tests/vector_2.rkt")
+; (interp-tests "ty" typechecker r1-passes interp-scheme "ty" (range 1 11))
+(compiler-tests "ty" typechecker r1-passes "ty" (range 1 12))
 
 ; (interp-tests "conditionals-1" typecheck r2-passes interp-scheme "cond" (range 1 5))
 (compiler-tests "conditionals-1" typechecker r1-passes "cond" (range 1 5))
@@ -86,9 +66,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Vectors
 
-; (debug-level 2)
-; (interp-tests "vec" typecheck vec-passes interp-scheme "vector" (range 1 3))
-; (compiler-tests "vec" typechecker r2-passes "vector" (range 1 3))
+(debug-level 4)
+; (interp-tests "vec" typecheck r3-passes interp-scheme "vector" (range 1 10))
+(compiler-tests "vec" typechecker r2-passes "vector" (range 1 5))
 
 ; (define (show-steps steps file)
 ;   (let [(pgm (read-program file))]
