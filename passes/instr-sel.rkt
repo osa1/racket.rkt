@@ -139,7 +139,7 @@
             [length-bits (arithmetic-shift (length obj-types) 1)]
             ; TODO: We need to do some range checking here.
             [bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7)]
-            [obj-tag (bitwise-ior length-bits bitfield)]
+            [obj-tag (bitwise-ior length-bits bitfield 1)]
             [vec-arg (arg->x86-arg bind-to)])
        `(; Step 0: Read the free_ptr
          (movq (global-value free_ptr) ,vec-arg)
