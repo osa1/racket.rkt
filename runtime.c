@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "runtime.h"
 
@@ -208,6 +209,61 @@ void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
 // There is a stub and explaination for copy_vector below.
 static void copy_vector(int64_t** vector_ptr_loc);
 
+void print_vector(int64_t* vector)
+{
+    int64_t info = *vector;
+    int fwd = is_forwarding(info);
+
+    if (is_forwarding(info))
+    {
+        printf("<vector: forwarding to: %p>\n", (void*)info);
+
+        if ((void*)info >= (void*)tospace_begin &&
+                (void*)info < (void*)tospace_end)
+            printf("(%p is in tospace)\n", (void*)info);
+        else if ((void*)info >= (void*)fromspace_begin &&
+                (void*)info < (void*)fromspace_end)
+            printf("(%p is in fromspace)\n", (void*)info);
+        else
+            printf("(%p is not in fromspace or tospace)\n", (void*)info);
+
+        if (info)
+        {
+            printf("%p: ", (void*)info);
+            print_vector((int64_t*)info);
+        }
+    }
+    else
+    {
+        int fields = get_length(info);
+        int64_t bitfield = get_bitfield(info);
+
+        printf("<vector:");
+        for (int i = 0; i < fields; i++)
+        {
+            if ((bitfield & (1 << i)) != 0)
+                printf(" ptr(%p)", (void*)(*(vector + 1 + i)));
+            else
+                printf(" %" PRIi64, *(vector + 1 + i));
+        }
+        printf(">\n");
+    }
+}
+
+void print_root_stack(uint8_t** rootstack_ptr)
+{
+    printf("[\n");
+
+    int64_t** rootstack_work_ptr = (int64_t**)rootstack_begin;
+    while ((void*)rootstack_work_ptr < (void*)rootstack_ptr)
+    {
+        print_vector(*rootstack_work_ptr);
+        printf("---\n");
+        rootstack_work_ptr++;
+    }
+    printf("]\n");
+}
+
 /*
   The cheney algorithm takes a pointer to the top of the rootstack.
   It resets the free pointer to be at the begining of tospace, copies
@@ -249,6 +305,8 @@ void cheney(uint8_t** rootstack_ptr)
     // Step 1: Copy roots.
     while ((void*)rootstack_work_ptr != (void*)rootstack_ptr)
     {
+        printf("copying vector from root stack: ");
+        print_vector(*rootstack_work_ptr);
         copy_vector(rootstack_work_ptr);
         rootstack_work_ptr++;
     }
@@ -267,6 +325,8 @@ void cheney(uint8_t** rootstack_ptr)
             {
                 // found a pointer
                 int64_t** ptr = (int64_t**)(tospace_work_ptr + 1 + i);
+                printf("copying vector from tospace: ");
+                print_vector(*ptr);
                 copy_vector(ptr);
             }
         }
@@ -283,7 +343,10 @@ void cheney(uint8_t** rootstack_ptr)
     tospace_end = fromspace_end;
     fromspace_end = tmp;
 
-    // printf("cheney done\n");
+    printf("cheney done\n");
+    printf("root stack after cheney:\n");
+    print_root_stack(rootstack_ptr);
+    printf("\n\n\n");
 }
 
 
@@ -339,7 +402,32 @@ void cheney(uint8_t** rootstack_ptr)
 */
 void copy_vector(int64_t** vector_ptr_loc)
 {
-    
+    int64_t* vector = *vector_ptr_loc;
+    int64_t info = *vector;
+
+    if (info == 0)
+    {
+        printf("info is zero\n");
+        exit(1);
+    }
+
+    if (is_forwarding(info))
+    {
+        *vector_ptr_loc = info;
+        return;
+    }
+
+    int fields = get_length(info);
+    int len = 8 + (8 * fields);
+
+    // OMG, first argument is DEST. So unlike AT&T syntax.
+    memcpy(free_ptr, vector, len);
+
+    **vector_ptr_loc = (int64_t)free_ptr;
+    printf("vector copied: ");
+    print_vector(*vector_ptr_loc);
+
+    free_ptr += len;
 }
 
 
