@@ -76,8 +76,8 @@
                   (range (length roots)) roots)
 
            ; Step 2: Set up arguments for `collect`
-           ; TODO: I don't understand why we need to pass root stack pointer here.
            (movq (global-value rootstack_begin) (reg rdi))
+           (addq (int ,(* 8 (length roots))) (reg rdi))
            (movq (int ,bytes-needed) (reg rsi))
 
            ; Step 3: Call the collector
