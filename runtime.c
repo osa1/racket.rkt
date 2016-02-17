@@ -43,7 +43,7 @@ static inline int get_length(int64_t tag){
 }
 
 // Get the "is pointer bitfield" out of a tag.
-static inline int64_t get_ptr_bitfield(int64_t tag){
+static inline int64_t get_bitfield(int64_t tag){
   return (tag >> TAG_PTR_BITFIELD_RSHIFT) & TAG_PTR_BITFIELD_MASK;
 }
 
@@ -206,7 +206,7 @@ void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
 // move of vector data and updating the vector pointer with
 // the new address of the data.
 // There is a stub and explaination for copy_vector below.
-static void copy_vector(uint8_t** vector_ptr_loc);
+static void copy_vector(int64_t** vector_ptr_loc);
 
 /*
   The cheney algorithm takes a pointer to the top of the rootstack.
@@ -243,7 +243,47 @@ static void copy_vector(uint8_t** vector_ptr_loc);
 
 void cheney(uint8_t** rootstack_ptr)
 {
+    free_ptr = tospace_begin;
+    int64_t** rootstack_work_ptr = (int64_t**)rootstack_begin;
 
+    // Step 1: Copy roots.
+    while ((void*)rootstack_work_ptr != (void*)rootstack_ptr)
+    {
+        copy_vector(rootstack_work_ptr);
+        rootstack_work_ptr++;
+    }
+
+    // Step 2: Scan copied roots.
+    int64_t* tospace_work_ptr = (int64_t*)tospace_begin;
+    while ((void*)tospace_work_ptr != (void*)free_ptr)
+    {
+        int64_t info = *tospace_work_ptr;
+        int fields = get_length(info);
+        int64_t bitfield = get_bitfield(info);
+
+        for (int i = 0; i < fields; ++i)
+        {
+            if ((bitfield & (1 << i)) != 0)
+            {
+                // found a pointer
+                int64_t** ptr = (int64_t**)(tospace_work_ptr + 1 + i);
+                copy_vector(ptr);
+            }
+        }
+
+        tospace_work_ptr += 1 + fields;
+    }
+
+    // Step 3: Swap to/from spaces
+    void* tmp = tospace_begin;
+    tospace_begin = fromspace_begin;
+    fromspace_begin = tmp;
+
+    tmp = tospace_end;
+    tospace_end = fromspace_end;
+    fromspace_end = tmp;
+
+    // printf("cheney done\n");
 }
 
 
@@ -297,9 +337,9 @@ void cheney(uint8_t** rootstack_ptr)
  the invariant that the free_ptr points to the next free memory address.
 
 */
-void copy_vector(uint8_t** vector_ptr_loc)
+void copy_vector(int64_t** vector_ptr_loc)
 {
-
+    
 }
 
 
