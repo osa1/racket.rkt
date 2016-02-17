@@ -10,6 +10,7 @@
 (require "passes/uniquify.rkt")
 (require "passes/flatten.rkt")
 (require "passes/expose-allocations.rkt")
+(require "passes/annotate-lives.rkt")
 (require "passes/uncover-call-live-roots.rkt")
 (require "passes/instr-sel.rkt")
 (require "passes/reg-alloc.rkt")
@@ -51,6 +52,7 @@
     ;; NOTE: This is where we remove type annotations. Interpreters could be
     ;; used for testing purposes in the rest of the passes.
     ("expose-allocations" ,expose-allocations ,interp-C)
+    ("annotate-lives" ,annotate-lives ,interp-C)
     ("uncover-call-live-roots" ,uncover-call-live-roots ,interp-C)
     ("instr-sel" ,instr-sel ,interp-x86)
     ("assign-homes" ,assign-homes ,interp-x86)
