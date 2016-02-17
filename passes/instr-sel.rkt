@@ -70,25 +70,31 @@
        (let ([rootstack-ptr (gensym "rootstack")])
          (set-add! new-vars rootstack-ptr)
          `(; Step 1: Move roots to the root stack
-           (movq (global-value rootstack_begin) (var ,rootstack-ptr))
-           ,@(map (lambda (idx root)
-                    `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
-                  (range (length roots)) roots)
+           ,@(if (not (null? roots))
+               `((movq (global-value rootstack_begin) (var ,rootstack-ptr))
+                 ,@(map (lambda (idx root)
+                          `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
+                        (range (length roots)) roots))
+               `())
 
            ; Step 2: Set up arguments for `collect`
            (movq (global-value rootstack_begin) (reg rdi))
-           (addq (int ,(* 8 (length roots))) (reg rdi))
+           ,@(if (not (null? roots))
+               `((addq (int ,(* 8 (length roots))) (reg rdi)))
+               `())
            (movq (int ,bytes-needed) (reg rsi))
 
            ; Step 3: Call the collector
            (callq collect)
 
            ; Step 4: Move new roots back to the variables
-           (movq (global-value rootstack_begin) (var ,rootstack-ptr))
-           ,@(map (lambda (idx root)
-                    `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
-                           ,(arg->x86-arg root)))
-                  (range (length roots)) roots)))]
+           ,@(if (not (null? roots))
+               `((movq (global-value rootstack_begin) (var ,rootstack-ptr))
+                 ,@(map (lambda (idx root)
+                          `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
+                                 ,(arg->x86-arg root)))
+                        (range (length roots)) roots))
+               `())))]
 
       [`(vector-set! ,vec ,idx ,val)
        (let ([offset (+ 8 (* 8 idx))])
