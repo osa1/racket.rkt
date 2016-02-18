@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -5,8 +6,6 @@
 #include <string.h>
 
 #include "runtime.h"
-
-#define DEBUG_MODE 1
 
 // Often misunderstood static global variables in C are not
 // accessible to code outside of the module.
@@ -51,25 +50,31 @@ static inline int64_t get_bitfield(int64_t tag){
 // initialize the state of the collector so that allocations can occur
 void initialize(uint64_t rootstack_size, uint64_t heap_size)
 {
+    // printf("initializing runtime with rootstack size %" PRIi64 ", heap size %" PRIi64 "\n",
+    //        rootstack_size, heap_size);
+
   // 1. Check to make sure that our assumptions about the world are correct.
-  if (DEBUG_MODE){
-    if (sizeof(int64_t) != sizeof(int64_t*)){
-      printf("The runtime was compiler on an incompatible platform.");
-      exit(EXIT_FAILURE);
+#ifndef NDEBUG
+    if (sizeof(int64_t) != sizeof(int64_t*))
+    {
+        printf("The runtime was compiler on an incompatible platform.");
+        exit(EXIT_FAILURE);
     }
 
-    if ((heap_size % 8) != 0){
-      printf("Invalid heap size: %" PRIu64 ", heap must be 8-byte aligned.\n", heap_size);
-      exit(EXIT_FAILURE);
+    if ((heap_size % 8) != 0)
+    {
+        printf("Invalid heap size: %" PRIu64 ", heap must be 8-byte aligned.\n", heap_size);
+        exit(EXIT_FAILURE);
     }
 
-    if ((rootstack_size % 8) != 0) {
-      // TODO (osa): Why?
-      printf("Invalid rootstack size %" PRIu64 ", root stack must be 8-byte aligned.\n",
-              rootstack_size);
-      exit(EXIT_FAILURE);
+    if ((rootstack_size % 8) != 0)
+    {
+        // TODO (osa): Why?
+        printf("Invalid rootstack size %" PRIu64 ", root stack must be 8-byte aligned.\n",
+                rootstack_size);
+        exit(EXIT_FAILURE);
     }
-  }
+#endif
 
   // 2. Allocate memory (You should always check if malloc gave you memory)
   if (!(fromspace_begin = malloc(heap_size))) {
@@ -104,115 +109,9 @@ void initialize(uint64_t rootstack_size, uint64_t heap_size)
 // There is a stub and explaination below.
 static void cheney(uint8_t** rootstack_ptr);
 
-void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
-{
-  // 1. Check our assumptions about the world
-  if (DEBUG_MODE) {
-    if (!initialized){
-      printf("Collection tried with uninitialized runtime.\n");
-      exit(EXIT_FAILURE);
-    }
-
-    if (rootstack_ptr < rootstack_begin){
-      printf("rootstack_ptr = %p < %p = rootstack_begin.\n",
-            (void*)rootstack_ptr, (void*)rootstack_begin);
-      exit(EXIT_FAILURE);
-    }
-
-    if (rootstack_ptr > rootstack_end){
-      printf("rootstack_ptr = %p > %p = rootstack_end.\n",
-             (void*)rootstack_ptr, (void*)rootstack_end);
-      exit(EXIT_FAILURE);
-    }
-
-    for(int i = 0; rootstack_begin + i < rootstack_ptr; i += 8){
-      uint8_t* a_root = rootstack_begin[i];
-      if (!(fromspace_begin <= a_root && a_root <= fromspace_end - 8)) {
-        printf("rootstack contains non fromspace pointer\n");
-        exit(EXIT_FAILURE);
-      }
-    }
-
-    if (bytes_requested < 0) {
-        printf("Can't request negative bytes: %" PRIi64 "\n", bytes_requested);
-        exit(EXIT_FAILURE);
-    }
-  }
-
-  // 2. Perform collection
-  cheney(rootstack_ptr);
-
-  // 3. Check if collection freed enough space in order to allocate
-  if (fromspace_end - free_ptr < bytes_requested) {
-    /*
-       If there is not enough room left for the bytes_requested,
-       allocate larger tospace and fromspace.
-
-       In order to determine the new size of the heap double the
-       heap size until it is bigger than the occupied portion of
-       the heap plus the bytes requested.
-
-       This covers the corner case of heaps objects that are
-       more than half the size of the heap. No a very likely
-       scenario but slightly more robust.
-
-       One corner case that isn't handled is if the heap is size
-       zero. My thought is that malloc probably wouldn't give
-       back a pointer if you asked for 0 bytes. Thus initialize
-       would fail, but our runtime-config.rkt file has a contract
-       on the heap_size parameter that the code generator uses
-       to determine initial heap size to this is a non-issue
-       in reality.
-    */
-
-    ptrdiff_t occupied_bytes = free_ptr - fromspace_begin;
-    ptrdiff_t needed_bytes = occupied_bytes + bytes_requested;
-
-    ptrdiff_t old_len = fromspace_end - fromspace_begin;
-    ptrdiff_t new_len = old_len;
-
-    while (new_len < needed_bytes)
-        new_len *= 2;
-
-    // Free and allocate a new tospace of size new_bytes
-    free(tospace_begin);
-
-    if (!(tospace_begin = malloc(new_len))) {
-      printf("failed to malloc %ld byte fromspace", new_len);
-      exit(EXIT_FAILURE);
-    }
-
-    tospace_end = tospace_begin + new_len;
-
-    // The pointers on the stack and in the heap must be updated,
-    // so this cannot be just a memcopy of the heap.
-    // Performing cheney's algorithm again will have the correct
-    // effect, and we have already implemented it.
-    cheney(rootstack_ptr);
-
-    // Cheney flips tospace and fromspace. Thus, we allocate another
-    // tospace not fromspace as we might expect.
-    free(tospace_begin);
-
-    if (!(tospace_begin = malloc(new_len))) {
-      printf("failed to malloc %ld byte tospace", new_len);
-      exit(EXIT_FAILURE);
-    }
-
-    tospace_end = tospace_begin + new_len;
-  }
-}
-
-// copy_vector is responsible for doing a pointer oblivious
-// move of vector data and updating the vector pointer with
-// the new address of the data.
-// There is a stub and explaination for copy_vector below.
-static void copy_vector(int64_t** vector_ptr_loc);
-
 void print_vector(int64_t* vector)
 {
     int64_t info = *vector;
-    int fwd = is_forwarding(info);
 
     if (is_forwarding(info))
     {
@@ -238,7 +137,16 @@ void print_vector(int64_t* vector)
         int fields = get_length(info);
         int64_t bitfield = get_bitfield(info);
 
-        printf("<vector:");
+        printf("<vector (%p, ", (void*) vector);
+        if ((void*)vector >= (void*)tospace_begin &&
+                (void*)vector < (void*)tospace_end)
+            printf("in tospace):");
+        else if ((void*)vector >= (void*)fromspace_begin &&
+                (void*)vector < (void*)fromspace_end)
+            printf("in fromspace):");
+        else
+            printf("\?\?\?):");
+
         for (int i = 0; i < fields; i++)
         {
             if ((bitfield & (1 << i)) != 0)
@@ -263,6 +171,132 @@ void print_root_stack(uint8_t** rootstack_ptr)
     }
     printf("]\n");
 }
+
+void print_pointers(void* free_ptr, void* rootstack_ptr)
+{
+    printf("=== POINTERS ===\n");
+    printf("fromspace begin = %p\n", (void*)fromspace_begin);
+    printf("fromspace end   = %p\n", (void*)fromspace_end);
+    printf("tospace   begin = %p\n", (void*)tospace_begin);
+    printf("tospace   end   = %p\n", (void*)tospace_end);
+    printf("free ptr        = %p\n", (void*)free_ptr);
+    printf("rootstack ptr   = %p\n", (void*)rootstack_ptr);
+    printf("================\n");
+}
+
+void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
+{
+  // 1. Check our assumptions about the world
+#ifndef NDEBUG
+    if (!initialized)
+    {
+        printf("Collection tried with uninitialized runtime.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (rootstack_ptr < rootstack_begin)
+    {
+        printf("rootstack_ptr = %p < %p = rootstack_begin.\n",
+                (void*)rootstack_ptr, (void*)rootstack_begin);
+        exit(EXIT_FAILURE);
+    }
+
+    if (rootstack_ptr > rootstack_end)
+    {
+        printf("rootstack_ptr = %p > %p = rootstack_end.\n",
+                (void*)rootstack_ptr, (void*)rootstack_end);
+        exit(EXIT_FAILURE);
+    }
+
+    for(int i = 0; rootstack_begin + i < rootstack_ptr; i += 8)
+    {
+        uint8_t* a_root = rootstack_begin[i];
+        if (!(fromspace_begin <= a_root && a_root <= fromspace_end - 8))
+        {
+            printf("rootstack contains non fromspace pointer\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (bytes_requested < 0)
+    {
+        printf("Can't request negative bytes: %" PRIi64 "\n", bytes_requested);
+        exit(EXIT_FAILURE);
+    }
+#endif
+
+    // 2. Perform collection
+    cheney(rootstack_ptr);
+
+    // 3. Check if collection freed enough space in order to allocate
+    if (fromspace_end - free_ptr < bytes_requested)
+    {
+      /*
+         If there is not enough room left for the bytes_requested,
+         allocate larger tospace and fromspace.
+
+         In order to determine the new size of the heap double the
+         heap size until it is bigger than the occupied portion of
+         the heap plus the bytes requested.
+
+         This covers the corner case of heaps objects that are
+         more than half the size of the heap. No a very likely
+         scenario but slightly more robust.
+
+         One corner case that isn't handled is if the heap is size
+         zero. My thought is that malloc probably wouldn't give
+         back a pointer if you asked for 0 bytes. Thus initialize
+         would fail, but our runtime-config.rkt file has a contract
+         on the heap_size parameter that the code generator uses
+         to determine initial heap size to this is a non-issue
+         in reality.
+      */
+
+      ptrdiff_t occupied_bytes = free_ptr - fromspace_begin;
+      ptrdiff_t needed_bytes = occupied_bytes + bytes_requested;
+
+      ptrdiff_t old_len = fromspace_end - fromspace_begin;
+      ptrdiff_t new_len = old_len;
+
+      while (new_len < needed_bytes)
+          new_len *= 2;
+
+      // Free and allocate a new tospace of size new_bytes
+      free(tospace_begin);
+
+      if (!(tospace_begin = malloc(new_len)))
+      {
+          printf("failed to malloc %ld byte fromspace", new_len);
+          exit(EXIT_FAILURE);
+      }
+
+      tospace_end = tospace_begin + new_len;
+
+      // The pointers on the stack and in the heap must be updated,
+      // so this cannot be just a memcopy of the heap.
+      // Performing cheney's algorithm again will have the correct
+      // effect, and we have already implemented it.
+      cheney(rootstack_ptr);
+
+      // Cheney flips tospace and fromspace. Thus, we allocate another
+      // tospace not fromspace as we might expect.
+      free(tospace_begin);
+
+      if (!(tospace_begin = malloc(new_len)))
+      {
+          printf("failed to malloc %ld byte tospace", new_len);
+          exit(EXIT_FAILURE);
+      }
+
+      tospace_end = tospace_begin + new_len;
+    }
+}
+
+// copy_vector is responsible for doing a pointer oblivious
+// move of vector data and updating the vector pointer with
+// the new address of the data.
+// There is a stub and explaination for copy_vector below.
+static void copy_vector(int64_t** vector_ptr_loc);
 
 /*
   The cheney algorithm takes a pointer to the top of the rootstack.
@@ -305,8 +339,6 @@ void cheney(uint8_t** rootstack_ptr)
     // Step 1: Copy roots.
     while ((void*)rootstack_work_ptr != (void*)rootstack_ptr)
     {
-        printf("copying vector from root stack: ");
-        print_vector(*rootstack_work_ptr);
         copy_vector(rootstack_work_ptr);
         rootstack_work_ptr++;
     }
@@ -325,8 +357,6 @@ void cheney(uint8_t** rootstack_ptr)
             {
                 // found a pointer
                 int64_t** ptr = (int64_t**)(tospace_work_ptr + 1 + i);
-                printf("copying vector from tospace: ");
-                print_vector(*ptr);
                 copy_vector(ptr);
             }
         }
@@ -342,11 +372,6 @@ void cheney(uint8_t** rootstack_ptr)
     tmp = tospace_end;
     tospace_end = fromspace_end;
     fromspace_end = tmp;
-
-    printf("cheney done\n");
-    printf("root stack after cheney:\n");
-    print_root_stack(rootstack_ptr);
-    printf("\n\n\n");
 }
 
 
@@ -405,15 +430,17 @@ void copy_vector(int64_t** vector_ptr_loc)
     int64_t* vector = *vector_ptr_loc;
     int64_t info = *vector;
 
+#ifndef NDEBUG
     if (info == 0)
     {
         printf("info is zero\n");
         exit(1);
     }
+#endif
 
     if (is_forwarding(info))
     {
-        *vector_ptr_loc = info;
+        *vector_ptr_loc = (int64_t*)info;
         return;
     }
 
@@ -423,32 +450,35 @@ void copy_vector(int64_t** vector_ptr_loc)
     // OMG, first argument is DEST. So unlike AT&T syntax.
     memcpy(free_ptr, vector, len);
 
-    *vector_ptr_loc = (int64_t)free_ptr;
-    printf("vector copied: ");
-    print_vector(*vector_ptr_loc);
+    *vector_ptr_loc = (int64_t*)free_ptr;
+    // printf("vector copied: ");
+    // print_vector(*vector_ptr_loc);
 
     free_ptr += len;
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
 
-// Read an integer from stdin
 int64_t read_int() {
   int64_t i;
   scanf("%" PRIi64, &i);
   return i;
 }
 
-// print an integer to stdout
-void print_int(int64_t x) {
-  printf("%" PRIi64, x);
+void print_int(int64_t x)
+{
+    printf("%" PRIi64, x);
 }
 
-// print a bool to stdout
-void print_bool(int64_t x) {
-  if (x){
-    printf("#t");
-  } else {
-    printf("#f");
-  }
+void print_bool(int64_t x)
+{
+    if (x)
+    {
+        printf("#t");
+    }
+    else
+    {
+        printf("#f");
+    }
 }
