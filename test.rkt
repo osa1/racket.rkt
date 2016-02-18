@@ -109,7 +109,6 @@
 (use-move-rels #t)
 (use-regs #t)
 (initial-heap-size 16)
-(initial-root-stack-size 16)
 (printf "use-move-rels: ~a~n" (use-move-rels))
 (printf "use-regs ~a~n" (use-regs))
 (printf "initial-heap-size ~a~n" (initial-heap-size))
