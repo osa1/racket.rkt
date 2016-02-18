@@ -334,34 +334,40 @@ static void copy_vector(int64_t** vector_ptr_loc);
 void cheney(uint8_t** rootstack_ptr)
 {
     free_ptr = tospace_begin;
-    int64_t** rootstack_work_ptr = (int64_t**)rootstack_begin;
 
-    // Step 1: Copy roots.
-    while ((void*)rootstack_work_ptr != (void*)rootstack_ptr)
     {
-        copy_vector(rootstack_work_ptr);
-        rootstack_work_ptr++;
+        // Step 1: Copy roots.
+        int64_t** work_ptr = (int64_t**)rootstack_begin;
+
+        while ((void*)work_ptr != (void*)rootstack_ptr)
+        {
+            copy_vector(work_ptr);
+            work_ptr++;
+        }
     }
 
-    // Step 2: Scan copied roots.
-    int64_t* tospace_work_ptr = (int64_t*)tospace_begin;
-    while ((void*)tospace_work_ptr != (void*)free_ptr)
     {
-        int64_t info = *tospace_work_ptr;
-        int fields = get_length(info);
-        int64_t bitfield = get_bitfield(info);
+        // Step 2: Scan copied roots.
+        int64_t* work_ptr = (int64_t*)tospace_begin;
 
-        for (int i = 0; i < fields; ++i)
+        while ((void*)work_ptr != (void*)free_ptr)
         {
-            if ((bitfield & (1 << i)) != 0)
-            {
-                // found a pointer
-                int64_t** ptr = (int64_t**)(tospace_work_ptr + 1 + i);
-                copy_vector(ptr);
-            }
-        }
+            int64_t info = *work_ptr;
+            int fields = get_length(info);
+            int64_t bitfield = get_bitfield(info);
 
-        tospace_work_ptr += 1 + fields;
+            for (int i = 0; i < fields; ++i)
+            {
+                if ((bitfield & (1 << i)) != 0)
+                {
+                    // found a pointer
+                    int64_t** ptr = (int64_t**)(work_ptr + 1 + i);
+                    copy_vector(ptr);
+                }
+            }
+
+            work_ptr += 1 + fields;
+        }
     }
 
     // Step 3: Swap to/from spaces
