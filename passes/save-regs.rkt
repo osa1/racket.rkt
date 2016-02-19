@@ -15,7 +15,7 @@
 
 (define (save-regs pgm)
   (match pgm
-    [(list-rest 'program meta instrs)
+    [`(program ,meta . ,instrs)
      ;; FIXME: Bad! We generate live vars again!
      (let-values [((pgm lives) (gen-live-afters pgm))]
        ; We should use the program with annotated live vars on if branches

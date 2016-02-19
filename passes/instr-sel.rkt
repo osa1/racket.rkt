@@ -53,8 +53,6 @@
 
            ; NOTE the setl instead of sete! We need to check if free-ptr-updated
            ; is bigger than fromspace_end!
-           ; TODO: We're assuming the space grows upwards here. Make sure this is
-           ; really the case? (it should be as this is heap)
            (setl (byte-reg al))
 
            ; reusing free-ptr-updated here for the eq? test
@@ -98,7 +96,6 @@
 
       [`(vector-set! ,vec ,idx ,val)
        (let ([offset (+ 8 (* 8 idx))])
-         ;; TODO: Does `offset` form work here? What happens if vec is on stack?
          `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
 
       [_ (unsupported-form 'instr-sel-stmt stmt)])))

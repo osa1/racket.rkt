@@ -381,7 +381,6 @@
     [`(stack ,_) arg]
     [`(global-value ,_) arg]
     [`(offset ,arg ,offset)
-     ; TODO: What happens if the pointer is on stack?
      `(offset ,(assign-home-arg asgns arg) ,offset)]
     [`(var ,var)
      (let [(asgn (hash-ref asgns `(var ,var) '()))]

@@ -17,7 +17,6 @@ main:\n")
 \tmovq %rsp, %rbp\n"
 
 ;; Initialize RTS
-;; TODO: These should probably be some runtime parameters
 (format
 "\tmovq $~a, %rdi
 \tmovq $~a, %rsi
