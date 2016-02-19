@@ -74,7 +74,9 @@
 
   ; It takes forever after vector-ref-crazy_20
   ; FIXME: Benchmark this. Could it be gcc's fault?
-  (compiler-tests "vec-ref-crazy" typechecker r2-passes "vector-ref-crazy" (range 1 15)))
+  (compiler-tests "vec-ref-crazy" typechecker r2-passes "vector-ref-crazy" (range 1 15))
+
+  (compiler-tests "vector-other" typechecker r2-passes "vector-other" (range 1 2)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")
