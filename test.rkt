@@ -76,7 +76,9 @@
   ; FIXME: Benchmark this. Could it be gcc's fault?
   (compiler-tests "vec-ref-crazy" typechecker r2-passes "vector-ref-crazy" (range 1 15))
 
-  (compiler-tests "vector-other" typechecker r2-passes "vector-other" (range 1 2)))
+  (compiler-tests "vector-other" typechecker r2-passes "vector-other" (range 1 2))
+  
+  (compiler-tests "r3" typechecker r2-passes "r3" (range 1 16)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")
