@@ -20,3 +20,6 @@ make your compiler work with the interpreter so that you can more
 easily test against it as the compiler gets more compilcated. That's
 up to you, though, and as long as your compiler works with all our
 tests you're doing well.
+
+ASSIGNMENT 4:
+All test cases interpreted and compiled successfully. Well done!
