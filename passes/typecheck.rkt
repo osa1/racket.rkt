@@ -16,12 +16,48 @@
 ;; programs! (adds type annotations)
 (define (typecheck pgm)
   (match pgm
-    [`(program ,e)
-     (let-values ([(e _) (typecheck-iter '() e (hash))])
-       `(program ,e))]
+    [`(program . ,things)
+     (let-values ([(defines expr) (split-last things)])
+       (let* ([toplevel-tys (map (lambda (def)
+                                   (cons (extract-toplevel-name def) (extract-toplevel-ty def)))
+                                 defines)]
+              [initial-env (make-immutable-hash toplevel-tys)]
+              [defines (map (lambda (def) (typecheck-toplevel initial-env def)) defines)])
+         (let-values ([(expr _) (typecheck-expr '() expr initial-env)])
+           `(program ,@defines ,expr))))]
     [_ (unsupported-form 'typecheck pgm)]))
 
 (define typechecker typecheck)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Extracting stuff from stuff
+
+(define (extract-toplevel-name def)
+  (match def
+    [`(define (,name . ,_) : ,_ ,_)
+     name]
+    [_ (unsupported-form 'extract-toplevel-name def)]))
+
+(define (extract-toplevel-ty def)
+  (match def
+    [`(define (,_ . ,args) : ,ret-ty ,_)
+     `(,@(map extract-arg-ty args) -> ,ret-ty)]
+    [_ (unsupported-form 'extract-toplevel-ty def)]))
+
+(define (extract-arg-ty arg)
+  (match arg
+    [`(,_ : ,arg-ty) arg-ty]
+    [_ (unsupported-form 'extract-arg-ty arg)]))
+
+(define (split-fun-ty ty)
+  (let-values ([(args ret-lst)
+                (splitf-at ty (lambda (ty) (not (eq? ty '->))))])
+    (unless (eq? 2 (length ret-lst))
+      (error 'split-fun-ty "Unexpected return type: ~a~n" ret-lst))
+    (values args (cadr ret-lst))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Assertions
 
 (define (ty-err context expr expected found)
   (printf "Type error in ~s: Expected ~s, found ~s~n" expr expected found)
@@ -29,62 +65,81 @@
     (printf "in expression: ~n~s~n~n" expr))
   (error 'ty-err ""))
 
-(define (wrap-values f . args)
-  (let-values ([(ret1 ret2) (apply f args)])
-    `(,ret1 . ,ret2)))
-
 (define (assert-ty context expr expected found)
   (if (equal? expected found)
     (void)
     (ty-err context expr expected found)))
 
-(define (typecheck-iter context expr env)
+(define (assert-arg-tys context expr expected-tys arg-tys)
+  (for ([p (map cons expected-tys arg-tys)])
+    (assert-ty context expr (car p) (cdr p))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type checking top-level things
+
+(define (typecheck-toplevel env def)
+  (match def
+    [`(define (,fname . ,args) : ,ret-ty ,body)
+     (let* ([env (foldl (lambda (arg env)
+                          (hash-set env (car arg) (caddr arg)))
+                        env args)]
+            [context (list def)])
+       (let-values ([(body body-ty) (typecheck-expr context body env)])
+         (assert-ty context body ret-ty body-ty)
+         `(define (,fname ,@args) : ,ret-ty ,body)))]
+
+    [_ (unsupported-form 'typecheck-toplevel def)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type checking expressions
+
+(define (typecheck-expr context expr env)
   (match expr
     [(? fixnum?) (values expr 'Integer)]
     [(? boolean?) (values expr 'Bool)]
     [(? symbol?) (values expr (hash-ref env expr))]
 
     [`(- ,e1)
-     (let-values ([(e1 e1-ty) (typecheck-iter (cons expr context) e1 env)])
+     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)])
        (assert-ty context e1 'Integer e1-ty)
        (values `(- ,e1) 'Integer))]
 
     [`(+ ,e1 ,e2)
-     (let-values ([(e1 e1-ty) (typecheck-iter (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-iter (cons expr context) e2 env)])
+     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
+                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)])
        (assert-ty context e1 'Integer e1-ty)
        (assert-ty context e2 'Integer e2-ty)
        (values `(+ ,e1 ,e2) 'Integer))]
 
     [`(and ,e1 ,e2)
-     (let-values ([(e1 e1-ty) (typecheck-iter (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-iter (cons expr context) e2 env)])
+     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
+                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)])
        (assert-ty context e1 'Bool e1-ty)
        (assert-ty context e2 'Bool e2-ty)
        (values `(and ,e1 ,e2) 'Bool))]
 
     [`(not ,e1)
-     (let-values ([(e1 e1-ty) (typecheck-iter (cons expr context) e1 env)])
+     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)])
        (assert-ty context e1 'Bool e1-ty)
        (values `(not ,e1) 'Bool))]
 
     [`(eq? ,e1 ,e2)
-     (let-values ([(e1 e1-ty) (typecheck-iter (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-iter (cons expr context) e2 env)])
+     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
+                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)])
        (assert-ty context e2 e1-ty e2-ty)
        (values `(eq? ,e1 ,e2) 'Bool))]
 
     [`(if ,e1 ,e2 ,e3)
-     (let-values ([(e1 e1-ty) (typecheck-iter (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-iter (cons expr context) e2 env)]
-                  [(e3 e3-ty) (typecheck-iter (cons expr context) e3 env)])
+     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
+                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)]
+                  [(e3 e3-ty) (typecheck-expr (cons expr context) e3 env)])
        (assert-ty context e1 'Bool e1-ty)
        (assert-ty context e2 e3-ty e2-ty)
        (values `(if ,e1 ,e2-ty ,e2 ,e3) e3-ty))]
 
     [`(let ([,var ,e1]) ,body)
-     (let*-values ([(e1 e1-ty) (typecheck-iter (cons expr context) e1 env)]
-                   [(body body-ty) (typecheck-iter (cons expr context) body (hash-set env var e1-ty))])
+     (let*-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
+                   [(body body-ty) (typecheck-expr (cons expr context) body (hash-set env var e1-ty))])
        ; note how we're annotating the expression with binder's type
        (values `(let ([,var ,e1-ty ,e1]) ,body) body-ty))]
 
@@ -94,43 +149,60 @@
      (let-values ([(elems elem-types)
                    (unzip (map (lambda (elem)
                                  (let-values ([(elem elem-ty)
-                                               (typecheck-iter (cons expr context) elem env)])
+                                               (typecheck-expr (cons expr context) elem env)])
                                    `(,elem . ,elem-ty)))
                                elems))])
        ; note how we're annotating the vector with element types
-       (values `(vector ,elem-types ,@elems) `(vector ,@elem-types)))]
+       (values `(vector ,elem-types ,@elems) `(Vector ,@elem-types)))]
 
     [`(vector-ref ,vec ,idx)
      (unless (fixnum? idx)
        (error 'typecheck "vector-ref invalid index in ~s: ~s~n" vec idx))
-     (let-values ([(vec vec-ty) (typecheck-iter (cons expr context) vec env)])
+     (let-values ([(vec vec-ty) (typecheck-expr (cons expr context) vec env)])
        (match vec-ty
-         [`(vector . ,elems)
+         [`(Vector . ,elems)
           (unless (< idx (length elems))
             (error 'typecheck
                    "Invalid vector index: ~s vector size: ~s expression: ~s~n"
                    idx (length elems) expr))
           (let [(ret-ty (list-ref elems idx))]
             (values `(vector-ref ,ret-ty ,vec ,idx) ret-ty))]
-         [_ (ty-err vec 'Vector vec-ty)]))]
+         [_ (ty-err context expr 'Vector vec-ty)]))]
 
     [`(vector-set! ,vec ,idx ,e)
      (unless (fixnum? idx)
        (error 'typecheck "vector-set! invalid index in ~s: ~s~n" vec idx))
-     (let-values ([(vec vec-ty) (typecheck-iter (cons expr context) vec env)])
+     (let-values ([(vec vec-ty) (typecheck-expr (cons expr context) vec env)])
        (match vec-ty
-         [`(vector . ,elems)
+         [`(Vector . ,elems)
           (unless (< idx (length elems))
             (error 'typecheck
                    "Invalid vector index: ~s vector size: ~s expression: ~s~n"
                    idx (length elems) expr))
           (let ([vec-elem-ty (list-ref elems idx)])
-            (let-values ([(e e-ty) (typecheck-iter (cons expr context) e env)])
+            (let-values ([(e e-ty) (typecheck-expr (cons expr context) e env)])
               (assert-ty context e vec-elem-ty e-ty)
               (values `(vector-set! ,vec ,idx ,e) 'void)))]
-         [_ (ty-err vec 'Vector vec-ty)]))]
+         [_ (ty-err context expr 'Vector vec-ty)]))]
 
-    [_ (unsupported-form 'typecheck-iter expr)]))
+    [`(,fn . ,args)
+     (match (hash-ref env fn 'nop)
+       ['nop (error "fn not in scope: ~a~n" fn)]
+       [ty
+        (let ([context (cons expr context)])
+          (let-values ([(expected-arg-tys ret-ty) (split-fun-ty ty)])
+            (unless (eq? (length expected-arg-tys) (length args))
+              (error 'typecheck-expr
+                     "Function has arity ~a, but is applied to ~a arguments.~n~a~n~a~n"
+                     (length expected-arg-tys) (length args) expr
+                     ty))
+            (let-values
+              ([(args arg-tys)
+                (map-unzip (lambda (arg) (typecheck-expr (cons arg context) arg env)) args)])
+              (assert-arg-tys context expr expected-arg-tys arg-tys)
+              (values `(,fn ,@args) ret-ty))))])]
+
+    [_ (unsupported-form 'typecheck-expr expr)]))
 
 (define (op-ret-ty op)
   (match op

@@ -120,3 +120,5 @@
 (run-all-tests)
 (newline)
 (newline)
+
+(typecheck (read-program "tests/fun_1.rkt"))

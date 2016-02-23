@@ -15,6 +15,7 @@
     (let ([path (string->path file)])
       (let-values ([(_1 name _2) (split-path path)])
     (let ([name (car (string-split (path->string name) "."))])
+	  (pretty-print (typecheck (read-program file)))
       (if ((compile-file typechecker r3-passes) file)
         (system (format "gcc -g runtime.o tests/~a.s -o ~a" name name))
         (printf "Compilation failed: ~a~n" file)))))))

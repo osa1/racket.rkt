@@ -135,7 +135,7 @@
      (let* ([alloc-size (+ 8 (* 8 (length obj-types)))]
             [ptr-idxs (filter-nulls (map (lambda (idx obj-type)
                                            (if (and (list? obj-type)
-                                                    (eq? (car obj-type) 'vector))
+                                                    (eq? (car obj-type) 'Vector))
                                              idx '()))
                                          (range (length obj-types)) obj-types))]
 

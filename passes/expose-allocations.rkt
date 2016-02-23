@@ -15,7 +15,7 @@
 
 (define (expose-allocations-stmt stmt)
   (match stmt
-    [`(assign ,x (vector . ,tys) (vector . ,elems))
+    [`(assign ,x (Vector . ,tys) (vector . ,elems))
      (let ([bytes-needed
              ; one byte for info, one byte for each element in the vector
              (+ 8 (* 8 (length tys)))])

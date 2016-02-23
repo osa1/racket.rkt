@@ -89,6 +89,6 @@
 (define (filter-allocateds var-tys vs)
   (filter (lambda (v)
             (match (hash-ref var-tys v)
-              [`(vector . ,_) #t]
+              [`(Vector . ,_) #t]
               [_ #f]))
           vs))

@@ -132,7 +132,7 @@
     [`(vector ,elem-tys . ,elems)
      (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
        (let [(fresh (gensym "tmp-vec"))]
-         (values binds (cons `(assign ,fresh (vector ,@elem-tys) (vector ,@es)) pgm) fresh)))]
+         (values binds (cons `(assign ,fresh (Vector ,@elem-tys) (vector ,@es)) pgm) fresh)))]
 
     [_ (unsupported-form 'flatten-expr expr)]))
 

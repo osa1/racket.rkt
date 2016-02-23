@@ -19,10 +19,28 @@
        (values (cons x xs) (cons y ys)))]
     [_ (unsupported-form 'unzip lst)]))
 
+(define (map-unzip f lst)
+  (match lst
+    [(list) (values '() '())]
+    [(list-rest x xs)
+     (let-values ([(vals1 vals2) (map-unzip f xs)]
+                  [(val1 val2) (f x)])
+       (values (cons val1 vals1) (cons val2 vals2)))]))
+
 (define (bitfield-from-bit-idxs bit-idxs)
   (foldl (lambda (bit-idx acc)
            (bitwise-ior acc (arithmetic-shift 1 bit-idx)))
          0 bit-idxs))
+
+(define (split-last lst)
+  (match lst
+    [`()
+     (error 'split-last "Empty list")]
+    [`(,x)
+     (values '() x)]
+    [`(,x . ,xs)
+     (let-values ([(xs last) (split-last xs)])
+       (values (cons x xs) last))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Find these guys a safe place
