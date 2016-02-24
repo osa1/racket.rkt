@@ -77,7 +77,7 @@
   (compiler-tests "vec-ref-crazy" typechecker r2-passes "vector-ref-crazy" (range 1 15))
 
   (compiler-tests "vector-other" typechecker r2-passes "vector-other" (range 1 2))
-  
+
   (compiler-tests "r3" typechecker r2-passes "r3" (range 1 16)))
 
 (printf "================================================================================~n")
@@ -121,4 +121,9 @@
 (newline)
 (newline)
 
-(typecheck (read-program "tests/fun_1.rkt"))
+;(flatten
+;  (uniquify
+;    (choose-branch
+;      (desugar
+;        (typecheck
+;          (read-program "tests/fun_1.rkt"))))))

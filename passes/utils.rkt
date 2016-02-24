@@ -43,7 +43,16 @@
        (values (cons x xs) last))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Find these guys a safe place
+
+(define (lift-def fn)
+  (lambda (def)
+    (match def
+      [`(define ,name : ,ret-ty ,expr)
+       `(define ,name : ,ret-ty ,(fn expr))]
+      [_ (unsupported-form 'lift-def def)])))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Find these guys a safe place
 
 (define (arg-imm? arg)
   (match arg

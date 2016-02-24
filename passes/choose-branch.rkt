@@ -9,8 +9,9 @@
 
 (define (choose-branch pgm)
   (match pgm
-    [`(program ,e)
-     `(program ,(choose-branch-expr e))]
+    [`(program . ,things)
+     (let-values ([(defs expr) (split-last things)])
+       `(program ,@(map (lift-def choose-branch-expr) defs) ,(choose-branch-expr expr)))]
     [_ (unsupported-form 'choose-branch pgm)]))
 
 ;; TODO: We can be much more aggressive here, by doing a simple form of
@@ -62,5 +63,8 @@
 
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map choose-branch-expr elems))]
+
+    [`(,f . ,args)
+     `(,(choose-branch-expr f) ,@(map choose-branch-expr args))]
 
     [_ (unsupported-form 'choose-branch-expr e0)]))

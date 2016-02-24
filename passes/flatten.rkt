@@ -2,7 +2,7 @@
 
 (require racket/hash)
 
-(require (only-in "typecheck.rkt" op-ret-ty))
+(require (only-in "typecheck.rkt" op-ret-ty mk-toplevel-ty-env))
 (require "utils.rkt")
 
 (provide flatten)
@@ -20,13 +20,16 @@
 
 (define (flatten pgm)
   (match pgm
-    [`(program ,e)
-     (let-values ([(_ pgm e) (flatten-expr (hash) '() e)])
-       ; (printf "collect-binds result: ~s~n" (collect-binds pgm))
-       (let [(stats (reverse (cons `(return ,e) pgm)))]
-         ; (printf "stats before remove-var-asgns: ~s~n" stats)
-         ; (printf "stats after remove-var-asgns: ~s~n" (remove-var-asgns stats))
-         `(program ,(collect-binds pgm) ,@(remove-var-asgns stats))))]
+    [`(program . ,things)
+      (let-values ([(defs expr) (split-last things)])
+        (let* ([toplevel-ty-env (mk-toplevel-ty-env defs)]
+               [flatten-expr (mk-flatten toplevel-ty-env)])
+          (let-values ([(_ pgm e) (flatten-expr (hash) '() expr)])
+            ; (printf "collect-binds result: ~s~n" (collect-binds pgm))
+            (let [(stats (reverse (cons `(return ,e) pgm)))]
+              ; (printf "stats before remove-var-asgns: ~s~n" stats)
+              ; (printf "stats after remove-var-asgns: ~s~n" (remove-var-asgns stats))
+              `(program ,(collect-binds pgm) ,@(remove-var-asgns stats))))))]
 
     [_ (unsupported-form 'flatten pgm)]))
 
@@ -48,93 +51,97 @@
 
 (define (arg? e) (or (fixnum? e) (symbol? e)))
 
-(define (flatten-expr-list binds pgm exprs)
-  (match exprs
-    [(list) (values binds pgm exprs)]
-    [(cons expr exprs)
-     (let*-values ([(binds pgm expr) (flatten-expr binds pgm expr)]
-                   [(binds pgm exprs) (flatten-expr-list binds pgm exprs)])
-       (values binds pgm (cons expr exprs)))]))
+(define (mk-flatten toplevel-tys)
 
-(define (flatten-expr binds pgm expr)
-  (match expr
+  (define (flatten-expr-list binds pgm exprs)
+    (match exprs
+      [(list) (values binds pgm exprs)]
+      [(cons expr exprs)
+       (let*-values ([(binds pgm expr) (flatten-expr binds pgm expr)]
+                     [(binds pgm exprs) (flatten-expr-list binds pgm exprs)])
+         (values binds pgm (cons expr exprs)))]))
 
-    [(or (? fixnum?) (? boolean?))
-     (values binds pgm expr)]
+  (define (flatten-expr binds pgm expr)
+    (match expr
+      [(or (? fixnum?) (? boolean?))
+       (values binds pgm expr)]
 
-    [`(read)
-     (let [(fresh (gensym "tmp"))]
-       (values binds (cons `(assign ,fresh 'Integer (read)) pgm) fresh))]
-
-    [`(,(or '- 'not) ,e1)
-     (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
+      [`(read)
        (let [(fresh (gensym "tmp"))]
-         (values binds (cons `(assign ,fresh ,(op-ret-ty (car expr))
-                                      (,(car expr) ,e1))
-                             pgm)
-                 fresh)))]
+         (values binds (cons `(assign ,fresh 'Integer (read)) pgm) fresh))]
 
-    [`(,(or '+ 'eq?) ,e1 ,e2)
-     (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-       (let-values ([(binds pgm e2) (flatten-expr binds pgm e2)])
+      [`(,(or '- 'not) ,e1)
+       (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
          (let [(fresh (gensym "tmp"))]
            (values binds (cons `(assign ,fresh ,(op-ret-ty (car expr))
-                                        (,(car expr) ,e1 ,e2))
+                                        (,(car expr) ,e1))
                                pgm)
-                   fresh))))]
+                   fresh)))]
 
-    [(? symbol?)
-     (values binds pgm (hash-ref binds expr))]
+      [`(,(or '+ 'eq?) ,e1 ,e2)
+       (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
+         (let-values ([(binds pgm e2) (flatten-expr binds pgm e2)])
+           (let [(fresh (gensym "tmp"))]
+             (values binds (cons `(assign ,fresh ,(op-ret-ty (car expr))
+                                          (,(car expr) ,e1 ,e2))
+                                 pgm)
+                     fresh))))]
 
-    [`(let ([,var ,var-ty ,e1]) ,body)
-     (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-       (let [(fresh (gensym (string-append "tmp_" (symbol->string var) "_")))]
-         (let-values ([(binds pgm body)
-                       (flatten-expr (hash-set binds var fresh)
-                                     (cons `(assign ,fresh ,var-ty ,e1) pgm)
-                                     body)])
-           (values binds pgm body))))]
+      [(? symbol?)
+       ; Similar to the uniquify step: If not in map, assume global definition.
+       (values binds pgm (hash-ref binds expr expr))]
 
-    [`(if (eq? ,e1 ,e2) ,ret-ty ,e3 ,e4)
-     (let [(fresh (gensym "tmp-if"))]
-       (let*-values [((binds pgm e1)  (flatten-expr binds pgm e1))
-                     ((binds pgm e2)  (flatten-expr binds pgm e2))
-                     ((_ pgm-t ret-t) (flatten-expr binds '() e3))
-                     ((_ pgm-f ret-f) (flatten-expr binds '() e4))]
-         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-ty ,ret-t) pgm-t)))
-                (pgm-f (reverse (cons `(assign ,fresh ,ret-ty ,ret-f) pgm-f)))]
-           (values binds (cons `(if (eq? ,e1 ,e2) ,ret-ty ,pgm-t ,pgm-f) pgm) fresh))))]
+      [`(let ([,var ,var-ty ,e1]) ,body)
+       (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
+         (let [(fresh (gensym (string-append "tmp_" (symbol->string var) "_")))]
+           (let-values ([(binds pgm body)
+                         (flatten-expr (hash-set binds var fresh)
+                                       (cons `(assign ,fresh ,var-ty ,e1) pgm)
+                                       body)])
+             (values binds pgm body))))]
 
-    [`(if ,e1 ,ret-ty ,e2 ,e3)
-     (let [(fresh (gensym "tmp-if"))]
+      [`(if (eq? ,e1 ,e2) ,ret-ty ,e3 ,e4)
+       (let [(fresh (gensym "tmp-if"))]
+         (let*-values [((binds pgm e1)  (flatten-expr binds pgm e1))
+                       ((binds pgm e2)  (flatten-expr binds pgm e2))
+                       ((_ pgm-t ret-t) (flatten-expr binds '() e3))
+                       ((_ pgm-f ret-f) (flatten-expr binds '() e4))]
+           (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-ty ,ret-t) pgm-t)))
+                  (pgm-f (reverse (cons `(assign ,fresh ,ret-ty ,ret-f) pgm-f)))]
+             (values binds (cons `(if (eq? ,e1 ,e2) ,ret-ty ,pgm-t ,pgm-f) pgm) fresh))))]
+
+      [`(if ,e1 ,ret-ty ,e2 ,e3)
+       (let [(fresh (gensym "tmp-if"))]
+         (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
+                       [(_ pgm-t ret-t) (flatten-expr binds '() e2)]
+                       [(_ pgm-f ret-f) (flatten-expr binds '() e3)])
+           (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-ty ,ret-t) pgm-t)))
+                  (pgm-f (reverse (cons `(assign ,fresh ,ret-ty ,ret-f) pgm-f)))]
+             (values binds (cons `(if (eq? ,e1 #t) ,ret-ty ,pgm-t ,pgm-f) pgm) fresh))))]
+
+      [`(vector-ref ,ret-ty ,e1 ,e2)
        (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
-                     [(_ pgm-t ret-t) (flatten-expr binds '() e2)]
-                     [(_ pgm-f ret-f) (flatten-expr binds '() e3)])
-         (let* [(pgm-t (reverse (cons `(assign ,fresh ,ret-ty ,ret-t) pgm-t)))
-                (pgm-f (reverse (cons `(assign ,fresh ,ret-ty ,ret-f) pgm-f)))]
-           (values binds (cons `(if (eq? ,e1 #t) ,ret-ty ,pgm-t ,pgm-f) pgm) fresh))))]
+                     [(binds pgm e2) (flatten-expr binds pgm e2)])
+         (let [(fresh (gensym "tmp"))]
+           (values binds (cons `(assign ,fresh ,ret-ty (vector-ref ,e1 ,e2)) pgm) fresh)))]
 
-    [`(vector-ref ,ret-ty ,e1 ,e2)
-     (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
-                   [(binds pgm e2) (flatten-expr binds pgm e2)])
-       (let [(fresh (gensym "tmp"))]
-         (values binds (cons `(assign ,fresh ,ret-ty (vector-ref ,e1 ,e2)) pgm) fresh)))]
+      [`(vector-set! ,vec ,idx ,e)
+       ;; Q: Why not make this a statement?
+       ;; A: Because functional programming (everything is an expression) with
+       ;;    side-effects. It sucks.
+       (let*-values ([(binds pgm vec) (flatten-expr binds pgm vec)]
+                     [(binds pgm e) (flatten-expr binds pgm e)])
+         (let [(fresh (gensym "void"))]
+           (values binds (cons `(assign ,fresh ,void (vector-set! ,vec ,idx ,e)) pgm) fresh)))]
 
-    [`(vector-set! ,vec ,idx ,e)
-     ;; Q: Why not make this a statement?
-     ;; A: Because functional programming (everything is an expression) with
-     ;;    side-effects. It sucks.
-     (let*-values ([(binds pgm vec) (flatten-expr binds pgm vec)]
-                   [(binds pgm e) (flatten-expr binds pgm e)])
-       (let [(fresh (gensym "void"))]
-         (values binds (cons `(assign ,fresh ,void (vector-set! ,vec ,idx ,e)) pgm) fresh)))]
+      [`(vector ,elem-tys . ,elems)
+       (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
+         (let [(fresh (gensym "tmp-vec"))]
+           (values binds (cons `(assign ,fresh (Vector ,@elem-tys) (vector ,@es)) pgm) fresh)))]
 
-    [`(vector ,elem-tys . ,elems)
-     (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
-       (let [(fresh (gensym "tmp-vec"))]
-         (values binds (cons `(assign ,fresh (Vector ,@elem-tys) (vector ,@es)) pgm) fresh)))]
+      [_ (unsupported-form 'flatten-expr expr)]))
 
-    [_ (unsupported-form 'flatten-expr expr)]))
+  flatten-expr)
 
 ;; Remove statements in form (assign x y) where y is a variable.
 ;; Does this by renaming x with y in the statements that follow this statement.

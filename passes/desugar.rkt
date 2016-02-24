@@ -8,7 +8,9 @@
 
 (define (desugar pgm)
   (match pgm
-    [`(program ,e) `(program ,(desugar-expr e))]
+    [`(program . ,things)
+     (let-values ([(defs expr) (split-last things)])
+       `(program ,@(map (lift-def desugar-expr) defs) ,(desugar-expr expr)))]
     [_ (unsupported-form 'desugar pgm)]))
 
 (define (desugar-expr e0)
@@ -42,5 +44,8 @@
 
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map desugar-expr elems))]
+
+    [`(,f . ,args)
+     `(,(desugar-expr f) ,@(map desugar-expr args))]
 
     [_ (unsupported-form 'desugar-expr e0)]))

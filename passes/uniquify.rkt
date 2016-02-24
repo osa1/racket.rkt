@@ -6,7 +6,10 @@
 
 (define (uniquify pgm)
   (match pgm
-    [`(program ,e) `(program ,(uniquify-expr (hash) e))]
+    [`(program . ,things)
+     (let-values ([(defs expr) (split-last things)])
+       `(program ,@(map (lift-def (lambda (expr) (uniquify-expr (hash) expr))) defs)
+                        ,(uniquify-expr (hash) expr)))]
     [_ (unsupported-form 'uniquify pgm)]))
 
 (define (uniquify-expr rns e0)
@@ -24,7 +27,8 @@
      (list 'if (uniquify-expr rns e1) ret-ty (uniquify-expr rns e2) (uniquify-expr rns e3))]
 
     [(? symbol?)
-     (hash-ref rns e0)]
+     ; Not in map = toplevel, so just return.
+     (hash-ref rns e0 e0)]
 
     [`(let ([,var ,var-ty ,e1]) ,body)
      (let* ([fresh (gensym "x")]
@@ -40,6 +44,9 @@
 
     [`(vector ,elem-tys . ,elems)
      `(vector ,elem-tys ,@(map (lambda (elem) (uniquify-expr rns elem)) elems))]
+
+    [`(,f . ,args)
+     `(,(uniquify-expr rns f) ,@(map (lambda (expr) (uniquify-expr rns expr)) args))]
 
     [unsupported
      (unsupported-form 'uniquify-expr unsupported)]))

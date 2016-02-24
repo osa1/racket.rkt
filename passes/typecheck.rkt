@@ -2,7 +2,7 @@
 
 (require "utils.rkt")
 
-(provide typecheck typechecker op-ret-ty typecheck-ignore)
+(provide typecheck typechecker op-ret-ty typecheck-ignore mk-toplevel-ty-env)
 
 ;; This is used for ignoring type-checking step. The problem with type-checking
 ;; is that it's only defined in front-end language. When we want to run
@@ -18,16 +18,19 @@
   (match pgm
     [`(program . ,things)
      (let-values ([(defines expr) (split-last things)])
-       (let* ([toplevel-tys (map (lambda (def)
-                                   (cons (extract-toplevel-name def) (extract-toplevel-ty def)))
-                                 defines)]
-              [initial-env (make-immutable-hash toplevel-tys)]
+       (let* ([initial-env (mk-toplevel-ty-env defines)]
               [defines (map (lambda (def) (typecheck-toplevel initial-env def)) defines)])
          (let-values ([(expr _) (typecheck-expr '() expr initial-env)])
            `(program ,@defines ,expr))))]
     [_ (unsupported-form 'typecheck pgm)]))
 
 (define typechecker typecheck)
+
+(define (mk-toplevel-ty-env defs)
+  (make-immutable-hash
+    (map (lambda (def)
+           (cons (extract-toplevel-name def) (extract-toplevel-ty def)))
+         defs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Extracting stuff from stuff
