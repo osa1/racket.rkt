@@ -121,9 +121,8 @@
 (newline)
 (newline)
 
-;(flatten
-;  (uniquify
-;    (choose-branch
-;      (desugar
-;        (typecheck
-;          (read-program "tests/fun_1.rkt"))))))
+(flatten
+  (uniquify
+    (desugar
+      (typecheck
+        (read-program "tests/fun_1.rkt")))))

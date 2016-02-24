@@ -4,9 +4,6 @@
 
 (provide expose-allocations)
 
-;; NOTE: expose-allocations removes type annotations! Remove this if types are
-;; needed in some later pass.
-
 (define (expose-allocations pgm)
   (match pgm
     [`(program ,vs . ,stmts)
@@ -32,8 +29,8 @@
 
     [`(assign ,x ,_ ,arg) `((assign ,x ,arg))]
 
-    [`(if ,cond ,_ ,pgm-t ,pgm-f) `((if ,cond ,(append-map expose-allocations-stmt pgm-t)
-                                              ,(append-map expose-allocations-stmt pgm-f)))]
+    [`(if ,cond ,pgm-t ,pgm-f) `((if ,cond ,(append-map expose-allocations-stmt pgm-t)
+                                           ,(append-map expose-allocations-stmt pgm-f)))]
 
     [`(return ,x) `((return ,x))]
 

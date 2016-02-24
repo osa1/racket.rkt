@@ -2,7 +2,7 @@
 
 (require "utils.rkt")
 
-(provide typecheck typechecker op-ret-ty typecheck-ignore mk-toplevel-ty-env)
+(provide typecheck typechecker typecheck-ignore mk-toplevel-ty-env)
 
 ;; This is used for ignoring type-checking step. The problem with type-checking
 ;; is that it's only defined in front-end language. When we want to run
@@ -10,17 +10,16 @@
 ;; a type checker for all the intermediate languages, or skip the type-checking.
 (define (typecheck-ignore _) #t)
 
-;; Currently we only annotate vector, vector-ref, let and if expressions with
-;; types.
 ;; NOTE: Typecheck is just a compiler pass like any other, it transforms
-;; programs! (adds type annotations)
+;; programs! (adds type annotations) The syntax is that car is always a type,
+;; cdr is the expression. (TODO: Maybe start using records/structs)
 (define (typecheck pgm)
   (match pgm
     [`(program . ,things)
      (let-values ([(defines expr) (split-last things)])
        (let* ([initial-env (mk-toplevel-ty-env defines)]
               [defines (map (lambda (def) (typecheck-toplevel initial-env def)) defines)])
-         (let-values ([(expr _) (typecheck-expr '() expr initial-env)])
+         (let ([expr (typecheck-expr '() expr initial-env)])
            `(program ,@defines ,expr))))]
     [_ (unsupported-form 'typecheck pgm)]))
 
@@ -87,9 +86,9 @@
                           (hash-set env (car arg) (caddr arg)))
                         env args)]
             [context (list def)])
-       (let-values ([(body body-ty) (typecheck-expr context body env)])
+       (match-let ([(cons body-ty body) (typecheck-expr context body env)])
          (assert-ty context body ret-ty body-ty)
-         `(define (,fname ,@args) : ,ret-ty ,body)))]
+         `(define (,fname ,@args) : ,ret-ty ,(cons body-ty body))))]
 
     [_ (unsupported-form 'typecheck-toplevel def)]))
 
@@ -98,117 +97,101 @@
 
 (define (typecheck-expr context expr env)
   (match expr
-    [(? fixnum?) (values expr 'Integer)]
-    [(? boolean?) (values expr 'Bool)]
-    [(? symbol?) (values expr (hash-ref env expr))]
+    [(? fixnum?) `(Integer . ,expr)]
+    [(? boolean?) `(Bool . ,expr)]
+    [(? symbol?) `(,(hash-ref env expr) . ,expr)]
 
     [`(- ,e1)
-     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)])
-       (assert-ty context e1 'Integer e1-ty)
-       (values `(- ,e1) 'Integer))]
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)])
+       (assert-ty context e1 'Integer (car e1))
+       `(Integer . (- ,e1)))]
 
     [`(+ ,e1 ,e2)
-     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)])
-       (assert-ty context e1 'Integer e1-ty)
-       (assert-ty context e2 'Integer e2-ty)
-       (values `(+ ,e1 ,e2) 'Integer))]
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)]
+           [e2 (typecheck-expr (cons expr context) e2 env)])
+       (assert-ty context e1 'Integer (car e1))
+       (assert-ty context e2 'Integer (car e2))
+       `(Integer . (+ ,e1 ,e2)))]
 
     [`(and ,e1 ,e2)
-     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)])
-       (assert-ty context e1 'Bool e1-ty)
-       (assert-ty context e2 'Bool e2-ty)
-       (values `(and ,e1 ,e2) 'Bool))]
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)]
+           [e2 (typecheck-expr (cons expr context) e2 env)])
+       (assert-ty context e1 'Bool (car e1))
+       (assert-ty context e2 'Bool (car e2))
+       `(Bool . (and ,e1 ,e2)))]
 
     [`(not ,e1)
-     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)])
-       (assert-ty context e1 'Bool e1-ty)
-       (values `(not ,e1) 'Bool))]
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)])
+       (assert-ty context e1 'Bool (car e1))
+       `(Bool . (not ,e1)))]
 
     [`(eq? ,e1 ,e2)
-     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)])
-       (assert-ty context e2 e1-ty e2-ty)
-       (values `(eq? ,e1 ,e2) 'Bool))]
+     (let([e1 (typecheck-expr (cons expr context) e1 env)]
+          [e2 (typecheck-expr (cons expr context) e2 env)])
+       (assert-ty context e2 (car e1) (car e2))
+       `(Bool . (eq? ,e1 ,e2)))]
 
     [`(if ,e1 ,e2 ,e3)
-     (let-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
-                  [(e2 e2-ty) (typecheck-expr (cons expr context) e2 env)]
-                  [(e3 e3-ty) (typecheck-expr (cons expr context) e3 env)])
-       (assert-ty context e1 'Bool e1-ty)
-       (assert-ty context e2 e3-ty e2-ty)
-       (values `(if ,e1 ,e2-ty ,e2 ,e3) e3-ty))]
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)]
+           [e2 (typecheck-expr (cons expr context) e2 env)]
+           [e3 (typecheck-expr (cons expr context) e3 env)])
+       (assert-ty context e1 'Bool (car e1))
+       (assert-ty context e3 (car e2) (car e3))
+       `(,(car e2) . (if ,e1 ,e2 ,e3)))]
 
     [`(let ([,var ,e1]) ,body)
-     (let*-values ([(e1 e1-ty) (typecheck-expr (cons expr context) e1 env)]
-                   [(body body-ty) (typecheck-expr (cons expr context) body (hash-set env var e1-ty))])
-       ; note how we're annotating the expression with binder's type
-       (values `(let ([,var ,e1-ty ,e1]) ,body) body-ty))]
+     (let* ([e1 (typecheck-expr (cons expr context) e1 env)]
+            [body (typecheck-expr (cons expr context) body (hash-set env var (car e1)))])
+       `(,(car body) . (let ([,var ,e1]) ,body)))]
 
-    [`(read) (values expr 'Integer)]
+    [`(read) `(Integer . ,expr)]
 
     [`(vector . ,elems)
-     (let-values ([(elems elem-types)
-                   (unzip (map (lambda (elem)
-                                 (let-values ([(elem elem-ty)
-                                               (typecheck-expr (cons expr context) elem env)])
-                                   `(,elem . ,elem-ty)))
-                               elems))])
-       ; note how we're annotating the vector with element types
-       (values `(vector ,elem-types ,@elems) `(Vector ,@elem-types)))]
+     (let* ([elems (map (lambda (expr) (typecheck-expr (cons expr context) expr env)) elems)]
+            [elem-tys (map car elems)])
+       `((Vector ,@elem-tys) . (vector ,@elems)))]
 
     [`(vector-ref ,vec ,idx)
      (unless (fixnum? idx)
        (error 'typecheck "vector-ref invalid index in ~s: ~s~n" vec idx))
-     (let-values ([(vec vec-ty) (typecheck-expr (cons expr context) vec env)])
-       (match vec-ty
+     (let ([vec (typecheck-expr (cons expr context) vec env)])
+       (match (car vec)
          [`(Vector . ,elems)
           (unless (< idx (length elems))
             (error 'typecheck
                    "Invalid vector index: ~s vector size: ~s expression: ~s~n"
                    idx (length elems) expr))
-          (let [(ret-ty (list-ref elems idx))]
-            (values `(vector-ref ,ret-ty ,vec ,idx) ret-ty))]
-         [_ (ty-err context expr 'Vector vec-ty)]))]
+          `(,(list-ref elems idx) . (vector-ref ,vec ,idx))]
+         [_ (ty-err context expr 'Vector (car vec))]))]
 
     [`(vector-set! ,vec ,idx ,e)
      (unless (fixnum? idx)
        (error 'typecheck "vector-set! invalid index in ~s: ~s~n" vec idx))
-     (let-values ([(vec vec-ty) (typecheck-expr (cons expr context) vec env)])
-       (match vec-ty
+     (let ([vec (typecheck-expr (cons expr context) vec env)])
+       (match (car vec)
          [`(Vector . ,elems)
           (unless (< idx (length elems))
             (error 'typecheck
                    "Invalid vector index: ~s vector size: ~s expression: ~s~n"
                    idx (length elems) expr))
-          (let ([vec-elem-ty (list-ref elems idx)])
-            (let-values ([(e e-ty) (typecheck-expr (cons expr context) e env)])
-              (assert-ty context e vec-elem-ty e-ty)
-              (values `(vector-set! ,vec ,idx ,e) 'void)))]
-         [_ (ty-err context expr 'Vector vec-ty)]))]
+          (let ([e (typecheck-expr (cons expr context) e env)])
+            (assert-ty context (cdr e) (list-ref elems idx) (car e))
+            `(void . (vector-set! ,vec ,idx ,e)))]
+         [_ (ty-err context expr 'Vector (car vec))]))]
 
     [`(,fn . ,args)
-     (match (hash-ref env fn 'nop)
-       ['nop (error "fn not in scope: ~a~n" fn)]
-       [ty
-        (let ([context (cons expr context)])
-          (let-values ([(expected-arg-tys ret-ty) (split-fun-ty ty)])
-            (unless (eq? (length expected-arg-tys) (length args))
-              (error 'typecheck-expr
-                     "Function has arity ~a, but is applied to ~a arguments.~n~a~n~a~n"
-                     (length expected-arg-tys) (length args) expr
-                     ty))
-            (let-values
-              ([(args arg-tys)
-                (map-unzip (lambda (arg) (typecheck-expr (cons arg context) arg env)) args)])
-              (assert-arg-tys context expr expected-arg-tys arg-tys)
-              (values `(,fn ,@args) ret-ty))))])]
+     (let ([fn (typecheck-expr context fn env)])
+       (match (car fn)
+         [`(,expected-arg-tys ... -> ,ret-ty)
+          (unless (eq? (length expected-arg-tys) (length args))
+            (error 'typecheck-expr
+                   "Function has arity ~a, but is applied to ~a arguments.~n~a~n~a~n"
+                   (length expected-arg-tys) (length args) expr (car fn)))
+          (let* ([args
+                  (map (lambda (arg) (typecheck-expr (cons arg context) arg env)) args)]
+                 [arg-tys (map car args)])
+            (assert-arg-tys context expr expected-arg-tys arg-tys)
+            `(,ret-ty . (,fn ,@args)))]
+         [_ (ty-err context expr 'Function (car fn))]))]
 
     [_ (unsupported-form 'typecheck-expr expr)]))
-
-(define (op-ret-ty op)
-  (match op
-    [(or '+ '-) 'Integer]
-    [(or 'and 'not 'eq?) 'Bool]
-    [_ (unsupported-form 'op-ret-ty op)]))

@@ -17,28 +17,28 @@
 ;; TODO: We can be much more aggressive here, by doing a simple form of
 ;; compile-time evaluation.
 (define (choose-branch-expr e0)
-  (match e0
+  (match (cdr e0)
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ;; Important cases
 
-    [`(if ,e1 ,ret-ty ,e2 ,e3)
+    [`(if ,e1 ,e2 ,e3)
      (match (choose-branch-expr e1)
-       [#t (choose-branch-expr e2)]
-       [#f (choose-branch-expr e3)]
-       [e1 `(if ,e1 ,ret-ty ,(choose-branch-expr e2) ,(choose-branch-expr e3))])]
+       [`(,_ . #t) (choose-branch-expr e2)]
+       [`(,_ . #f) (choose-branch-expr e3)]
+       [e1 `(,(car e0) . (if ,e1 ,(choose-branch-expr e2) ,(choose-branch-expr e3)))])]
 
     [`(eq? ,e1 ,e2)
-     (let [(e1 (choose-branch-expr e1))
-           (e2 (choose-branch-expr e2))]
+     (match-let ([`(,e1-ty . ,e1) (choose-branch-expr e1)]
+                 [`(,e2-ty . ,e2) (choose-branch-expr e2)])
        (cond [(and (or (fixnum? e1) (boolean? e1))
                    (or (fixnum? e2) (boolean? e2)))
-              (equal? e1 e2)]
+              `(Bool . ,(equal? e1 e2))]
 
              [(and (symbol? e1) (symbol? e2) (equal? e1 e2))
-              #t]
+              `(Bool . #t)]
 
-             [else `(eq? ,e1 ,e2)]))]
+             [else `(,(car e0) . (eq? (,e1-ty . ,e1) (,e2-ty . ,e2)))]))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ;; Simple cases
@@ -47,24 +47,24 @@
      e0]
 
     [`(,(or '- 'not) ,e1)
-     (list (car e0) (choose-branch-expr e1))]
+     `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1)))]
 
     [`(,(or '+) ,e1 ,e2)
-     (list (car e0) (choose-branch-expr e1) (choose-branch-expr e2))]
+     `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1) ,(choose-branch-expr e2)))]
 
-    [`(let ([,var ,var-ty ,e1]) ,body)
-     `(let ([,var ,var-ty ,(choose-branch-expr e1)]) ,(choose-branch-expr body))]
+    [`(let ([,var ,e1]) ,body)
+     `(,(car e0) . (let ([,var ,(choose-branch-expr e1)]) ,(choose-branch-expr body)))]
 
-    [`(vector-ref ,ret-ty ,e1 ,e2)
-     (list 'vector-ref ret-ty (choose-branch-expr e1) (choose-branch-expr e2))]
+    [`(vector-ref ,e1 ,idx)
+     `(,(car e0) . (vector-ref ,(choose-branch-expr e1) ,idx))]
 
     [`(vector-set! ,vec ,idx ,e)
-     (list 'vector-set! (choose-branch-expr vec) idx (choose-branch-expr e))]
+     `(,(car e0) . (vector-set! ,(choose-branch-expr vec) ,idx ,(choose-branch-expr e)))]
 
     [`(vector ,elem-tys . ,elems)
-     `(vector ,elem-tys ,@(map choose-branch-expr elems))]
+     `(,(car e0) . (vector ,elem-tys ,@(map choose-branch-expr elems)))]
 
     [`(,f . ,args)
-     `(,(choose-branch-expr f) ,@(map choose-branch-expr args))]
+     `(,(car e0) . (,(choose-branch-expr f) ,@(map choose-branch-expr args)))]
 
-    [_ (unsupported-form 'choose-branch-expr e0)]))
+    [_ (unsupported-form 'choose-branch-expr (cdr e0))]))
