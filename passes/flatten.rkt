@@ -76,10 +76,10 @@
            (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1)) pgm) fresh)))]
 
       [`(,(or '+ 'eq?) ,e1 ,e2)
-       (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-         (let-values ([(binds pgm e2) (flatten-expr binds pgm e2)])
-           (let [(fresh (gensym "tmp"))]
-             (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1 ,e2)) pgm) fresh))))]
+       (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
+                     [(binds pgm e2) (flatten-expr binds pgm e2)])
+         (let [(fresh (gensym "tmp"))]
+           (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1 ,e2)) pgm) fresh)))]
 
       [(? symbol?)
        ; Similar to the uniquify step: If not in map, assume global definition.
@@ -93,16 +93,6 @@
                                        (cons `(assign ,fresh ,(car e1) ,e1-flat) pgm)
                                        body)])
              (values binds pgm body))))]
-
-      [`(if (eq? ,e1 ,e2) ,e3 ,e4)
-       (let [(fresh (gensym "tmp-if"))]
-         (let*-values [((binds pgm e1)  (flatten-expr binds pgm e1))
-                       ((binds pgm e2)  (flatten-expr binds pgm e2))
-                       ((_ pgm-t ret-t) (flatten-expr binds '() e3))
-                       ((_ pgm-f ret-f) (flatten-expr binds '() e4))]
-           (let* [(pgm-t (reverse (cons `(assign ,fresh ,(car e0) ,ret-t) pgm-t)))
-                  (pgm-f (reverse (cons `(assign ,fresh ,(car e0) ,ret-f) pgm-f)))]
-             (values binds (cons `(if (eq? ,e1 ,e2) ,pgm-t ,pgm-f) pgm) fresh))))]
 
       [`(if ,e1 ,e2 ,e3)
        (let [(fresh (gensym "tmp-if"))]
