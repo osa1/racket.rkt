@@ -8,6 +8,7 @@
 (require "passes/desugar.rkt")
 (require "passes/choose-branch.rkt")
 (require "passes/uniquify.rkt")
+(require "passes/reveal-functions.rkt")
 (require "passes/flatten.rkt")
 (require "passes/expose-allocations.rkt")
 (require "passes/annotate-lives.rkt")
@@ -29,7 +30,7 @@
          typecheck typecheck-ignore
 
          ;; scheme passes
-         desugar choose-branch uniquify flatten
+         desugar choose-branch uniquify reveal-functions flatten
 
          ;; C passes
          expose-allocations instr-sel
@@ -47,10 +48,8 @@
     ("choose-branch" ,choose-branch ,interp-scheme)
 
     ("uniquify" ,uniquify ,interp-scheme)
+    ("reveal-functions" ,reveal-functions ,interp-scheme)
     ("flatten" ,flatten ,interp-C)
-
-    ;; NOTE: This is where we remove type annotations. Interpreters could be
-    ;; used for testing purposes in the rest of the passes.
     ("expose-allocations" ,expose-allocations ,interp-C)
     ("annotate-lives" ,annotate-lives ,interp-C)
     ("uncover-call-live-roots" ,uncover-call-live-roots ,interp-C)

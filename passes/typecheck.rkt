@@ -2,7 +2,7 @@
 
 (require "utils.rkt")
 
-(provide typecheck typechecker typecheck-ignore mk-toplevel-ty-env)
+(provide typecheck typechecker typecheck-ignore mk-toplevel-ty-env is-fun-ty?)
 
 ;; This is used for ignoring type-checking step. The problem with type-checking
 ;; is that it's only defined in front-end language. When we want to run
@@ -57,6 +57,9 @@
     (unless (eq? 2 (length ret-lst))
       (error 'split-fun-ty "Unexpected return type: ~a~n" ret-lst))
     (values args (cadr ret-lst))))
+
+(define (is-fun-ty? ty)
+  (and (list? ty) (member '-> ty)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Assertions
