@@ -25,7 +25,7 @@
         (let* ([pgm-main (flatten-body expr)]
                [main-vs (collect-binds pgm-main)]
                [defs (map flatten-def defs)])
-          `(program ,@defs (define main ,main-vs ,@pgm-main))))]
+          `(program ,@defs (define main : void ,main-vs ,@pgm-main))))]
 
     [_ (unsupported-form 'flatten pgm)]))
 
@@ -122,7 +122,7 @@
      (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
                    [(binds pgm args) (flatten-expr-list binds pgm args)])
        (let ([fresh (gensym "funret")])
-         (values binds (cons `(assign ,fresh ,(car e0) (app (function-ref ,f) ,@args)) pgm) fresh)))]
+         (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
 
     ;; References to functions are already values
     [(or `(toplevel-fn ,_) `(function-ref ,_))

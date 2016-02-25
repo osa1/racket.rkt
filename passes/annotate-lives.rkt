@@ -9,10 +9,16 @@
 ;; Return value is thus a list of (statement . lives set).
 (define (annotate-lives pgm)
   (match pgm
-    [`(program ,vs . ,stmts)
-     (let-values ([(_ stmts) (annotate-lives-iter stmts)])
-       `(program ,vs ,@stmts))]
+    [`(program . ,defs)
+     `(program ,@(map annotate-lives-def defs))]
     [_ (unsupported-form 'annotate-lives pgm)]))
+
+(define (annotate-lives-def def)
+  (match def
+    [`(define ,tag : ,ret-ty ,meta . ,stmts)
+     (let-values ([(_ stmts) (annotate-lives-iter stmts)])
+       `(define ,tag : ,ret-ty ,meta ,@stmts))]
+    [_ (unsupported-form 'annotate-lives-def def)]))
 
 (define (annotate-lives-iter stmts)
   (match stmts

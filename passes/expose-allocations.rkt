@@ -6,9 +6,15 @@
 
 (define (expose-allocations pgm)
   (match pgm
-    [`(program ,vs . ,stmts)
-     `(program ,vs ,@(append-map expose-allocations-stmt stmts))]
+    [`(program . ,defs)
+     `(program ,@(map expose-allocations-def defs))]
     [_ (unsupported-form 'expose-allocations pgm)]))
+
+(define (expose-allocations-def def)
+  (match def
+    [`(define ,tag : ,ret-ty ,meta . ,pgm)
+     `(define ,tag : ,ret-ty ,meta ,@(append-map expose-allocations-stmt pgm))]
+    [_ (unsupported-form 'expose-allocations-def def)]))
 
 (define (expose-allocations-stmt stmt)
   (match stmt

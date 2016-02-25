@@ -33,7 +33,7 @@
          desugar choose-branch uniquify reveal-functions flatten
 
          ;; C passes
-         expose-allocations instr-sel
+         expose-allocations annotate-lives uncover-call-live-roots instr-sel
 
          ;; asm passes
          assign-homes patch-instructions elim-movs save-regs lower-conditionals
