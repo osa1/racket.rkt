@@ -268,11 +268,13 @@
          (values `() next-stack-loc)]
         [`(,arg . ,args)
          (let-values ([(mappings next-stack-loc1) (map-stk args (- 8 next-stack-loc))])
-           (values (cons (cons arg next-stack-loc) mappings)
+           (values (cons (cons `(var ,arg) next-stack-loc) mappings)
                    next-stack-loc1))]))
 
     (let ([stack-args (reverse stack-args)]
-          [reg-mapping (map cons reg-args (take regs (length reg-args)))])
+          [reg-mapping (map (lambda (arg reg)
+                              `((var ,arg) . ,reg))
+                            reg-args (take regs (length reg-args)))])
       (let-values ([(stack-mapping next-stack-loc)
                     (map-stk stack-args next-stack-loc)])
         (values (make-immutable-hash (append reg-mapping stack-mapping))
@@ -282,8 +284,7 @@
   (let [(int-graph (hash-copy int-graph))]
     (hash-remove! int-graph 'rax)
     (let-values ([(initial-mapping next-stack-loc)
-                  (map-args (if (use-regs) arg-regs `()) 0 args)])
-      ; (printf "initial-mapping: ~s~n" initial-mapping)
+                  (map-args (if (use-regs) arg-reg-syms `()) 0 args)])
       (reg-alloc-iter int-graph move-rels initial-mapping next-stack-loc regs))))
 
 (define (reg-alloc-iter int-graph move-rels mapping last-stack-loc regs)

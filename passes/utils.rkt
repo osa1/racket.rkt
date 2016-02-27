@@ -74,4 +74,5 @@
     [`(toplevel-fn ,_) #f]
     [_ (unsupported-form 'arg-mem? arg)]))
 
-(define arg-regs `((reg rdi) (reg rsi) (reg rdx) (reg rcx) (reg r8) (reg r9)))
+(define arg-reg-syms `(rdi rsi rdx rcx r8 r9))
+(define arg-regs (map (lambda (reg) `(reg ,reg)) arg-reg-syms))
