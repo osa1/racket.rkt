@@ -14,6 +14,7 @@
 (require "passes/annotate-lives.rkt")
 (require "passes/uncover-call-live-roots.rkt")
 (require "passes/instr-sel.rkt")
+(require "passes/initialize-rts.rkt")
 (require "passes/reg-alloc.rkt")
 (require "passes/patch-instructions.rkt")
 (require "passes/elim-movs.rkt")
@@ -33,7 +34,7 @@
          desugar choose-branch uniquify reveal-functions flatten
 
          ;; C passes
-         expose-allocations annotate-lives uncover-call-live-roots instr-sel
+         expose-allocations annotate-lives uncover-call-live-roots instr-sel initialize-rts
 
          ;; asm passes
          assign-homes patch-instructions elim-movs save-regs lower-conditionals
@@ -54,6 +55,7 @@
     ("annotate-lives" ,annotate-lives ,interp-C)
     ("uncover-call-live-roots" ,uncover-call-live-roots ,interp-C)
     ("instr-sel" ,instr-sel ,interp-x86)
+    ("initialize-rts" ,initialize-rts ,interp-x86)
     ("assign-homes" ,assign-homes ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)

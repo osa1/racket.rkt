@@ -8,9 +8,15 @@
 
 (define (lower-conditionals pgm)
   (match pgm
-    [(list-rest 'program meta instrs)
-     `(program ,meta ,@(append-map lower-conditionals-instr instrs))]
+    [`(program . ,defs)
+     `(program ,@(map lower-conditionals-def defs))]
     [_ (unsupported-form 'lower-conditionals pgm)]))
+
+(define (lower-conditionals-def def)
+  (match def
+    [`(define ,tag : ,ret-ty ,meta . ,instrs)
+     `(define ,tag : ,ret-ty ,meta ,@(append-map lower-conditionals-instr instrs))]
+    [_ (unsupported-form 'lower-conditionals-def def)]))
 
 (define (lower-conditionals-instr instr)
   (match instr

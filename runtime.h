@@ -42,9 +42,9 @@ void collect(uint8_t** rootstack_ptr, int64_t bytes_requested);
 int64_t read_int();
 
 // Print an integer to stdout.
-void print_int(int64_t x);
+int print_int(int64_t x);
 
 // Print a boolean to stdout.
-void print_bool(int64_t x);
+int print_bool(int64_t x);
 
 #endif

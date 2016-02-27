@@ -37,10 +37,7 @@
 
       [(? symbol?)
        (match (hash-ref toplevel-ty-env (cdr e0) 'nop)
-         ['nop
-          (if (is-fun-ty? (car e0))
-            `(,(car e0) . (function-ref ,(cdr e0)))
-            e0)]
+         ['nop e0]
          [_ `(,(car e0) . (toplevel-fn ,(cdr e0)))])]
 
       [`(let ([,var ,e1]) ,body)

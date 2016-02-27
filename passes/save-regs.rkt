@@ -15,13 +15,20 @@
 
 (define (save-regs pgm)
   (match pgm
-    [`(program ,meta . ,instrs)
-     ;; FIXME: Bad! We generate live vars again!
-     (let-values [((pgm lives) (gen-live-afters pgm))]
+    [`(program . ,defs)
+     `(program ,@(map save-regs-def defs))]
+    [_ (unsupported-form 'save-regs pgm)]))
+
+
+(define (save-regs-def def)
+  ;; FIXME: Bad! We generate live vars again!
+  (let-values ([(def lives) (gen-live-afters def)])
+    (match def
+      [`(define ,tag : ,ret-ty ,meta . ,instrs)
        ; We should use the program with annotated live vars on if branches
        ; here.
-       `(program ,meta ,@(save-regs-instrs lives (cddr pgm))))]
-    [_ (unsupported-form 'save-regs pgm)]))
+       `(define ,tag : ,ret-ty ,meta ,@(save-regs-instrs lives instrs))]
+      [_ (unsupported-form 'save-regs-def def)])))
 
 (define (save-regs-instrs lives instrs)
   (append-map save-regs-instr lives instrs))

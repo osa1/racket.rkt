@@ -90,7 +90,7 @@
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    [(list 'movq arg1 arg2)
+    [`(movq ,arg1 ,arg2)
      (values instr (add-live (remove-live lives arg2) arg1))]
 
     [`(negq ,arg1)
@@ -123,9 +123,6 @@
          (values `(if (eq? ,arg1 ,arg2) ,(reverse pgm-t-reversed) ,lives-t
                                         ,(reverse pgm-f-reversed) ,lives-f)
                  if-lives)))]
-
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    ;; Function calls
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -201,6 +198,7 @@
     [`(retq) (void)]
 
     [`(callq ,_)
+     ;; TODO: Do we need to do something with the argument here?
      (for ([live lives]
            [save (cons 'rax (set->list caller-save))])
        (add-edge graph `(reg ,save) live))]
@@ -397,12 +395,12 @@
         ,(assign-home-instrs asgns pgm-f))]
 
     [`(,(or 'addq 'subq 'movq 'cmpq 'xorq) ,arg1 ,arg2)
-     (list (car instr) (assign-home-arg asgns arg1) (assign-home-arg asgns arg2))]
+     `(,(car instr) ,(assign-home-arg asgns arg1) ,(assign-home-arg asgns arg2))]
 
     [`(,(or 'negq 'pushq 'popq) ,arg)
-     (list (car instr) (assign-home-arg asgns arg))]
+     `(,(car instr) ,(assign-home-arg asgns arg))]
 
-    [`(callq ,_) instr]
+    [`(callq ,arg) `(callq ,(assign-home-arg asgns arg))]
 
     [`(retq) instr]
 

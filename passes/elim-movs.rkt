@@ -8,9 +8,15 @@
 
 (define (elim-movs pgm)
   (match pgm
-    [(list-rest 'program s instrs)
-     `(program ,s ,@(elim-mov-instrs instrs))]
+    [`(program . ,defs)
+     `(program ,@(map elim-mov-instrs-def defs))]
     [_ (unsupported-form 'patch-instructions pgm)]))
+
+(define (elim-mov-instrs-def def)
+  (match def
+    [`(define ,tag : ,ret-ty ,meta . ,instrs)
+     `(define ,tag : ,ret-ty ,meta ,@(elim-mov-instrs instrs))]
+    [_ (unsupported-form 'elim-mov-instrs-def def)]))
 
 (define (elim-mov-instrs instrs)
   (filter-nulls (map elim-mov-instr instrs)))

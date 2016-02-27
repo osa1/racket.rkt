@@ -71,6 +71,7 @@
     [`(,(or 'reg 'int) ,_) #f]
     [`(global-value ,_) #t]
     [`(offset ,_ ,_) #t]
+    [`(toplevel-fn ,_) #f]
     [_ (unsupported-form 'arg-mem? arg)]))
 
 (define arg-regs `((reg rdi) (reg rsi) (reg rdx) (reg rcx) (reg r8) (reg r9)))

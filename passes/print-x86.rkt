@@ -5,51 +5,31 @@
 
 (provide print-x86_64)
 
-(define main-prelude
-"\t.globl main
-main:\n")
-
-(define main-conclusion "\tretq")
-
-(define (mk-pgm-prelude stack-size)
-  (string-append
-"\tpushq %rbp
-\tmovq %rsp, %rbp\n"
-
-;; Initialize RTS
-(format
-"\tmovq $~a, %rdi
-\tmovq $~a, %rsi
-\tcallq initialize\n" (initial-root-stack-size) (initial-heap-size))
-    (if (eq? stack-size 0) "" (format "\tsubq $~a, %rsp\n" stack-size))))
-
-(define (mk-pgm-conclusion stack-size)
-  (let [(ls1
-"\tmovq %rax, %rdi
-\tcallq print_int\n")
-        (ls2
-"\tmovq $0, %rax
-\tpopq %rbp\n")]
-    (if (eq? stack-size 0)
-      (string-append ls1 "\n" ls2)
-      (string-append ls1 "\n" (format "\taddq $~a, %rsp\n" stack-size) ls2))))
-
 (define (print-x86_64 pgm)
   (match pgm
-    [(list-rest 'program `(,s) stmts)
-     (let ([stmt-lines (map print-x86_64-stmt stmts)])
-       (string-append main-prelude
-                      (mk-pgm-prelude s)
+    [`(program . ,defs)
+     (let ([def-strs (map print-x86_64-def defs)])
+       (string-join def-strs))]
+    [_ (unsupported-form 'print-x86_64 pgm)]))
+
+;; print main-prelude somewhere
+
+(define (print-x86_64-def def)
+  (match def
+    [`(define ,tag : ,_ (,s) . ,stmts)
+     (let ([stmt-lines (map print-x86_64-stmt stmts)]
+           [symbol (match tag
+                     [`(,f . ,_) f]
+                     [_ tag])])
+       (string-append (format ".globl ~s~n" symbol)
+                      (format "~s:~n" symbol)
+                      (mk-def-prelude s)
                       "\n"
                       (string-join stmt-lines)
                       "\n"
-                      (mk-pgm-conclusion s)
-                      main-conclusion))]
+                      (mk-def-conclusion s)))]
 
-    [_ (unsupported-form 'printx86_64 pgm)]))
-
-(define instr3-format "\t~a ~a, ~a\n")
-(define instr2-format "\t~a ~a\n")
+    [_ (unsupported-form 'printx86_64-def def)]))
 
 (define (print-x86_64-stmt stmt)
   (match stmt
@@ -82,5 +62,31 @@ main:\n")
     [`(stack ,offset) (format "~s(%rbp)" offset)]
     [`(global-value ,var) (format "~s(%rip)" var)]
     [`(offset ,arg ,offset) (format "~s(~a)" offset (print-x86_64-arg arg))]
+    [`(toplevel-fn ,f) (format "~s" f)]
     [(? symbol?) arg] ; must be a function call or jmp
     [_ (unsupported-form 'print-x86_64-arg arg)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define main-prelude
+"\t.globl main
+main:\n")
+
+(define main-conclusion "\tretq")
+
+(define (mk-def-prelude stack-size)
+  (string-append
+"\tpushq %rbp
+\tmovq %rsp, %rbp\n"
+(if (eq? stack-size 0) "" (format "\tsubq $~a, %rsp\n" stack-size))))
+
+(define (mk-def-conclusion stack-size)
+  (let [(ls2
+"\tpopq %rbp\n
+\tret\n\n")]
+    (if (eq? stack-size 0)
+      ls2
+      (string-append (format "\taddq $~a, %rsp\n" stack-size) ls2))))
+
+(define instr3-format "\t~a ~a, ~a\n")
+(define instr2-format "\t~a ~a\n")

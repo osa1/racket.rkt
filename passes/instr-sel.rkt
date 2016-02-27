@@ -93,7 +93,7 @@
            (movq (int ,bytes-needed) (reg rsi))
 
            ; Step 3: Call the collector
-           (callq collect)
+           (callq (toplevel-fn collect))
 
            ; Step 4: Move new roots back to the variables
            ,@(if (not (null? roots))
@@ -116,7 +116,7 @@
      `(,(instr-sel-arg bind-to expr))]
 
     [`(read)
-     `((callq read_int)
+     `((callq (toplevel-fn read_int))
        (movq (reg rax) ,(arg->x86-arg bind-to)))]
 
     [`(- ,arg)
@@ -196,7 +196,6 @@
            ,@(map (lambda (stack-arg)
                     `(pushq ,(arg->x86-arg stack-arg))) stack-args)
 
-           ;; FIXME: What happens if function-ref is spilled?
            (callq ,(arg->x86-arg f))
            (movq (reg rax) ,(arg->x86-arg bind-to)))))]
 
@@ -210,5 +209,5 @@
     [(? symbol? arg) `(var ,arg)]
     [(? fixnum? arg) `(int ,arg)]
     [(? boolean? arg) `(int ,(if arg 1 0))]
-    [(or `(function-ref ,_) `(toplevel-fn ,_)) arg]
+    [`(toplevel-fn ,_) arg]
     [_ (unsupported-form 'arg->x86-arg arg)]))

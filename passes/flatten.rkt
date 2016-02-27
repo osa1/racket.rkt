@@ -22,7 +22,9 @@
   (match pgm
     [`(program . ,things)
       (let-values ([(defs expr) (split-last things)])
-        (let* ([pgm-main (flatten-body expr)]
+        (let* ([pgm-main (flatten-body
+                           `(Integer . (app ((Integer -> void) . (toplevel-fn print_int))
+                                            ,expr)))]
                [main-vs (collect-binds pgm-main)]
                [defs (map flatten-def defs)])
           `(program ,@defs (define main : void ,main-vs ,@pgm-main))))]
@@ -127,7 +129,7 @@
          (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
 
     ;; References to functions are already values
-    [(or `(toplevel-fn ,_) `(function-ref ,_))
+    [`(toplevel-fn ,_)
      (values binds pgm (cdr e0))]
 
     ;; [`(app ,f . ,args)

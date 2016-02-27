@@ -12,9 +12,16 @@
 
 (define (patch-instructions pgm)
   (match pgm
-    [(list-rest 'program s instrs)
-     `(program ,s ,@(append-map patch-instructions-instr instrs))]
+    [`(program . ,defs)
+     `(program ,@(map patch-instructions-def defs))]
+
     [_ (unsupported-form 'patch-instructions pgm)]))
+
+(define (patch-instructions-def def)
+  (match def
+    [`(define ,tag : ,ret-ty ,meta . ,instrs)
+     `(define ,tag : ,ret-ty ,meta ,@(append-map patch-instructions-instr instrs))]
+    [_ (unsupported-form 'patch-instructions-def)]))
 
 (define (patch-instructions-instr instr)
   (match instr
@@ -86,6 +93,5 @@
 
 (define (stack-offset? arg)
   (match arg
-    [`(offset (stack ,_) ,_)
-     #t]
+    [`(offset (stack ,_) ,_) #t]
     [_ #f]))

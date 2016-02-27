@@ -472,12 +472,13 @@ int64_t read_int() {
   return i;
 }
 
-void print_int(int64_t x)
+int print_int(int64_t x)
 {
     printf("%" PRIi64, x);
+    return 0;
 }
 
-void print_bool(int64_t x)
+int print_bool(int64_t x)
 {
     if (x)
     {
@@ -487,4 +488,5 @@ void print_bool(int64_t x)
     {
         printf("#f");
     }
+    return 0;
 }
