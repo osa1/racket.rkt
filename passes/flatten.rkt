@@ -35,10 +35,12 @@
 
 (define (flatten-def def)
   (match def
-    [`(define ,tag : ,ret-ty ,body)
+    [`(define (,fname . ,args) : ,ret-ty ,body)
      (let* ([pgm (flatten-body body)]
-            [vs (collect-binds pgm)])
-       `(define ,tag : ,ret-ty ,vs ,@pgm))]
+            [vs (hash-union (make-immutable-hash
+                              (map (lambda (arg) (cons (car arg) (caddr arg))) args))
+                            (collect-binds pgm))])
+       `(define (,fname . ,args) : ,ret-ty ,vs ,@pgm))]
 
     [_ (unsupported-form 'flatten-def def)]))
 

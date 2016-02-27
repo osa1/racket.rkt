@@ -6,11 +6,17 @@
 
 (define (uncover-call-live-roots pgm)
   (match pgm
-    [`(program ,vs . ,stmts)
-     ;; We discard the symbol table (symbol -> type) at this point
-     `(program ,(hash-keys vs) ,@(uncover-call-live-roots-iter vs (set) stmts))]
+    [`(program . ,defs)
+     `(program ,@(map uncover-roots-def defs))]
+     ; `(program ,(hash-keys vs) ,@(uncover-call-live-roots-iter vs (set) stmts))]
 
     [_ (unsupported-form 'uncover-call-live-roots pgm)]))
+
+(define (uncover-roots-def def)
+  (match def
+    [`(define ,tag : ,ret-ty ,vs . ,stmts)
+     `(define ,tag : ,ret-ty ,(hash-keys vs) ,@(uncover-call-live-roots-iter vs (set) stmts))]
+    [_ (unsupported-form 'uncover-roots-def def)]))
 
 (define (uncover-call-live-roots-iter vs mentioned-so-far stmts)
   (match stmts

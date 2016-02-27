@@ -20,7 +20,7 @@
   (match stmt
     [`(assign ,x (Vector . ,tys) (vector . ,elems))
      (let ([bytes-needed
-             ; one byte for info, one byte for each element in the vector
+             ; one word for info, one word for each element in the vector
              (+ 8 (* 8 (length tys)))])
        `((if (collection-needed? ,bytes-needed)
            ((collect ,bytes-needed))

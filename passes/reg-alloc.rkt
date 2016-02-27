@@ -13,7 +13,7 @@
 
 ; For debugging purposes
 ; (TODO: Currently used in `save-regs` too)
-(provide gen-live-afters build-interference-graph mk-move-relation reg-alloc)
+(provide gen-live-afters build-interference-graph mk-move-relation)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Live-after sets
@@ -21,12 +21,12 @@
 ; NOTE: This should be run _before_ assign-homes as this assumes variable
 ; arguments.
 
-; OUTPUT: (values updated pgm, a list of live-after sets).
+; OUTPUT: (values updated def, a list of live-after sets).
 ; We update the program to annotate branches of if-statements with live-after
 ; set lists, to be able to build interference graph by traversing the branches.
-(define (gen-live-afters pgm)
-  (match pgm
-    [(list-rest 'program metadata instrs)
+(define (gen-live-afters def)
+  (match def
+    [`(define ,tag : ,ret-ty ,meta . ,instrs)
      (let-values [((instrs live-before live-afters)
                    (gen-live-afters-instrs
                      (reverse instrs)
@@ -34,8 +34,8 @@
                      ; last (first in the list, as we reverse the instructions)
                      ; instruction is an empty set so we add it here
                      (list (set))))]
-       (values `(program ,metadata ,@(reverse instrs)) live-afters))]
-    [_ (unsupported-form 'gen-live-afters pgm)]))
+       (values `(define ,tag : ,ret-ty ,meta ,@(reverse instrs)) live-afters))]
+    [_ (unsupported-form 'gen-live-afters def)]))
 
 ;; NOTE: Instructions should be reversed! E.g. first instruction in this
 ;; argument should be the last instruction in the block!
@@ -124,6 +124,11 @@
                                         ,(reverse pgm-f-reversed) ,lives-f)
                  if-lives)))]
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; Function calls
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     [_ (unsupported-form 'gen-live-afters-instr instr)]))
 
 (define (add-live lives . args)
@@ -133,6 +138,7 @@
              [`(offset (,(or 'var 'reg) ,_) ,_) (set-add lives (cadr arg))]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
+             [`(toplevel-fn ,_) lives]
              [_ (unsupported-form 'add-live arg)]))
          lives args))
 
@@ -150,14 +156,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interference graphs
 
-(define (build-interference-graph pgm live-sets)
-  (match pgm
-    [(list-rest 'program vs instrs)
-     ; (printf "program vs ~s instrs ~s~n" vs instrs)
+(define (build-interference-graph def live-sets)
+  (match def
+    [`(define ,_ : ,_ ,vs . ,instrs)
      (let [(graph (make-graph (map (lambda (v) `(var ,v)) vs)))]
        (build-int-graph-instrs instrs live-sets graph)
        graph)]
-    [_ (unsupported-form 'build-interference-graph pgm)]))
+    [_ (unsupported-form 'build-interference-graph def)]))
 
 (define (build-int-graph-instrs instrs live-sets graph)
   (map (lambda (instr lives) (build-int-graph instr (set->list lives) graph)) instrs live-sets))
@@ -212,13 +217,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Move relation graph
 
-(define (mk-move-relation pgm int-graph)
-  (match pgm
-    [(list-rest 'program vs instrs)
+(define (mk-move-relation def int-graph)
+  (match def
+    [`(define ,_ : ,_ ,vs . ,instrs)
      (let [(graph (make-graph (map (lambda (v) `(var ,v)) vs)))]
        (mk-move-relation-instrs graph int-graph instrs)
        graph)]
-    [_ (unsupported-form 'mk-move-relation pgm)]))
+    [_ (unsupported-form 'mk-move-relation def)]))
 
 (define (mk-move-relation-instrs graph int-graph instrs)
   (for ([instr instrs]) (mk-move-rel-iter graph int-graph instr)))
@@ -254,31 +259,54 @@
 (define general-registers
   (append (set->list callee-save) (set->list caller-save)))
 
-(define (reg-alloc int-graph move-rels [regs general-registers])
+(define (map-args regs next-stack-loc args)
+  ; We need to map args to stack locations in reverse order.
+  (let-values ([(reg-args stack-args) (split-at-max args (length regs))])
+
+    ; uh... I need mapAccumL here.
+    (define (map-stk args next-stack-loc)
+      (match args
+        [`()
+         (values `() next-stack-loc)]
+        [`(,arg . ,args)
+         (let-values ([(mappings next-stack-loc1) (map-stk args (- 8 next-stack-loc))])
+           (values (cons (cons arg next-stack-loc) mappings)
+                   next-stack-loc1))]))
+
+    (let ([stack-args (reverse stack-args)]
+          [reg-mapping (map cons reg-args (take regs (length reg-args)))])
+      (let-values ([(stack-mapping next-stack-loc)
+                    (map-stk stack-args next-stack-loc)])
+        (values (make-immutable-hash (append reg-mapping stack-mapping))
+                next-stack-loc)))))
+
+(define (reg-alloc args int-graph move-rels [regs general-registers])
   (let [(int-graph (hash-copy int-graph))]
     (hash-remove! int-graph 'rax)
-    (reg-alloc-iter int-graph move-rels (make-immutable-hash) 0 regs)))
+    (let-values ([(initial-mapping next-stack-loc)
+                  (map-args (if (use-regs) arg-regs `()) 0 args)])
+      ; (printf "initial-mapping: ~s~n" initial-mapping)
+      (reg-alloc-iter int-graph move-rels initial-mapping next-stack-loc regs))))
 
 (define (reg-alloc-iter int-graph move-rels mapping last-stack-loc regs)
-  (if (eq? (hash-count int-graph) (hash-count mapping))
-    (values mapping (- last-stack-loc))
-    (let* [(all-vars    (list->set (hash-keys int-graph)))
-           (mapped-vars (list->set (hash-keys mapping)))
-           (not-mapped  (set-subtract all-vars mapped-vars))
+  (let* [(all-vars    (list->set (hash-keys int-graph)))
+         (mapped-vars (list->set (hash-keys mapping)))
+         (not-mapped  (set-subtract all-vars mapped-vars))]
+    (if (set-empty? not-mapped)
+      (values mapping (- last-stack-loc))
+      (let* [(most-constrained (find-most-constrained int-graph (set->list not-mapped)))
 
-           (most-constrained (find-most-constrained int-graph (set->list not-mapped)))
+             (used-regs
+               (list->set (filter-nulls
+                            (map (lambda (nb) (hash-ref mapping nb '()))
+                                 (set->list (adjacent int-graph most-constrained))))))
 
-           (used-regs
-             (list->set (filter-nulls
-                          (map (lambda (nb) (hash-ref mapping nb '()))
-                               (set->list (adjacent int-graph most-constrained))))))
+             (available-regs
+               (filter (lambda (reg) (not (set-member? used-regs reg))) regs))
 
-           (available-regs
-             (filter (lambda (reg) (not (set-member? used-regs reg))) regs))
+             (available-regs-lst (set->list available-regs))
 
-           (available-regs-lst (set->list available-regs))]
-
-      (let* [(move-rel-vars (hash-ref move-rels most-constrained (set)))
+             (move-rel-vars (hash-ref move-rels most-constrained (set)))
              (interfered-vars (hash-ref int-graph most-constrained (set)))
 
              (move-rel-regs
@@ -328,22 +356,33 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Assigning vars to their locations on the machine
 
-; Input: x86 with (var) in arguments.
-; Output: x86 without any (var)s.
 (define (assign-homes pgm)
   (match pgm
-    [`(program ,_ . ,instrs)
-     (let-values [((pgm live-after-sets) (gen-live-afters pgm))]
-       (let* ([int-graph (build-interference-graph pgm live-after-sets)]
-              [move-rel (mk-move-relation pgm int-graph)])
-         (let-values ([(homes stack-size) (reg-alloc int-graph move-rel)])
-           `(program (,(align-stack stack-size))
-                     ; Note that here we use the original instructions, e.g.
-                     ; not the ones with live-after annotations on if branches.
-                     ; Either way should work here.
-                     ,@(assign-home-instrs homes instrs)))))]
-
+    [`(program . ,defs)
+     `(program ,@(map assign-homes-def defs))]
     [_ (unsupported-form 'assign-homes pgm)]))
+
+(define (assign-homes-def def)
+  (match def
+    [`(define ,tag : ,ret-ty ,_ . ,instrs)
+     (let-values [((def live-after-sets) (gen-live-afters def))]
+       (let* ([int-graph (build-interference-graph def live-after-sets)]
+              [move-rel (mk-move-relation def int-graph)]
+              [args (match tag
+                      [`(,_ . ,args) (map car args)]
+                      [_ `()])])
+
+         ; TODO: We need to update reg-alloc to take registers of arguments
+         ; into account. Rest of the functions will stay the same as we already
+         ; added function arguments to the variable list.
+         (let-values ([(homes stack-size) (reg-alloc args int-graph move-rel)])
+           `(define ,tag : ,ret-ty (,(align-stack stack-size))
+                    ; Note that here we use the original instructions, e.g.
+                    ; not the ones with live-after annotations on if branches.
+                    ; Either way should work here.
+                    ,@(assign-home-instrs homes instrs)))))]
+
+    [_ (unsupported-form 'assign-homes-def def)]))
 
 (define (align-stack stack) (+ stack (modulo stack 16)))
 
@@ -382,6 +421,7 @@
     [`(global-value ,_) arg]
     [`(offset ,arg ,offset)
      `(offset ,(assign-home-arg asgns arg) ,offset)]
+    [`(toplevel-fn ,_) arg]
     [`(var ,var)
      (let [(asgn (hash-ref asgns `(var ,var) '()))]
        (cond [(null? asgn)

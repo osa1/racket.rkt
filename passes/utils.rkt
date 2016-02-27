@@ -42,6 +42,11 @@
      (let-values ([(xs last) (split-last xs)])
        (values (cons x xs) last))]))
 
+(define (split-at-max lst n)
+  (if (<= n (length lst))
+    (split-at lst n)
+    (values lst '())))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (lift-def fn)
@@ -67,3 +72,5 @@
     [`(global-value ,_) #t]
     [`(offset ,_ ,_) #t]
     [_ (unsupported-form 'arg-mem? arg)]))
+
+(define arg-regs `((reg rdi) (reg rsi) (reg rdx) (reg rcx) (reg r8) (reg r9)))
