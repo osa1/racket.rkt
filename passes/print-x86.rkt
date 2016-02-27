@@ -21,8 +21,8 @@
            [symbol (match tag
                      [`(,f . ,_) f]
                      [_ tag])])
-       (string-append (format ".globl ~s~n" symbol)
-                      (format "~s:~n" symbol)
+       (string-append (format ".globl ~s~n" (encode-symbol symbol))
+                      (format "~s:~n" (encode-symbol symbol))
                       (mk-def-prelude s)
                       "\n"
                       (string-join stmt-lines)
@@ -40,6 +40,10 @@
     ;; one is mem/reg, the literal one should come first.
     [`(cmpq (reg ,r) (int ,i))
      (print-x86_64-stmt `(cmpq (int ,i) (reg ,r)))]
+
+    ;; Special case for callq: Put * before the argument if it's not a symbol.
+    [`(callq (reg ,reg))
+     (format instr2-format 'callq (string-append "*" (print-x86_64-arg `(reg ,reg))))]
 
     [`(,(or 'addq 'subq 'movq 'cmpq 'movzbq 'xorq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
@@ -62,9 +66,22 @@
     [`(stack ,offset) (format "~s(%rbp)" offset)]
     [`(global-value ,var) (format "~s(%rip)" var)]
     [`(offset ,arg ,offset) (format "~s(~a)" offset (print-x86_64-arg arg))]
-    [`(toplevel-fn ,f) (format "~s" f)]
+    [`(toplevel-fn ,f) (format "~s" (encode-symbol f))]
     [(? symbol?) arg] ; must be a function call or jmp
     [_ (unsupported-form 'print-x86_64-arg arg)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define enc-tbl
+  `(("-" . "_")
+    ("?" . "ha")
+    ("->" . "_arr_")))
+
+(define (encode-symbol sym)
+  (string->symbol
+    (foldl (lambda (enc str)
+             (string-replace str (car enc) (cdr enc)))
+           (symbol->string sym) enc-tbl)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -83,7 +100,7 @@ main:\n")
 (define (mk-def-conclusion stack-size)
   (let [(ls2
 "\tpopq %rbp\n
-\tret\n\n")]
+\tretq\n\n")]
     (if (eq? stack-size 0)
       ls2
       (string-append (format "\taddq $~a, %rsp\n" stack-size) ls2))))

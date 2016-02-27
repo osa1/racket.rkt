@@ -1,6 +1,0 @@
-(32)
-(movq (int 10) (stack -8))
-(movq (stack -8) (stack -16))
-(movq (stack -16) (stack -24))
-(movq (stack -24) (stack -32))
-(movq (stack -32) (reg rax))

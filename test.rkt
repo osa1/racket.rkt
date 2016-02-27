@@ -22,17 +22,6 @@
   ; (interp-tests "first assignment" typecheck r1-passes interp-scheme "flatten" (range 1 5))
   (compiler-tests "first assignment" typechecker r1-passes "flatten" (range 1 5))
 
-  ; (interp-tests "select instructions" typecheck-ignore (start-from "instr-sel" r1-passes) interp-C
-  ;               "select_instructions" (range 1 4))
-  (compiler-tests "select instructions" typecheck-ignore (start-from "instr-sel" r1-passes)
-                  "select_instructions" (range 1 4))
-
-
-  ; (interp-tests "patch instructions" typecheck-ignore (start-from "patch-instructions" r1-passes)
-  ;               interp-x86 "patch_instructions" (range 1 4))
-  (compiler-tests "patch instructions" typecheck-ignore (start-from "patch-instructions" r1-passes)
-                  "patch_instructions" (range 1 4))
-
   ; (interp-tests "r0" typecheck r1-passes interp-scheme "r0" (range 1 5))
   (compiler-tests "r0" typechecker r1-passes "r0" (range 1 5))
 
@@ -120,9 +109,3 @@
 (run-all-tests)
 (newline)
 (newline)
-
-(flatten
-  (uniquify
-    (desugar
-      (typecheck
-        (read-program "tests/fun_1.rkt")))))

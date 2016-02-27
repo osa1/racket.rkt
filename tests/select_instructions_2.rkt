@@ -1,6 +1,0 @@
-(v1 v2)
-(assign v1 10)
-(assign v2 (read))
-(assign v2 (- v2))
-(assign v1 (+ v1 v2))
-(return v1)
