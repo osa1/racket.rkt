@@ -264,35 +264,32 @@
     ; uh... I need mapAccumL here.
     (define (map-stk args next-stack-loc)
       (match args
-        [`()
-         (values `() next-stack-loc)]
+        [`() `()]
         [`(,arg . ,args)
-         (let-values ([(mappings next-stack-loc1) (map-stk args (- 8 next-stack-loc))])
-           (values (cons (cons `(var ,arg) next-stack-loc) mappings)
-                   next-stack-loc1))]))
+         (let ([mappings (map-stk args (+ 8 next-stack-loc))])
+           (cons (cons `(var ,arg) next-stack-loc) mappings))]))
 
-    (let ([stack-args (reverse stack-args)]
-          [reg-mapping (map (lambda (arg reg)
+    (let ([reg-mapping (map (lambda (arg reg)
                               `((var ,arg) . ,reg))
-                            reg-args (take regs (length reg-args)))])
-      (let-values ([(stack-mapping next-stack-loc)
-                    (map-stk stack-args next-stack-loc)])
-        (values (make-immutable-hash (append reg-mapping stack-mapping))
-                next-stack-loc)))))
+                            reg-args (take regs (length reg-args)))]
+          [stack-mapping (map-stk stack-args next-stack-loc)])
+      (make-immutable-hash (append reg-mapping stack-mapping)))))
 
 (define (reg-alloc args int-graph move-rels [regs general-registers])
   (let [(int-graph (hash-copy int-graph))]
     (hash-remove! int-graph 'rax)
-    (let-values ([(initial-mapping next-stack-loc)
-                  (map-args (if (use-regs) arg-reg-syms `()) 0 args)])
-      (reg-alloc-iter int-graph move-rels initial-mapping next-stack-loc regs))))
+    (let ([initial-mapping (map-args (if (use-regs) arg-reg-syms `()) 16 args)])
+      (printf "initial-mapping: ~s~n" initial-mapping)
+      (reg-alloc-iter int-graph move-rels initial-mapping (- 8) regs))))
 
-(define (reg-alloc-iter int-graph move-rels mapping last-stack-loc regs)
+(define (reg-alloc-iter int-graph move-rels mapping next-stack-loc regs)
   (let* [(all-vars    (list->set (hash-keys int-graph)))
          (mapped-vars (list->set (hash-keys mapping)))
          (not-mapped  (set-subtract all-vars mapped-vars))]
+    (printf "mapped-vars: ~s~n" mapped-vars)
+    (printf "not-mapped: ~s~n" not-mapped)
     (if (set-empty? not-mapped)
-      (values mapping (- last-stack-loc))
+      (values mapping (- next-stack-loc))
       (let* [(most-constrained (find-most-constrained int-graph (set->list not-mapped)))
 
              (used-regs
@@ -325,17 +322,17 @@
         (cond [(and (use-regs) (use-move-rels) (not (null? move-rel-regs)))
                (reg-alloc-iter int-graph move-rels
                                (hash-set mapping most-constrained (car move-rel-regs))
-                               last-stack-loc regs)]
+                               next-stack-loc regs)]
 
               [(and (use-regs) (not (null? available-regs-lst)))
                (reg-alloc-iter int-graph move-rels
                                (hash-set mapping most-constrained (car available-regs-lst))
-                               last-stack-loc regs)]
+                               next-stack-loc regs)]
 
               [#t
                (reg-alloc-iter int-graph move-rels
-                               (hash-set mapping most-constrained (- last-stack-loc 8))
-                               (- last-stack-loc 8)
+                               (hash-set mapping most-constrained next-stack-loc)
+                               (- next-stack-loc 8)
                                regs)])))))
 
 (define (find-most-constrained inter-graph not-mapped)
