@@ -1,9 +1,5 @@
-(define (map-vec [f : (Integer -> Integer)]
-                 [v : (Vector Integer Integer)])
-          : (Vector Integer Integer)
-  (vector (f (vector-ref v 0)) (f (vector-ref v 1))))
+(define (add [i1 : Integer]
+             [i2 : Integer]) : Integer
+  (+ i1 i2))
 
-(define (add1 [x : Integer]) : Integer
-  (+ x 1))
-
-(vector-ref (map-vec add1 (vector 0 41)) 1)
+(add 20 22)

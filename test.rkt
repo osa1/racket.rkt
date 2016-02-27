@@ -67,7 +67,9 @@
 
   (compiler-tests "vector-other" typechecker r2-passes "vector-other" (range 1 2))
 
-  (compiler-tests "r3" typechecker r2-passes "r3" (range 1 16)))
+  (compiler-tests "r3" typechecker r2-passes "r3" (range 1 16))
+
+  (compiler-tests "fun" typechecker r2-passes "fun" (range 1 5)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")
