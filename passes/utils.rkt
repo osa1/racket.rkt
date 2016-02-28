@@ -74,5 +74,10 @@
     [`(toplevel-fn ,_) #f]
     [_ (unsupported-form 'arg-mem? arg)]))
 
+(define (is-reg? arg)
+  (match arg
+    [`(reg ,_) #t]
+    [_         #f]))
+
 (define arg-reg-syms `(rdi rsi rdx rcx r8 r9))
 (define arg-regs (map (lambda (reg) `(reg ,reg)) arg-reg-syms))
