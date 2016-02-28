@@ -11,10 +11,6 @@
 
 (provide assign-homes)
 
-; For debugging purposes
-; (TODO: Currently used in `save-regs` too)
-(provide gen-live-afters build-interference-graph mk-move-relation)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; NOTE [Register in live-after sets and interference graph
 ;
@@ -295,10 +291,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Register allocation
 
-; This is an ordered list! We should first use the registers that come first in
-; the list. Latter ones are the ones we need to save.
+; This is an ordered list!
 (define general-registers
-  (append (set->list callee-save) (set->list caller-save)))
+  `(rdi rsi rdx rcx r8 r9 r10 r11)) ; rbx r12 r13 r14 r15))
 
 (define (map-args regs next-stack-loc args)
   ; We need to map args to stack locations in reverse order.
