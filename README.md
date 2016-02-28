@@ -19,3 +19,21 @@ Then `racket test.rkt` should just work.
 - Implement some recursion schemes and functions like `mapAccumL`.
 
 - Generated x86\_64 could use some optimizations.
+
+- We're having some redundant stack traffic. As an example, identity function is compiled to this:
+
+    ```assembly
+    id:
+        pushq %rbp
+        movq %rsp, %rbp
+        subq $16, %rsp
+
+        movq %rdi, %rax
+
+        addq $16, %rsp
+        popq %rbp
+
+        retq
+    ```
+
+  I think we should be able to compile this to a `movq ... ; retq`.
