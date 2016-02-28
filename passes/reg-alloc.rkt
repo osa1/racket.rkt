@@ -16,6 +16,40 @@
 (provide gen-live-afters build-interference-graph mk-move-relation)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; NOTE [Register in live-after sets and interference graph
+;
+; Live-after sets are all about variables, it doesn't make sense to have
+; registers in a live-after set. So we have some assertions about this in
+; gen-live-afters.
+;
+; In theory, interference graph is also about variables. However, here we're
+; actually treating registers as if they're variables. The problem this solves
+; is that since we do instruction selection before register allocation, and
+; since instruction selection can generate instruction that explicitly refers
+; to some specific registers, we need to somehow handle those register here, to
+; avoid overriding them. So here we do this by adding edges between variables
+; and register in interference graph. Register allocator then takes this into
+; account.
+;
+; A note on function calls: Whenever we see a function call, we should add an
+; edge between caller-save register and live-after variables. Then register
+; allocator should take care of the rest.
+;
+; Previously we were doing another pass (save-regs) to save caller-save
+; register. This is bad for reasons:
+;
+; - Instruction selection is now doing argument passing to functions, but we
+;   don't know when is the argument passing started happening in the program.
+;   So when we save registers just before a callq, that messes up with the
+;   stack layout (when passing things on stack).
+;
+; - Too much stack traffic in some cases.
+;
+; - TODO: What else?
+;
+; FIXME: Currently functions don't save callee-save registers!
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Live-after sets
 
 ; NOTE: This should be run _before_ assign-homes as this assumes variable
@@ -34,6 +68,12 @@
                      ; last (first in the list, as we reverse the instructions)
                      ; instruction is an empty set so we add it here
                      (list (set))))]
+       ; Here's a sanity check: Having variables in live-after sets doesn't
+       ; make sense
+       (for ([set live-afters])
+         (unless (null? (filter is-reg? (set->list live-afters)))
+           (error 'gen-live-afters "Register found in live-after set: ~a~n~a~n" set live-afters)))
+
        (values `(define ,tag : ,ret-ty ,meta ,@(reverse instrs)) live-afters))]
     [_ (unsupported-form 'gen-live-afters def)]))
 
@@ -78,17 +118,12 @@
     [`(popq ,arg1)
      (values instr (remove-live lives arg1))]
 
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    ;; XXX: We will have to update this two if we decide to use *ax in the
-    ;; future.
-
+    ; Don't do anything -- argument has to be a register.
     [`(,(or 'sete 'setl) ,_)
      (values instr lives)]
 
     [`(movzbq (byte-reg al) ,arg2)
      (values instr (remove-live lives arg2))]
-
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [`(movq ,arg1 ,arg2)
      (values instr (add-live (remove-live lives arg2) arg1))]
@@ -96,10 +131,17 @@
     [`(negq ,arg1)
      (values instr (add-live lives arg1))]
 
-    ; not sure about this part, what to do about function arguments? what about
-    ; caller-save registers?
     [`(callq ,_)
-     (values instr (set-remove lives '(reg rax)))]
+     ; I was confused about this for a while. Here's the idea: live-after sets
+     ; are about variables, not registers, because we use them to map variables
+     ; to registers. If you think about a function call, it doesn't make any
+     ; variables unreachable and it doesn't override. So here we don't kill any
+     ; live variables.
+     ;
+     ; Keeping registers in the set just doesn't make any sense. So disabling
+     ; this one.. (but still keeping it here for documentation purposes)
+     ; (values instr (set-remove lives '(reg rax)))
+     (values instr lives)]
 
     [`(retq)
      (values instr lives)]
@@ -131,22 +173,23 @@
 (define (add-live lives . args)
   (foldl (lambda (arg lives)
            (match arg
-             [`(,(or 'var 'reg) ,_) (set-add lives arg)]
-             [`(offset (,(or 'var 'reg) ,_) ,_) (set-add lives (cadr arg))]
+             [`(var ,_) (set-add lives arg)]
+             [`(offset (var ,_) ,_) (set-add lives (cadr arg))]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
              [`(toplevel-fn ,_) lives]
+             [`(reg ,_) lives]
              [_ (unsupported-form 'add-live arg)]))
          lives args))
 
 (define (remove-live lives . args)
   (foldl (lambda (arg lives)
            (match arg
-             [`(,(or 'var 'reg) ,_) (set-remove lives arg)]
-             ; [`(offset (,(or 'var 'reg) ,v) ,_) (set-remove lives v)]
-             [`(offset (,(or 'var 'reg) ,_) ,_) lives]
+             [`(var ,_) (set-remove lives arg)]
+             [`(offset (var ,_) ,_) lives]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
+             [`(reg ,_) lives]
              [_ (unsupported-form 'remove-live arg)]))
          lives args))
 
