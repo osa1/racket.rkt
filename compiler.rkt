@@ -18,7 +18,6 @@
 (require "passes/reg-alloc.rkt")
 (require "passes/patch-instructions.rkt")
 (require "passes/elim-movs.rkt")
-(require "passes/save-regs.rkt")
 (require "passes/lower-conditionals.rkt")
 (require "passes/print-x86.rkt")
 
@@ -37,7 +36,7 @@
          expose-allocations annotate-lives uncover-call-live-roots instr-sel initialize-rts
 
          ;; asm passes
-         assign-homes patch-instructions elim-movs save-regs lower-conditionals
+         assign-homes patch-instructions elim-movs lower-conditionals
 
          print-x86_64)
 
@@ -59,7 +58,6 @@
     ("assign-homes" ,assign-homes ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)
-    ("save-regs" ,save-regs ,interp-x86)
     ("lower-conditionals" ,lower-conditionals ,interp-x86)
     ("print-x86" ,print-x86_64 #f)))
 

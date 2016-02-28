@@ -242,9 +242,9 @@
 
     [`(callq ,_)
      ;; TODO: Do we need to do something with the argument here?
-     (for ([live lives]
-           [save (cons 'rax (set->list caller-save))])
-       (add-edge graph `(reg ,save) live))]
+     (for ([live lives])
+       (for ([save (cons 'rax (set->list caller-save))])
+         (add-edge graph `(reg ,save) live)))]
 
     [`(if (eq? ,_ ,_) ,pgm-t ,t-lives ,pgm-f ,f-lives)
      (build-int-graph-instrs pgm-t t-lives graph)
@@ -320,7 +320,6 @@
 
 (define (reg-alloc args int-graph move-rels [regs general-registers])
   (let [(int-graph (hash-copy int-graph))]
-    (hash-remove! int-graph 'rax)
     (let ([initial-mapping (map-args (if (use-regs) arg-reg-syms `()) 16 args)])
       (reg-alloc-iter int-graph move-rels initial-mapping (- 8) regs))))
 
@@ -337,23 +336,25 @@
                             (map (lambda (nb) (hash-ref mapping nb '()))
                                  (set->list (adjacent int-graph most-constrained))))))
 
-             (available-regs
-               (filter (lambda (reg) (not (set-member? used-regs reg))) regs))
-
-             (available-regs-lst (set->list available-regs))
-
-             (move-rel-vars (hash-ref move-rels most-constrained (set)))
              (interfered-vars (hash-ref int-graph most-constrained (set)))
-
-             (move-rel-regs
-               (filter-nulls
-                 (map (lambda (arg) (hash-ref mapping arg '()))
-                      (set->list move-rel-vars))))
 
              (interfered-regs
                (filter-nulls
                  (map (lambda (arg) (hash-ref mapping arg '()))
                       (set->list interfered-vars))))
+
+             (available-regs
+               (filter (lambda (reg)
+                         (and (not (set-member? used-regs reg))
+                              (not (eq? #f (member reg interfered-regs)))))
+                         regs))
+
+             (move-rel-vars (hash-ref move-rels most-constrained (set)))
+
+             (move-rel-regs
+               (filter-nulls
+                 (map (lambda (arg) (hash-ref mapping arg '()))
+                      (set->list move-rel-vars))))
 
              (move-rel-regs (set->list
                               (set-subtract (list->set move-rel-regs)
@@ -364,9 +365,9 @@
                                (hash-set mapping most-constrained (car move-rel-regs))
                                next-stack-loc regs)]
 
-              [(and (use-regs) (not (null? available-regs-lst)))
+              [(and (use-regs) (not (null? available-regs)))
                (reg-alloc-iter int-graph move-rels
-                               (hash-set mapping most-constrained (car available-regs-lst))
+                               (hash-set mapping most-constrained (car available-regs))
                                next-stack-loc regs)]
 
               [#t

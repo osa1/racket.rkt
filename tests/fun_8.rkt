@@ -13,4 +13,4 @@
 (define (id [i : Integer]) : Integer
   i)
 
-(add9 1 2 3 4 5 6)
+(+ (add9 1 2 3 5 4 6) (add9 1 2 3 5 4 6))
