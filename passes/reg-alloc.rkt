@@ -279,15 +279,12 @@
   (let [(int-graph (hash-copy int-graph))]
     (hash-remove! int-graph 'rax)
     (let ([initial-mapping (map-args (if (use-regs) arg-reg-syms `()) 16 args)])
-      (printf "initial-mapping: ~s~n" initial-mapping)
       (reg-alloc-iter int-graph move-rels initial-mapping (- 8) regs))))
 
 (define (reg-alloc-iter int-graph move-rels mapping next-stack-loc regs)
   (let* [(all-vars    (list->set (hash-keys int-graph)))
          (mapped-vars (list->set (hash-keys mapping)))
          (not-mapped  (set-subtract all-vars mapped-vars))]
-    (printf "mapped-vars: ~s~n" mapped-vars)
-    (printf "not-mapped: ~s~n" not-mapped)
     (if (set-empty? not-mapped)
       (values mapping (- next-stack-loc))
       (let* [(most-constrained (find-most-constrained int-graph (set->list not-mapped)))
