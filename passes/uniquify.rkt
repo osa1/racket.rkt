@@ -8,9 +8,17 @@
   (match pgm
     [`(program . ,things)
      (let-values ([(defs expr) (split-last things)])
-       `(program ,@(map (lift-def (lambda (expr) (uniquify-expr (hash) expr))) defs)
-                        ,(uniquify-expr (hash) expr)))]
+       `(program ,@(map uniquify-def defs) ,(uniquify-expr (hash) expr)))]
     [_ (unsupported-form 'uniquify pgm)]))
+
+(define (uniquify-def def)
+  (match def
+    [`(define (,fname . ,args) : ,ret-ty ,expr)
+     (let* ([rns (map (lambda (arg) (cons (car arg) (gensym "arg"))) args)]
+            [args (map (lambda (old rn) `(,(cdr rn) : ,(caddr old))) args rns)]
+            [expr (uniquify-expr (make-immutable-hash rns) expr)])
+       `(define (,fname ,@args) : ,ret-ty ,expr))]
+    [_ (unsupported-form 'uniquify-def def)]))
 
 (define (uniquify-expr rns e0)
   (match (cdr e0)
