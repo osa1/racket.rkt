@@ -82,8 +82,8 @@
   (match expr
     ;; TODO: I'm a bit confused about this. Do we really need a special case
     ;; here?
-    [`(app (toplevel-fn ,v) . ,vs) (foldl (lambda (v s) (add-live s v)) (set) vs)]
     [`(app ,v . ,vs) (foldl (lambda (v s) (add-live s v)) (set) (cons v vs))]
+    [`(toplevel-fn ,_) (set)]
 
     [`(,(or '+ 'eq? 'vector-ref) ,v1 ,v2) (add-live (set) v1 v2)]
     [`(,(or '- 'not 'allocate 'collection-needed?) ,v1) (add-live (set) v1)]

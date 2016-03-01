@@ -129,8 +129,9 @@
          (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
 
     ;; References to functions are already values
-    [`(toplevel-fn ,_)
-     (values binds pgm (cdr e0))]
+    [`(toplevel-fn ,f)
+     (let ([fresh (gensym "fn")])
+       (values binds (cons `(assign ,fresh ,(car e0) (toplevel-fn ,f)) pgm) fresh))]
 
     ;; [`(app ,f . ,args)
     ;;  (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]

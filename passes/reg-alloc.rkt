@@ -121,7 +121,7 @@
     [`(movzbq (byte-reg al) ,arg2)
      (values instr (remove-live lives arg2))]
 
-    [`(movq ,arg1 ,arg2)
+    [`(,(or 'movq 'leaq) ,arg1 ,arg2)
      (values instr (add-live (remove-live lives arg2) arg1))]
 
     [`(negq ,arg1)
@@ -218,7 +218,7 @@
        (unless (equal? live d)
          (add-edge graph d live)))]
 
-    [`(movq ,s ,d)
+    [`(,(or 'movq 'leaq) ,s ,d)
      (for ([live lives])
        (unless (or (equal? live s) (equal? live d))
          (add-edge graph d live)))]
@@ -428,7 +428,7 @@
         ,(assign-home-instrs asgns pgm-t)
         ,(assign-home-instrs asgns pgm-f))]
 
-    [`(,(or 'addq 'subq 'movq 'cmpq 'xorq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,arg1 ,arg2)
      `(,(car instr) ,(assign-home-arg asgns arg1) ,(assign-home-arg asgns arg2))]
 
     [`(,(or 'negq 'pushq 'popq) ,arg)

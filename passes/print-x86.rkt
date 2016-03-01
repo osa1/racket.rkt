@@ -42,13 +42,16 @@
      (print-x86_64-stmt `(cmpq (int ,i) (reg ,r)))]
 
     ;; Special case for callq: Put * before the argument if it's not a symbol.
-    [`(callq (reg ,reg))
-     (format instr2-format 'callq (string-append "*" (print-x86_64-arg `(reg ,reg))))]
+    [`(callq (toplevel-fn ,f))
+     (format instr2-format 'callq (encode-symbol f))]
 
-    [`(,(or 'addq 'subq 'movq 'cmpq 'movzbq 'xorq) ,arg1 ,arg2)
+    [`(callq ,arg)
+     (format instr2-format 'callq (string-append "*" (print-x86_64-arg arg)))]
+
+    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'movzbq 'xorq) ,arg1 ,arg2)
      (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
 
-    [`(,(or 'negq 'pushq 'popq 'callq 'je 'jmp 'sete 'setl) ,arg1)
+    [`(,(or 'negq 'pushq 'popq 'je 'jmp 'sete 'setl) ,arg1)
      (format instr2-format (car stmt) (print-x86_64-arg arg1))]
 
     [`(label ,lbl)

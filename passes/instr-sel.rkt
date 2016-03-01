@@ -169,6 +169,9 @@
      ;; Note that we ignore bind-to here!
      `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx)))))]
 
+    [`(toplevel-fn ,_)
+     `((leaq ,(arg->x86-arg expr) ,(arg->x86-arg bind-to)))]
+
     [`(app ,f . ,args)
      ; Since all arguments are word-sized this is easy. Otherwise we'd need
      ; some type annotations here and the handling would be more complex.
