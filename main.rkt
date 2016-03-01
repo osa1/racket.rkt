@@ -11,7 +11,7 @@
       (error 'main "File does not exist: ~a" file)))
 
   (debug-level 4)
-  (use-regs #f)
+  (use-regs #t)
 
   (for ([file files])
     (let ([path (string->path file)])
