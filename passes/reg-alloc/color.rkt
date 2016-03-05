@@ -40,7 +40,7 @@
   (let ([iter (filter id (map loop (hash-keys graph)))])
     (if (null? iter)
       '()
-      (append (simplify graph num-available-regs) iter))))
+      (append (simplify graph num-available-regs) (reverse iter)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
