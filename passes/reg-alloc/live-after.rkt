@@ -134,6 +134,7 @@
               lives]
              [`(toplevel-fn ,_) lives]
              [`(reg ,_) lives]
+             [`(mem-loc ,_) lives]
              [_ (unsupported-form 'add-live arg)]))
          lives args))
 
@@ -145,5 +146,6 @@
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
              [`(reg ,_) lives]
+             [`(mem-loc ,_) lives]
              [_ (unsupported-form 'remove-live arg)]))
          lives args))

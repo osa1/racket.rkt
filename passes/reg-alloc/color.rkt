@@ -3,6 +3,7 @@
 (require "live-after.rkt")
 (require "interference-graph.rkt")
 (require "move-rel.rkt")
+(require (only-in "../instr-sel.rkt" collect-vars))
 
 (require "../utils.rkt")
 (require "../../graph.rkt")
@@ -177,7 +178,12 @@
   (lambda (pgm)
     (match pgm
       [`(program . ,defs)
-       (map ((curry reg-alloc-def) pgm-name) defs)]
+       (let ([defs (map (lambda (def)
+                          (let-values ([(def mapping) (reg-alloc-def pgm-name def)])
+                            (printf "register mapping:~n")
+                            (pretty-print mapping)
+                            def)) defs)])
+         `(program ,@defs))]
       [_ (unsupported-form 'reg-alloc pgm)])))
 
 ; Returns two things:
@@ -249,13 +255,88 @@
          ; Generate spill instructions, loop
          (let* ([instrs-w-spills (generate-spills (car spilled-vars) next-mem-loc instrs)]
                 [pgm-vars (collect-vars instrs)])
-           (reg-alloc-iter () (+ next-mem-loc 1) (+ iteration 1)))
+           (reg-alloc-iter `(define ,tag : ,ret-ty ,pgm-vars ,@instrs-w-spills)
+                           (+ next-mem-loc 1) (+ iteration 1)))
          ; We're done
          (values def mapping))]
 
       [_ (unsupported-form 'reg-alloc-def def)]))
 
   (reg-alloc-iter def))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (generate-spills var mem-loc instrs)
+  (define var-sym (cadr var))
+  (define mem-loc-arg `(mem-loc ,mem-loc))
+
+  (printf "spilling ~a~n" var-sym)
+
+  (define temp-prefix (string-append "spill-" (symbol->string var-sym)))
+  (define (mk-temp-var) `(var ,(gensym temp-prefix)))
+
+  (define (gen-spill instr)
+    (match instr
+
+      ; TODO: What happens if both s and d are the var to spill?
+
+      [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,s ,d)
+       (define temp-var (mk-temp-var))
+       (cond
+         [(equal? s var)
+          `((movq ,mem-loc-arg ,temp-var)
+            (movq ,temp-var ,d))]
+
+         [(equal? d var)
+          `((movq ,s ,temp-var)
+            (movq ,temp-var ,mem-loc-arg))]
+
+         [#t `(,instr)])]
+
+      [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+       (define temp-var (mk-temp-var))
+       (cond
+         [(equal? arg1 var)
+          `((movq ,mem-loc-arg ,temp-var)
+            (movq ,temp-var ,arg1))]
+         [(equal? arg2 var)
+          `((movq ,mem-loc-arg ,temp-var)
+            (movq ,temp-var ,arg2))]
+         [#t `()])
+
+       `(,@spill
+         (if (eq? ,arg1 ,arg2)
+           ,(map gen-spill pgm-t)
+           ,(map gen-spill pgm-f)))]
+
+      [`(negq ,arg1)
+       (if (equal? arg1 var)
+         (let ([temp-var (mk-temp-var)])
+           `((movq ,mem-loc-arg ,temp-var)
+             (negq ,temp-var)
+             (movq ,temp-var ,mem-loc-arg)))
+         `(,instr))]
+
+      [`(callq ,arg1)
+       (if (equal? arg1 var)
+         (let ([temp-var (mk-temp-var)])
+           `((movq ,mem-loc-arg ,temp-var)
+             (callq ,temp-var)))
+         `(,instr))]
+
+      [`(retq) `(,instr)]
+
+      [`(movzbq (byte-reg al) ,arg1)
+       (if (equal? arg1 var)
+         (let ([temp-var (mk-temp-var)])
+           `((movq ,mem-loc-arg ,temp-var)
+             (movzbq (byte-reg al) ,temp-var)
+             (movq ,temp-var ,mem-loc-arg)))
+         `(,instr))]
+
+      [_ (unsupported-form 'gen-spill instr)]))
+
+  (append-map gen-spill instrs))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
