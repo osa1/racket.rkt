@@ -21,7 +21,7 @@
     (let ([ns (neighbors graph key)])
       (if (< (length ns) num-available-regs)
         (let ([node-nbs (remove-node graph key)])
-          (printf "removing ~a~n" key)
+          ; (printf "removing ~a~n" key)
           (cons key (set->list node-nbs)))
         #f)))
 
@@ -177,46 +177,85 @@
   (lambda (pgm)
     (match pgm
       [`(program . ,defs)
-        `(program ,@(map (reg-alloc-def pgm-name) defs))]
+       (map ((curry reg-alloc-def) pgm-name) defs)]
       [_ (unsupported-form 'reg-alloc pgm)])))
 
-(define (reg-alloc-def pgm-name)
-  (lambda (def)
+; Returns two things:
+;
+; - A new program which may have some new spill instructions.
+; - A mapping from variables to registers.
+;
+(define (reg-alloc-def pgm-name def)
+  (define (reg-alloc-iter def [next-mem-loc 0] [iteration 0])
+
+    ; Simplify and spill. Upon finding a variable that actually needs to be
+    ; spilled, map the variable to a memory location (memory locations start
+    ; from 0 and increases) and insert movq's to read the variable from
+    ; memory and write it back.
+
     (match def
-      [`(define ,tag : ,ret-ty ,_ . ,instrs)
+      [`(define ,tag : ,ret-ty ,vs . ,instrs)
        (printf "~nregister allocating for program:~n")
        (pretty-print def)
 
-       (let-values ([(def live-after-sets) (gen-live-afters def)])
-         (let* ([int-graph (mk-interference-graph def live-after-sets)]
-                [move-rels (mk-mov-rel-graph def int-graph)])
+       (define-values (def-w-lives live-after-sets) (gen-live-afters def))
 
-           (printf "~nlive-after sets:~n")
-           (pretty-print live-after-sets)
-           (printf "~ninterference graph:~n")
-           (pretty-print int-graph)
-           (print-dot int-graph (string-append pgm-name "-int-orig.dot") cadr)
-           (printf "~nmove-relation graph:~n")
-           (pretty-print move-rels)
+       (define int-graph (mk-interference-graph def-w-lives live-after-sets))
+       ; Copy the original interference graph, to be used for debugging later
+       (define int-graph-copy (graph-copy int-graph))
 
-           (let ([work-stack (simplify-spill-loop int-graph 2)])
-             (let-values ([(int-graph mapping)
-                           (select work-stack 2)])
-               (printf "work-stack:~n")
-               (pretty-print work-stack)
-               (printf "mapping:~n")
-               (pretty-print mapping)
-               (print-dot int-graph (string-append pgm-name "-final.dot") cadr)))))]
+       (define move-rels (mk-mov-rel-graph def-w-lives int-graph))
 
-           ; (let ([work-stack (simplify int-graph 1)])
-           ;   (printf "work stack: ~a~n" work-stack)
-           ;   (printf "graph after simplification:~n")
-           ;   (pretty-print int-graph)
-           ;   (print-dot int-graph (string-append pgm-name "-int-simpl.dot") cadr)
+       ; (printf "~nlive-after sets:~n")
+       ; (pretty-print live-after-sets)
+       ; (printf "~ninterference graph:~n")
+       ; (pretty-print int-graph)
+       (print-dot int-graph (string-append pgm-name (format "-int-orig-~a.dot" iteration)) cadr)
+       ; (printf "~nmove-relation graph:~n")
+       ; (pretty-print move-rels)
+       (print-dot move-rels (string-append pgm-name (format "-mov-~a.dot" iteration)) cadr)
 
-           ;   def)))]
+       (define work-stack (simplify-spill-loop int-graph 2))
+       (define-values (int-graph-rebuilt mapping) (select work-stack 2))
 
-        [_ (unsupported-form 'reg-alloc-def def)])))
+       ; The rebuilt interference graph should be the same as the original one
+       ; FIXME: Disabling this for now. For some reason %rax is appearing in
+       ; the rebuilt one.
+       ; (unless (equal? int-graph-copy int-graph-rebuilt)
+       ;   (error 'reg-alloc-def
+       ;          "Rebuilt interference graph is different from the original one:~n~a~n~a~n"
+       ;          int-graph-copy
+       ;          int-graph-rebuilt))
+
+       (define mapped-vars (list->set (hash-keys mapping)))
+       (define spilled-vars
+         (set->list
+           (set-subtract
+             (list->set (map (lambda (v) (list 'var v)) vs)) mapped-vars)))
+
+       ; (printf "work-stack:~n")
+       ; (pretty-print work-stack)
+       ; (printf "mapping:~n")
+       ; (pretty-print mapping)
+       ; (printf "mapped:~n")
+       ; (pretty-print mapped-vars)
+       ; (printf "spilled:~n")
+       ; (pretty-print spilled-vars)
+
+       (print-dot int-graph-rebuilt
+                  (string-append pgm-name (format "-final-~a.dot" iteration)) cadr)
+
+       (if (not (null? spilled-vars))
+         ; Generate spill instructions, loop
+         (let* ([instrs-w-spills (generate-spills (car spilled-vars) next-mem-loc instrs)]
+                [pgm-vars (collect-vars instrs)])
+           (reg-alloc-iter () (+ next-mem-loc 1) (+ iteration 1)))
+         ; We're done
+         (values def mapping))]
+
+      [_ (unsupported-form 'reg-alloc-def def)]))
+
+  (reg-alloc-iter def))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests

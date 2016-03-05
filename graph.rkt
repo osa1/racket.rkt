@@ -27,6 +27,8 @@
       (hash-remove! graph node)
       ret)))
 
+(define graph-copy hash-copy)
+
 (define nodes hash-keys)
 
 (define (has-edge? graph node1 node2)

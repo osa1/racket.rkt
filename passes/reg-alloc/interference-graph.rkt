@@ -55,7 +55,7 @@
     [`(callq ,s)
      ;; TODO: Do we need to do something with the argument here?
      (for ([live lives])
-       (for ([save (cons 'rax (set->list caller-save))])
+       (for ([save (set->list caller-save)])
          (unless (equal? live s)
            (add-edge graph `(reg ,save) live))))]
 
