@@ -57,6 +57,24 @@
       [_ (unsupported-form 'lift-def def)])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (any p lst)
+  (match lst
+    [`() #f]
+    [`(,h . ,t)
+     (if (p h)
+       #t
+       (any p t))]))
+
+(define (all p lst)
+  (match lst
+    [`() #t]
+    [`(,h . ,t)
+     (if (p h)
+       (any p t)
+       #f)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Find these guys a safe place
 
 (define (arg-imm? arg)
@@ -81,3 +99,6 @@
 
 (define arg-reg-syms `(rdi rsi rdx rcx r8 r9))
 (define arg-regs (map (lambda (reg) `(reg ,reg)) arg-reg-syms))
+
+(define caller-save '(rdx rcx rsi rdi r8 r9 r10 r11))
+(define callee-save '(rbx r12 r13 r14 r15 rbp))
