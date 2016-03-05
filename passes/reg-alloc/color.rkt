@@ -22,13 +22,13 @@
       (if (< (length ns) num-available-regs)
         (let ([node-nbs (remove-node graph key)])
           (printf "removing ~a~n" key)
-          (cons key node-nbs))
+          (cons key (set->list node-nbs)))
         #f)))
 
   (let ([iter (filter id (map loop (hash-keys graph)))])
     (if (null? iter)
       '()
-      (append (reverse iter) (simplify graph num-available-regs)))))
+      (append (simplify graph num-available-regs) iter))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -49,7 +49,7 @@
   (if (= (graph-size graph) 0)
     #f
     (let ([node (car (nodes graph))])
-      (cons node (remove-node graph node)))))
+      (cons node (set->list (remove-node graph node))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -57,7 +57,7 @@
 ; 'iteration' is used for debugging.
 (define (simplify-spill-loop graph num-available-regs [iteration 0])
 
-  (define simplified (simplify graph num-available-regs))
+  (define simplify-work-stack (simplify graph num-available-regs))
   (print-dot graph (format "iter-~a-simpl.dot" iteration) cadr)
 
   ; Simplifier recursively runs until it can't simplify anymore.
@@ -66,14 +66,62 @@
 
   ; We need to keep simplifying after a successful spill.
   (if spilled
-    (append (simplify-spill-loop graph num-available-regs (+ iteration 1)) (list spilled))
+    (append (simplify-spill-loop graph num-available-regs (+ iteration 1))
+            (list spilled)
+            simplify-work-stack)
     (begin
       ; A sanity check: Spill failed so at this point the graph should be
       ; empty.
       (unless (= (graph-size graph) 0)
         (error 'simplify-spill-loop "Spill failed, but graph is not empty: ~a~n" graph))
 
-      `())))
+      simplify-work-stack)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Select returns two things:
+;
+; - An interference graph, which should be the same as the original one.
+;   (can be used for debugging)
+;
+; - A hash table of variable to register mapping. If a variable is not in the
+;   table, it means that we actully need to spill the variable.
+;
+(define (select work-stack num-available-regs)
+
+  ; We build the interference graph again, using our work stack.
+  (define int-graph (mk-graph))
+
+  ; Variable-to-register mapping.
+  (define mapping (make-hash))
+
+  (define reg-set (list->set (range num-available-regs)))
+
+  (define (select-iter work)
+    (define node (car work))
+    (define nbs (set->list (cdr work)))
+
+    ; Register used by the interfering variables.
+    (define used-regs
+      (list->set
+        (filter id (map (lambda (nb) (hash-ref mapping nb #f)) nbs))))
+
+    (define avail-regs (set->list (set-subtract reg-set used-regs)))
+
+    ; Map the variable, if possible.
+    (unless (null? avail-regs)
+      (hash-set! mapping node (car avail-regs)))
+
+    ; Rebuild the interference graph.
+    ; Some nodes don't interfere with any others, so we need this step.
+    (add-node int-graph node)
+    (for ([nb nbs])
+      (add-edge int-graph node nb)))
+
+  (for ([work work-stack])
+    (select-iter work))
+
+  (values int-graph mapping))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -152,7 +200,13 @@
            (pretty-print move-rels)
 
            (let ([work-stack (simplify-spill-loop int-graph 2)])
-             work-stack)))]
+             (let-values ([(int-graph mapping)
+                           (select work-stack 2)])
+               (printf "work-stack:~n")
+               (pretty-print work-stack)
+               (printf "mapping:~n")
+               (pretty-print mapping)
+               (print-dot int-graph (string-append pgm-name "-final.dot") cadr)))))]
 
            ; (let ([work-stack (simplify int-graph 1)])
            ;   (printf "work stack: ~a~n" work-stack)

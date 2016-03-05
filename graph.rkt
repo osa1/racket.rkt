@@ -14,8 +14,11 @@
       (hash-set! graph node1 node1-set)
       (hash-set! graph node2 node2-set))))
 
+(define (add-node graph node)
+  (hash-set! graph node (set)))
+
 (define (remove-node graph node)
-  (let ([nbs (hash-ref! graph node mutable-set)])
+  (let ([nbs (hash-ref! graph node set)])
     (for ([nb (set->list nbs)])
       (let ([nb-set (hash-ref! graph nb #f)])
         (when nb-set
@@ -30,10 +33,10 @@
   (set-member? (neighbors graph node1) node2))
 
 (define (neighbors graph node)
-  (set->list (hash-ref! graph node (set))))
+  (set->list (hash-ref! graph node set)))
 
 (define (node-degree graph node)
-  (set-count (hash-ref! graph node (set))))
+  (set-count (hash-ref! graph node set)))
 
 (define graph-elems hash->list)
 
