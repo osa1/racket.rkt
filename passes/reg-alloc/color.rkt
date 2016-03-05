@@ -3,7 +3,8 @@
 (require "live-after.rkt")
 (require "interference-graph.rkt")
 (require "move-rel.rkt")
-(require (only-in "../instr-sel.rkt" collect-vars))
+(require "assign-homes.rkt")
+(require (only-in "../instr-sel.rkt" collect-vars collect-vars-instrs))
 
 (require "../utils.rkt")
 (require "../../graph.rkt")
@@ -11,7 +12,17 @@
 (provide simplify)
 
 ; For testing purposes
-(require "../../compiler.rkt")
+(require "../typecheck.rkt")
+(require "../desugar.rkt")
+(require "../choose-branch.rkt")
+(require "../uniquify.rkt")
+(require "../reveal-functions.rkt")
+(require "../flatten.rkt")
+(require "../expose-allocations.rkt")
+(require "../annotate-lives.rkt")
+(require "../uncover-call-live-roots.rkt")
+(require "../instr-sel.rkt")
+(require "../initialize-rts.rkt")
 (require (only-in "../../public/utilities.rkt" read-program))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,11 +149,11 @@
     (let ([nbs (neighbors int-graph current-key)])
       (if (all
             ; For every neighbor t of a
-            (lambda (nb) (or
-                           ; either t already interferes with b
-                           (has-edge? int-graph nb move-related-key)
-                           ; or t is of insignificant degree
-                           (< (node-degree int-graph nb) num-available-regs)))
+            (lambda (nb)
+              (or ; either t already interferes with b
+                  (has-edge? int-graph nb move-related-key)
+                  ; or t is of insignificant degree
+                  (< (node-degree int-graph nb) num-available-regs)))
             nbs)
         move-related-key
         #f)))
@@ -180,9 +191,9 @@
       [`(program . ,defs)
        (let ([defs (map (lambda (def)
                           (let-values ([(def mapping) (reg-alloc-def pgm-name def)])
-                            (printf "register mapping:~n")
-                            (pretty-print mapping)
-                            def)) defs)])
+                            ; (printf "register mapping:~n")
+                            ; (pretty-print mapping)
+                            (assign-homes def mapping))) defs)])
          `(program ,@defs))]
       [_ (unsupported-form 'reg-alloc pgm)])))
 
@@ -254,7 +265,8 @@
        (if (not (null? spilled-vars))
          ; Generate spill instructions, loop
          (let* ([instrs-w-spills (generate-spills (car spilled-vars) next-mem-loc instrs)]
-                [pgm-vars (collect-vars instrs)])
+                [pgm-vars (set->list (collect-vars-instrs instrs))])
+           (printf "generated spills, new vars: ~a~n" pgm-vars)
            (reg-alloc-iter `(define ,tag : ,ret-ty ,pgm-vars ,@instrs-w-spills)
                            (+ next-mem-loc 1) (+ iteration 1)))
          ; We're done
@@ -272,7 +284,7 @@
 
   (printf "spilling ~a~n" var-sym)
 
-  (define temp-prefix (string-append "spill-" (symbol->string var-sym)))
+  (define temp-prefix (string-append "spill_" (symbol->string var-sym)))
   (define (mk-temp-var) `(var ,(gensym temp-prefix)))
 
   (define (gen-spill instr)
@@ -388,4 +400,4 @@
 
 test-graph
 
-(reg-alloc-test "tests/uniquify_5.rkt")
+(pretty-print (reg-alloc-test "tests/uniquify_5.rkt"))

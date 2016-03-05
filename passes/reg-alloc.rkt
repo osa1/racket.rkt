@@ -14,6 +14,8 @@
 
 (provide assign-homes)
 
+(define assign-homes id)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; NOTE [Register in live-after sets and interference graph]
 ;
@@ -177,80 +179,3 @@
                                  [#t min_so_far]))
                          '() cs))]
     (cdr min-key)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Assigning vars to their locations on the machine
-
-(define (assign-homes pgm)
-  (printf "============ assign homes ==========~n")
-  (pretty-print pgm)
-  (match pgm
-    [`(program . ,defs)
-     `(program ,@(map assign-homes-def defs))]
-    [_ (unsupported-form 'assign-homes pgm)]))
-
-(define (assign-homes-def def)
-  (match def
-    [`(define ,tag : ,ret-ty ,_ . ,instrs)
-     (let-values [((def live-after-sets) (gen-live-afters def))]
-       (let* ([int-graph (mk-interference-graph def live-after-sets)]
-              [move-rel (mk-mov-rel-graph def int-graph)]
-              [args (match tag
-                      [`(,_ . ,args) (map car args)]
-                      [_ `()])]
-              [has-callq (any (lambda (instr) (eq? (car instr) 'callq)) instrs)])
-
-         (let-values ([(homes stack-size) (reg-alloc args int-graph move-rel has-callq)])
-           `(define ,tag : ,ret-ty (,(align-stack stack-size))
-                    ; Note that here we use the original instructions, e.g.
-                    ; not the ones with live-after annotations on if branches.
-                    ; Either way should work here.
-                    ,@(assign-home-instrs homes instrs)))))]
-
-    [_ (unsupported-form 'assign-homes-def def)]))
-
-(define (align-stack stack) (+ stack (modulo stack 16)))
-
-(define (assign-home-instrs asgns instrs)
-  (map (lambda (instr) (assign-home-instr asgns instr)) instrs))
-
-(define (assign-home-instr asgns instr)
-  (match instr
-    [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
-     `(if (eq? ,(assign-home-arg asgns arg1) ,(assign-home-arg asgns arg2))
-        ,(assign-home-instrs asgns pgm-t)
-        ,(assign-home-instrs asgns pgm-f))]
-
-    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,arg1 ,arg2)
-     `(,(car instr) ,(assign-home-arg asgns arg1) ,(assign-home-arg asgns arg2))]
-
-    [`(,(or 'negq 'pushq 'popq) ,arg)
-     `(,(car instr) ,(assign-home-arg asgns arg))]
-
-    [`(callq ,arg) `(callq ,(assign-home-arg asgns arg))]
-
-    [`(retq) instr]
-
-    [`(,(or 'sete 'setl) (byte-reg al)) instr]
-
-    [`(movzbq (byte-reg al) ,arg)
-     `(movzbq (byte-reg al) ,(assign-home-arg asgns arg))]
-
-    [_ (unsupported-form 'assign-home-instr instr)]))
-
-(define (assign-home-arg asgns arg)
-  (match arg
-    [`(int ,_) arg]
-    [`(reg ,_) arg]
-    [`(stack ,_) arg]
-    [`(global-value ,_) arg]
-    [`(offset ,arg ,offset)
-     `(offset ,(assign-home-arg asgns arg) ,offset)]
-    [`(toplevel-fn ,_) arg]
-    [`(var ,var)
-     (let [(asgn (hash-ref asgns `(var ,var) '()))]
-       (cond [(null? asgn)
-              (error 'assign-home-arg "can't find var in assignments: ~s ~s~n" var asgns)]
-             [(fixnum? asgn) `(stack ,asgn)]
-             [#t `(reg ,asgn)]))]
-    [_ (unsupported-form 'assign-home-arg arg)]))

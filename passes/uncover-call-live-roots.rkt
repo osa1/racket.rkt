@@ -15,7 +15,7 @@
 (define (uncover-roots-def def)
   (match def
     [`(define ,tag : ,ret-ty ,vs . ,stmts)
-     `(define ,tag : ,ret-ty ,(hash-keys vs) ,@(uncover-call-live-roots-iter vs (set) stmts))]
+     `(define ,tag : ,ret-ty ,@(uncover-call-live-roots-iter vs (set) stmts))]
     [_ (unsupported-form 'uncover-roots-def def)]))
 
 (define (uncover-call-live-roots-iter vs mentioned-so-far stmts)
