@@ -39,7 +39,7 @@
           (cons key node-nbs))
         #f)))
 
-  (let ([iter (filter id (map loop (hash-keys graph)))])
+  (let ([iter (filter id (map loop (filter not-reg? (nodes graph))))])
     (if (null? iter)
       '()
       (append (simplify graph move-rels num-available-regs) (reverse iter)))))
@@ -95,7 +95,7 @@
            (loop-move-rels key move-rels)))]
       [_ (unsupported-form 'loop-move-rels move-rels)]))
 
-  (loop-nodes (nodes int-graph)))
+  (loop-nodes (filter not-reg? (nodes int-graph))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

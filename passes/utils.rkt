@@ -123,6 +123,8 @@
     [`(reg ,_) #t]
     [_         #f]))
 
+(define (not-reg? arg) (not (is-reg? arg)))
+
 (define arg-reg-syms `(rdi rsi rdx rcx r8 r9))
 (define arg-regs (map (lambda (reg) `(reg ,reg)) arg-reg-syms))
 
