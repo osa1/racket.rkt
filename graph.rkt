@@ -40,7 +40,7 @@
 (define (replace-node graph node-old node-new)
   (define old-node-nbs (remove-node graph node-old))
   (for ([nb old-node-nbs])
-    (add-edge node-new nb)))
+    (add-edge graph node-new nb)))
 
 (define graph-copy hash-copy)
 
@@ -50,7 +50,7 @@
   (set-member? (neighbors graph node1) node2))
 
 (define (has-node? graph node)
-  (hash-ref graph node #f))
+  (hash-ref! graph node #f))
 
 (define (neighbors graph node)
   (set->list (hash-ref! graph node set)))
@@ -65,11 +65,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (graph-find-min-degree graph)
-  (define node-degrees (map (lambda (n) (cons (car n) (set-count (cdr n)))) (nodes graph)))
+  (define node-degrees (map (lambda (n) (cons (car n) (set-count (cdr n)))) (graph-elems graph)))
   (min-by cdr node-degrees))
 
 (define (graph-find-max-degree graph)
-  (define node-degrees (map (lambda (n) (cons (car n) (set-count (cdr n)))) (nodes graph)))
+  (define node-degrees (map (lambda (n) (cons (car n) (set-count (cdr n)))) (graph-elems graph)))
   (max-by cdr node-degrees))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

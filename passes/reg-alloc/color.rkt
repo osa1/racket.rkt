@@ -124,10 +124,14 @@
       (remove-edge move-rels node1 node2)
       (replace-node move-rels node1 new-node)
       (replace-node move-rels node2 new-node)
+      (remove-node move-rels node1)
+      (remove-node move-rels node2)
 
       ; Update interference graph
       (replace-node graph node1 new-node)
       (replace-node graph node2 new-node)
+      (remove-node graph node1)
+      (remove-node graph node2)
 
       ; Update work set
       ; Work set can't have coalesced nodes as we don't remove move-related
@@ -200,7 +204,7 @@
 
           ; Can't freeze, push the node to the stack as a potential spill,
           ; restart the loop.
-          (let* ([node-to-spill (graph-find-max-degree graph)]
+          (let* ([node-to-spill (car (graph-find-max-degree graph))]
                  [nbs (remove-node graph node-to-spill)]
                  [work-set (cons (cons node-to-spill nbs) work-set)])
             (simplify-coalesce-freeze-loop
