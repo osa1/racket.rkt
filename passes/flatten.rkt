@@ -61,7 +61,7 @@
 
     [`(read)
      (let [(fresh (gensym "tmp"))]
-       (values binds (cons `(assign ,fresh 'Integer (read)) pgm) fresh))]
+       (values binds (cons `(assign ,fresh 'Integer (app (toplevel-fn read_int))) pgm) fresh))]
 
     [`(,(or '- 'not) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])

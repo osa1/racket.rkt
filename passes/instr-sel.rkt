@@ -116,10 +116,6 @@
     [(or (? fixnum?) (? symbol?) (? boolean?))
      `(,(instr-sel-arg bind-to expr))]
 
-    [`(read)
-     `((callq (toplevel-fn read_int))
-       (movq (reg rax) ,(arg->x86-arg bind-to)))]
-
     [`(- ,arg)
      `(,(instr-sel-arg bind-to arg)
        (negq ,(arg->x86-arg bind-to)))]
