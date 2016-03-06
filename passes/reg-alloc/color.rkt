@@ -108,20 +108,8 @@
   ; (print-dot graph (format "scl-int-coal-~a.dot" iteration) cadr)
 
   (if coalesce-mb
-    ; Update instructions (remove movs), update move-relation graph (remove the
-    ; relation), update interference graph, update work stack, loop.
-    ;
-    ; 'coalesce' doesn't do any updates so we do it here.
-    (let* ([node1 (car coalesce-mb)]
-           [node2 (cdr coalesce-mb)]
-           [new-node
-             `(var ,(gensym (string-append "c-"
-                                           (symbol->string (car node1))
-                                           "-"
-                                           (symbol->string (car node2)))))]
-
-           ; Update program
-           [instrs (remove-mov node1 node2 new-node instrs)])
+    (let ([node1 (car coalesce-mb)]
+          [node2 (cdr coalesce-mb)])
 
       ; As a sanity check, make sure node1 is in both the interference graph
       ; and move-relation graph.
@@ -129,37 +117,93 @@
         (error 'simplify-coalesce-loop
                "Coalesced node is not in graph/move-rels: ~a" node1))
 
-      ; Update move-relation graph
-      (remove-edge move-rels node1 node2)
-      (add-node graph new-node)
-      (replace-node move-rels node1 new-node)
-      (replace-node move-rels node2 new-node)
-      (remove-node move-rels node1)
-      (remove-node move-rels node2)
+      ; If we're coalescing to a register, we need to do different updates in
+      ; the graphs and we need to make sure we map the variable to the
+      ; coalesced register.
+      (if (is-reg? node2)
 
-      ; Update interference graph
-      (add-node graph new-node)
-      (replace-node graph node1 new-node)
-      (replace-node graph node2 new-node)
-      (remove-node graph node1)
-      (remove-node graph node2)
+        ; We do a hackish thing here and push a special thing to the work set.
+        ; 'select' needs to be aware of this to be able to map the variable to
+        ; the reg.
+        ;
+        ; An alternative implementation could return a mapping but that needs
+        ; more refactoring (need to update the call stack:
+        ; 'simplify-coalesce-freeze-loop', 'reg-alloc-def'...)
 
-      ; Update work set
-      ; Work set can't have coalesced nodes as we don't remove move-related
-      ; nodes in the simplify step.
-      (let ([work-set
-              (map (lambda (work)
-                     (let* ([nbs (cdr work)]
-                            [was-nb (or (set-member? nbs node1) (set-member? nbs node2))]
-                            [new-set
-                              (if was-nb
-                                (set-add (set-remove (set-remove nbs node1) node2) new-node)
-                                nbs)])
-                       (cons (car work) new-set)))
-                   (append simplify-work work-set))])
+        (let ([instrs (remove-mov node1 node2 node2 instrs)])
+          ; Update graphs
+          (replace-node graph node1 node2)
+          (replace-node move-rels node1 node2)
 
-        ; Loop
-        (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs (+ iteration 1))))
+          ; Update work set
+          ; TODO: This code is too similary to the work-set update in the other
+          ; branch.
+          (let ([work-set
+                  (cons
+                    (cons node1 node2) ; HACKHACKHACKHACKHACK. consing a node instead of a set.
+                    (map (lambda (work)
+                           (let* ([nbs (cdr work)]
+                                  [was-nb (set-member? nbs node1)]
+                                  [new-set
+                                    (if was-nb
+                                      (set-add (set-remove nbs node1) node2)
+                                      nbs)])
+                             (cons (car work) new-set)))
+                         (append simplify-work work-set)))])
+
+            ; Loop
+            (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs
+                                    (+ iteration 1))))
+
+        ; Update instructions (remove movs), update move-relation graph (remove the
+        ; relation), update interference graph, update work stack, loop.
+        ;
+        ; 'coalesce' doesn't do any updates so we do it here.
+
+        (let* ([new-node
+                 `(var ,(gensym (string-append "c-"
+                                               (symbol->string (car node1))
+                                               "-"
+                                               (symbol->string (car node2)))))]
+
+               ; Update the program
+               [instrs (remove-mov node1 node2 new-node instrs)])
+
+          (when (is-reg? node1)
+            (error "Coalescing a reg: ~a ~a~n" node1 node2))
+
+          ; Update interference graph
+          (add-node graph new-node)
+          (replace-node graph node1 new-node)
+          (replace-node graph node2 new-node)
+          (remove-node graph node1)
+          (remove-node graph node2)
+
+          ; Update move-relation graph
+          (remove-edge move-rels node1 node2)
+          (add-node move-rels new-node)
+          (replace-node move-rels node1 new-node)
+          (replace-node move-rels node2 new-node)
+          (remove-node move-rels node1)
+          (remove-node move-rels node2)
+
+          ; Update work set
+          ; Work set can't have coalesced nodes as we don't remove move-related
+          ; nodes in the simplify step.
+          (let ([work-set
+                  (map (lambda (work)
+                         (let* ([nbs (cdr work)]
+                                [was-nb (or (set-member? nbs node1) (set-member? nbs node2))]
+                                [new-set
+                                  (if was-nb
+                                    (set-add (set-remove (set-remove nbs node1) node2) new-node)
+                                    nbs)])
+                           (cons (car work) new-set)))
+                       (append simplify-work work-set))])
+
+            ; Loop
+            (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs
+                                    (+ iteration 1))))))
 
     ; End of loop, return update instructions and work set
     (values instrs (append simplify-work work-set))))
@@ -290,32 +334,38 @@
 
   (define (select-iter work)
     (define node (car work))
-    (define nbs (set->list (cdr work)))
+    (define nbs-set (cdr work))
 
-    ; Register used by the interfering variables.
-    (define used-regs
-      (list->set
-        (filter id (map (lambda (nb) (hash-ref! mapping nb #f)) nbs))))
+    (if (set? nbs-set)
+      (let* ([nbs (set->list nbs-set)]
+             ; Register used by the interfering variables.
+             [used-regs
+               (list->set
+                 (filter id (map (lambda (nb) (hash-ref! mapping nb #f)) nbs)))]
 
-    (define avail-regs (set->list (set-subtract reg-set used-regs)))
+             [avail-regs (set->list (set-subtract reg-set used-regs))])
 
-    (printf "==== select ====~n")
-    (printf "node: ~s~n" node)
-    (printf "interfering nodes: ~s~n" nbs)
-    (printf "mapping: ~s~n" mapping)
-    (printf "used-regs: ~s~n" used-regs)
-    (printf "avail-regs: ~s~n" avail-regs)
-    (printf "================~n")
+        (printf "==== select ====~n")
+        (printf "node: ~s~n" node)
+        (printf "interfering nodes: ~s~n" nbs)
+        (printf "mapping: ~s~n" mapping)
+        (printf "used-regs: ~s~n" used-regs)
+        (printf "avail-regs: ~s~n" avail-regs)
+        (printf "================~n")
 
-    ; Map the variable, if possible.
-    (unless (null? avail-regs)
-      (hash-set! mapping node (car avail-regs)))
+        ; Map the variable, if possible.
+        (unless (null? avail-regs)
+          (hash-set! mapping node (car avail-regs)))
 
-    ; Rebuild the interference graph.
-    ; Some nodes don't interfere with any others, so we need this step.
-    (add-node int-graph node)
-    (for ([nb nbs])
-      (add-edge int-graph node nb)))
+        ; Rebuild the interference graph.
+        ; Some nodes don't interfere with any others, so we need this step.
+        (add-node int-graph node)
+        (for ([nb nbs])
+          (add-edge int-graph node nb)))
+
+      ; Hacky part: A variable is coalesced to a register. See HACKHACKHACK in
+      ; 'simplify-coalesce-loop'.
+      (hash-set! mapping node reg-set)))
 
   (for ([work work-stack])
     (select-iter work))
@@ -391,7 +441,9 @@
        (define mapped-vars
          (filter id (hash-map mapping (lambda (k v) (if (eq? v #f) #f k)))))
        (define spilled-vars
-         (filter id (hash-map mapping (lambda (k v) (if (eq? v #f) k #f)))))
+         (filter
+           not-reg?
+           (filter id (hash-map mapping (lambda (k v) (if (eq? v #f) k #f))))))
 
        (printf "work-stack:~n")
        (pretty-print work-stack)
