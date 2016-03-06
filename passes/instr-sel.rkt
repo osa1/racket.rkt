@@ -18,9 +18,22 @@
 (define (instr-sel-def def)
   (match def
     [`(define ,tag : ,ret-ty . ,stmts)
-     (let ([instrs (append-map instr-sel-stmt stmts)])
+     (let ([instrs (save-callee-saves (append-map instr-sel-stmt stmts))])
        `(define ,tag : ,ret-ty ,@instrs))]
     [_ (unsupported-form 'instr-sel-def def)]))
+
+; We move callee-save registers to temporary variables, and restore them just
+; before the return. It's register allocator's job to be smart and remove these
+; movs when not necessary.
+(define (save-callee-saves instrs)
+  (define temps (map (lambda (reg-sym)
+                       (cons `(var ,(gensym (string-append "save-" (symbol->string reg-sym))))
+                             `(reg ,reg-sym)))
+                     callee-save))
+
+  (append (map (lambda (r) `(movq ,(cdr r) ,(car r))) temps)
+          instrs
+          (map (lambda (r) `(movq ,(car r) ,(cdr r))) temps)))
 
 ; TEMP: I don't want to do big refactorings, adding a mutable argument for now.
 (define (instr-sel-stmt stmt)
