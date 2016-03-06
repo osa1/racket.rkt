@@ -13,8 +13,8 @@
 
 (define (initialize-rts-iter defs)
   (match defs
-    [`((define main : void ,meta . ,stmts) . ,rest)
-     (cons `(define main : void ,meta
+    [`((define main : void . ,stmts) . ,rest)
+     (cons `(define main : void
               (movq (int ,(initial-root-stack-size)) (reg rdi))
               (movq (int ,(initial-heap-size)) (reg rsi))
               (callq (toplevel-fn initialize))

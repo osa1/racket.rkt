@@ -53,6 +53,9 @@
   ; Note that move-relation graph doesn't have edges between interfering nodes,
   ; so we don't need to check that here.
 
+  ; TODO: Should we coaslesce as much as possible before returning? Currently
+  ; coalescing once at most.
+
   (define (check-coalesce current-key move-related-key)
     ; FIXME: We do this lookup and list->set in every iteration for no reason.
     (let ([nbs (neighbors int-graph current-key)])
@@ -120,14 +123,22 @@
            ; Update program
            [instrs (remove-mov node1 node2 new-node instrs)])
 
+      ; As a sanity check, make sure node1 is in both the interference graph
+      ; and move-relation graph.
+      (unless (and (has-node? graph node1) (has-node? move-rels node1))
+        (error 'simplify-coalesce-loop
+               "Coalesced node is not in graph/move-rels: ~a" node1))
+
       ; Update move-relation graph
       (remove-edge move-rels node1 node2)
+      (add-node graph new-node)
       (replace-node move-rels node1 new-node)
       (replace-node move-rels node2 new-node)
       (remove-node move-rels node1)
       (remove-node move-rels node2)
 
       ; Update interference graph
+      (add-node graph new-node)
       (replace-node graph node1 new-node)
       (replace-node graph node2 new-node)
       (remove-node graph node1)
@@ -151,7 +162,7 @@
         (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs (+ iteration 1))))
 
     ; End of loop, return update instructions and work set
-    (values instrs work-set)))
+    (values instrs (append simplify-work work-set))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -342,7 +353,7 @@
     ; restart the loop.
 
     (match def
-      [`(define ,tag : ,ret-ty ,vs . ,instrs)
+      [`(define ,tag : ,ret-ty . ,instrs)
        ; (printf "~nregister allocating for program:~n")
        ; (pretty-print def)
 
@@ -366,8 +377,7 @@
        (define-values (coalesced-instrs work-stack)
          (simplify-coalesce-freeze-loop instrs `() int-graph move-rels 5))
 
-       ; (define work-stack (simplify-spill-loop int-graph 5))
-       ; (define-values (int-graph-rebuilt mapping) (select work-stack 5))
+       (define-values (int-graph-rebuilt mapping) (select work-stack 5))
 
        ; The rebuilt interference graph should be the same as the original one
        ; FIXME: Disabling this for now. For some reason %rax is appearing in
@@ -378,11 +388,10 @@
        ;          int-graph-copy
        ;          int-graph-rebuilt))
 
-       ; (define mapped-vars (list->set (hash-keys mapping)))
-       ; (define spilled-vars
-       ;   (set->list
-       ;     (set-subtract
-       ;       (list->set (map (lambda (v) (list 'var v)) vs)) mapped-vars)))
+       (define mapped-vars
+         (filter id (hash-map mapping (lambda (k v) (if (eq? v #f) #f k)))))
+       (define spilled-vars
+         (filter id (hash-map mapping (lambda (k v) (if (eq? v #f) k #f)))))
 
        (printf "work-stack:~n")
        (pretty-print work-stack)
@@ -398,16 +407,17 @@
        ; (print-dot int-graph-rebuilt
        ;            (string-append pgm-name (format "-final-~a.dot" iteration)) cadr)
 
-       ; (if (not (null? spilled-vars))
-       ;   ; Generate spill instructions, loop
-       ;   (let* ([instrs-w-spills (generate-spills (car spilled-vars) next-mem-loc instrs)]
-       ;          [pgm-vars (set->list (collect-vars-instrs instrs))])
-       ;     (printf "generated spills, new vars: ~a~n" pgm-vars)
-       ;     (reg-alloc-iter `(define ,tag : ,ret-ty ,pgm-vars ,@instrs-w-spills)
-       ;                     (+ next-mem-loc 1) (+ iteration 1)))
-       ;   ; We're done
-       ;   (values def mapping))]
-       ]
+       (if (not (null? spilled-vars))
+         ; Generate spill instructions, loop
+         (let ([instrs-w-spills (generate-spills (car spilled-vars) next-mem-loc coalesced-instrs)])
+           ; (printf "instructions before actual spill:~n")
+           ; (pretty-print coalesced-instrs)
+           ; (printf "instructions after actual spill:~n")
+           ; (pretty-print instrs-w-spills)
+           (reg-alloc-iter `(define ,tag : ,ret-ty ,@instrs-w-spills)
+                           (+ next-mem-loc 1) (+ iteration 1)))
+         ; We're done
+         (values def mapping))]
 
       [_ (unsupported-form 'reg-alloc-def def)]))
 

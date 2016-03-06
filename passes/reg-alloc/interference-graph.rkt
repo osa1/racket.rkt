@@ -10,7 +10,7 @@
 
 (define (mk-interference-graph def live-sets)
   (match def
-    [`(define ,_ : ,_ ,_ . ,instrs)
+    [`(define ,_ : ,_ . ,instrs)
      (let [(graph (mk-graph))]
        (build-int-graph-instrs instrs live-sets graph)
        graph)]

@@ -12,7 +12,7 @@
 ; set lists, to be able to build interference graph by traversing the branches.
 (define (gen-live-afters def)
   (match def
-    [`(define ,tag : ,ret-ty ,meta . ,instrs)
+    [`(define ,tag : ,ret-ty . ,instrs)
      (let-values [((instrs live-before live-afters)
                    (gen-live-afters-instrs
                      (reverse instrs)
@@ -26,7 +26,7 @@
          (unless (null? (filter is-reg? (set->list live-afters)))
            (error 'gen-live-afters "Register found in live-after set: ~a~n~a~n" set live-afters)))
 
-       (values `(define ,tag : ,ret-ty ,meta ,@(reverse instrs)) live-afters))]
+       (values `(define ,tag : ,ret-ty ,@(reverse instrs)) live-afters))]
     [_ (unsupported-form 'gen-live-afters def)]))
 
 ;; NOTE: Instructions should be reversed! E.g. first instruction in this

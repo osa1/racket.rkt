@@ -47,6 +47,32 @@
     (split-at lst n)
     (values lst '())))
 
+(define (min-by fn lst)
+
+  (define (iter lst min-so-far min-value)
+    (match lst
+      [`() min-so-far]
+      [`(,h . ,t)
+       (let ([val (fn h)])
+         (if (< val min-value)
+           (iter t h val)
+           (iter t min-so-far min-value)))]))
+
+  (iter (cdr lst) (car lst) (fn (car lst))))
+
+(define (max-by fn lst)
+
+  (define (iter lst max-so-far max-value)
+    (match lst
+      [`() max-so-far]
+      [`(,h . ,t)
+       (let ([val (fn h)])
+         (if (> val max-value)
+           (iter t h val)
+           (iter t max-so-far max-value)))]))
+
+  (iter (cdr lst) (car lst) (fn (car lst))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (lift-def fn)
