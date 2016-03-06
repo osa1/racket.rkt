@@ -66,6 +66,9 @@
 
       [`(retq) `(,instr)]
 
+      [`(,(or 'sete 'setl) (byte-reg al))
+       `(,instr)]
+
       [`(movzbq (byte-reg al) ,arg1)
        (if (equal? arg1 var)
          (let ([temp-var (mk-temp-var)])
