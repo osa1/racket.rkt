@@ -96,10 +96,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; Run simplify and coalesce until coalesce can't merge any nodes anymore.
+; Run simplify and coalesce until coalesce can't merge any more nodes.
 (define (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs [iteration 0])
   (define simplify-work (simplify graph move-rels num-available-regs))
-  (define coalesce-mb (coalesce graph move-rels num-available-regs))
+  ; (print-dot graph (format "scl-int-~a.dot" iteration) cadr)
+
+  (define coalesce-mb   (coalesce graph move-rels num-available-regs))
+  ; (print-dot graph (format "scl-int-coal-~a.dot" iteration) cadr)
+
   (if coalesce-mb
     ; Update instructions (remove movs), update move-relation graph (remove the
     ; relation), update interference graph, update work stack, loop.
@@ -161,8 +165,8 @@
       [`() (if (eq? min-so-far #f) #f min-so-far)]
       [`((,node . ,degree) . ,rest)
        (if (or (eq? min-so-far #f) (< degree (cdr min-so-far)))
-         (find-min nodes rest (cons node degree))
-         (find-min nodes rest min-so-far))]))
+         (find-min rest (cons node degree))
+         (find-min rest min-so-far))]))
 
   (define min (find-min node-degrees))
 
@@ -178,6 +182,9 @@
           instrs work-set graph move-rels num-available-regs [iteration 0])
   (let-values ([(instrs work-set)
                 (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs)])
+
+    ; (print-dot graph (format "scfl-~a.dot" iteration) cadr)
+
     ; We're done if the graph is empty
     (if (eq? (graph-size graph) 0)
       (values instrs work-set)
@@ -194,7 +201,7 @@
           ; Can't freeze, push the node to the stack as a potential spill,
           ; restart the loop.
           (let* ([node-to-spill (graph-find-max-degree graph)]
-                 [nbs (remove-node node-to-spill graph)]
+                 [nbs (remove-node graph node-to-spill)]
                  [work-set (cons (cons node-to-spill nbs) work-set)])
             (simplify-coalesce-freeze-loop
               instrs work-set graph move-rels num-available-regs (+ iteration 1))))))))
@@ -273,7 +280,7 @@
     ; Register used by the interfering variables.
     (define used-regs
       (list->set
-        (filter id (map (lambda (nb) (hash-ref mapping nb #f)) nbs))))
+        (filter id (map (lambda (nb) (hash-ref! mapping nb #f)) nbs))))
 
     (define avail-regs (set->list (set-subtract reg-set used-regs)))
 
@@ -332,8 +339,8 @@
 
     (match def
       [`(define ,tag : ,ret-ty ,vs . ,instrs)
-       (printf "~nregister allocating for program:~n")
-       (pretty-print def)
+       ; (printf "~nregister allocating for program:~n")
+       ; (pretty-print def)
 
        (define-values (def-w-lives live-after-sets) (gen-live-afters def))
 
@@ -347,10 +354,10 @@
        ; (pretty-print live-after-sets)
        ; (printf "~ninterference graph:~n")
        ; (pretty-print int-graph)
-       (print-dot int-graph (string-append pgm-name (format "-int-orig-~a.dot" iteration)) cadr)
+       ; (print-dot int-graph (string-append pgm-name (format "-int-orig-~a.dot" iteration)) cadr)
        ; (printf "~nmove-relation graph:~n")
        ; (pretty-print move-rels)
-       (print-dot move-rels (string-append pgm-name (format "-mov-~a.dot" iteration)) cadr)
+       ; (print-dot move-rels (string-append pgm-name (format "-mov-~a.dot" iteration)) cadr)
 
        (define-values (coalesced-instrs work-stack)
          (simplify-coalesce-freeze-loop instrs `() int-graph move-rels 5))
