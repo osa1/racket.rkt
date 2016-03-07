@@ -29,7 +29,7 @@
                       "\n"
                       (mk-def-conclusion s)))]
 
-    [_ (unsupported-form 'printx86_64-def def)]))
+    [_ (unsupported-form 'print-x86_64-def def)]))
 
 (define (print-x86_64-stmt stmt)
   (match stmt
@@ -95,15 +95,10 @@ main:\n")
 (define main-conclusion "\tretq")
 
 (define (mk-def-prelude stack-size)
-  (string-append
-"\tpushq %rbp
-\tmovq %rsp, %rbp\n"
-(if (eq? stack-size 0) "" (format "\tsubq $~a, %rsp\n" stack-size))))
+  (if (eq? stack-size 0) "" (format "\tsubq $~a, %rsp\n" stack-size)))
 
 (define (mk-def-conclusion stack-size)
-  (let [(ls2
-"\tpopq %rbp\n
-\tretq\n\n")]
+  (let [(ls2 "\tretq\n\n")]
     (if (eq? stack-size 0)
       ls2
       (string-append (format "\taddq $~a, %rsp\n" stack-size) ls2))))

@@ -66,6 +66,7 @@
       (if (all
             ; For every neighbor t of a
             (lambda (nb)
+              (printf "checking coalesce between ~a and ~a~n" current-key nb)
               (or ; either t already interferes with b
                   (has-edge? int-graph nb move-related-key)
                   ; or t is of insignificant degree
@@ -106,11 +107,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; Run simplify and coalesce until coalesce can't merge any more nodes.
-(define (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs [iteration 0])
+(define (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs
+                                cs [iteration 0])
   (define simplify-work (simplify graph move-rels num-available-regs))
   ; (print-dot graph (format "scl-int-~a.dot" iteration) cadr)
 
-  (define coalesce-mb   (coalesce graph move-rels num-available-regs))
+  (define coalesce-mb
+    (if cs
+      (coalesce graph move-rels num-available-regs)
+      #f))
   ; (print-dot graph (format "scl-int-coal-~a.dot" iteration) cadr)
 
   (if coalesce-mb
@@ -162,7 +167,7 @@
 
             ; Loop
             (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs
-                                    (+ iteration 1))))
+                                    cs (+ iteration 1))))
 
         ; Update instructions (remove movs), update move-relation graph (remove the
         ; relation), update interference graph, update work stack, loop.
@@ -215,7 +220,7 @@
 
             ; Loop
             (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs
-                                    (+ iteration 1))))))
+                                    cs (+ iteration 1))))))
 
     ; End of loop, return update instructions and work set
     (values instrs (append simplify-work work-set))))
@@ -252,9 +257,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (simplify-coalesce-freeze-loop
-          instrs work-set graph move-rels num-available-regs [iteration 0])
+          instrs work-set graph move-rels num-available-regs coalesce [iteration 0])
   (let-values ([(instrs work-set)
-                (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs)])
+                (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs coalesce)])
 
     ; (print-dot graph (format "scfl-~a.dot" iteration) cadr)
 
@@ -277,6 +282,7 @@
           (let* ([node-to-spill (car (graph-find-max-degree graph not-reg?))]
                  [nbs (remove-node graph node-to-spill)]
                  [work-set (cons (cons node-to-spill nbs) work-set)])
+            (printf "spill: ~a~n" node-to-spill)
             (simplify-coalesce-freeze-loop
               instrs work-set graph move-rels num-available-regs (+ iteration 1))))))))
 
@@ -371,7 +377,7 @@
 ; - A mapping from variables to registers.
 ;
 (define (reg-alloc-def pgm-name def)
-  (define (reg-alloc-iter def [next-mem-loc 0] [iteration 0])
+  (define (reg-alloc-iter def [cs #t] [last-mem-loc 0] [iteration 0])
 
     ; Run simplify and coalesce loop. The loop return only when it can't
     ; coalesce anymore, and simplify only returns after simplifying as much as
@@ -402,7 +408,7 @@
        ; (print-dot move-rels (string-append pgm-name (format "-mov-~a.dot" iteration)) cadr)
 
        (define-values (coalesced-instrs work-stack)
-         (simplify-coalesce-freeze-loop instrs `() int-graph move-rels 5))
+         (simplify-coalesce-freeze-loop instrs `() int-graph move-rels 5 cs))
 
        (define-values (int-graph-rebuilt mapping) (select work-stack 5))
 
@@ -438,15 +444,16 @@
 
        (if (not (null? spilled-vars))
          ; Generate spill instructions, loop
-         (let ([instrs-w-spills (generate-spills (car spilled-vars) next-mem-loc coalesced-instrs)])
+         (let ([instrs-w-spills
+                 (generate-spills (car spilled-vars) (+ last-mem-loc 1) coalesced-instrs)])
            ; (printf "instructions before actual spill:~n")
            ; (pretty-print coalesced-instrs)
-           ; (printf "instructions after actual spill:~n")
-           ; (pretty-print instrs-w-spills)
+           (printf "instructions after actual spill:~n")
+           (pretty-print instrs-w-spills)
            (reg-alloc-iter `(define ,tag : ,ret-ty ,@instrs-w-spills)
-                           (+ next-mem-loc 1) (+ iteration 1)))
+                           #t (+ last-mem-loc 1) (+ iteration 1)))
          ; We're done
-         (let ([def `(define ,tag : ,ret-ty ,@coalesced-instrs)])
+         (let ([def `(define ,tag : ,ret-ty ,last-mem-loc ,@coalesced-instrs)])
            (values def mapping)))]
 
       [_ (unsupported-form 'reg-alloc-def def)]))

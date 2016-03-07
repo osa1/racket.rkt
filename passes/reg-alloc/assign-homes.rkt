@@ -13,8 +13,8 @@
   (pretty-print mapping)
   (printf "====================================~n")
   (match def
-    [`(define ,tag : ,ret-ty ,_ . ,instrs)
-     `(define ,tag : ,ret-ty ,@(assign-home-instrs mapping instrs))]
+    [`(define ,tag : ,ret-ty ,stack-locs-used . ,instrs)
+     `(define ,tag : ,ret-ty (,(* 8 stack-locs-used)) ,@(assign-home-instrs mapping instrs))]
     [_ (unsupported-form 'assign-homes def)]))
 
 (define (align-stack stack) (+ stack (modulo stack 16)))
@@ -50,7 +50,7 @@
   (match arg
     [`(int ,_) arg]
     [`(reg ,_) arg]
-    [`(mem-loc ,_) arg]
+    [`(mem-loc ,l) `(stack ,(* 8 l))]
     [`(global-value ,_) arg]
     [`(offset ,arg ,offset)
      `(offset ,(assign-home-arg asgns arg) ,offset)]
