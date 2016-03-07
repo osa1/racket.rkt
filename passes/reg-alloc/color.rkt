@@ -410,7 +410,7 @@
        ;          int-graph-copy
        ;          int-graph-rebuilt))
 
-       (define mapped-vars (list->set (hash-keys mapping)))
+       (define mapped-vars (list->set (map cadr (hash-keys mapping))))
        (define all-vars (collect-vars-instrs coalesced-instrs))
        (define spilled-vars (set->list (set-subtract all-vars mapped-vars)))
 
