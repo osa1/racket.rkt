@@ -3,15 +3,25 @@
 (require "../../graph.rkt")
 (require "../utils.rkt")
 
+(require (only-in "../instr-sel.rkt" collect-vars-instrs))
+
 (provide mk-interference-graph)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interference graphs
 
+; INVARIANT: Every variable in the program has a node, even if it doesn't have
+; any edges.
+
 (define (mk-interference-graph def live-sets)
   (match def
     [`(define ,_ : ,_ . ,instrs)
-     (let [(graph (mk-graph))]
+     (let [(graph (mk-graph))
+           (all-vars (collect-vars-instrs instrs))]
+       ; Create a node for every variable
+       (for ([var all-vars])
+         (add-node graph `(var ,var)))
+       ; Built the actual graph
        (build-int-graph-instrs instrs live-sets graph)
        graph)]
     [_ (unsupported-form 'mk-interference-graph def)]))
