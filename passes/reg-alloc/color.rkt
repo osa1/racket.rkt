@@ -35,9 +35,13 @@
     (let ([ns (neighbors graph key)])
       (if (and (< (length ns) num-available-regs) (not (has-node? move-rels key)))
         (let ([node-nbs (remove-node graph key)])
-          ; (printf "removing ~a~n" key)
+          (printf "simplify: ~a~n" key)
           (cons key node-nbs))
-        #f)))
+        (begin
+          ; (printf "can't simplify! num-available-regs: ~a graph:~n" num-available-regs)
+          ; (pretty-print graph)
+          (printf "simplify: can't simplify.~n")
+          #f))))
 
   (let ([iter (filter id (map loop (filter not-reg? (nodes graph))))])
     (if (null? iter)
@@ -67,7 +71,9 @@
                   ; or t is of insignificant degree
                   (< (node-degree int-graph nb) num-available-regs)))
             nbs)
-        move-related-key
+        (begin
+          ; (printf "maybe coalesce ~a and ~a?~n" current-key move-related-key)
+          move-related-key)
         #f)))
 
   ; We need to check every move-related pair. We stop once we find one, to
@@ -111,6 +117,8 @@
     (let ([node1 (car coalesce-mb)]
           [node2 (cdr coalesce-mb)])
 
+      (printf "coalesce: ~a ~a~n" node1 node2)
+
       ; As a sanity check, make sure node1 is in both the interference graph
       ; and move-relation graph.
       (unless (and (has-node? graph node1) (has-node? move-rels node1))
@@ -131,6 +139,9 @@
         ; 'simplify-coalesce-freeze-loop', 'reg-alloc-def'...)
 
         (let ([instrs (remove-mov node1 node2 node2 instrs)])
+          (printf "program after coalescing:~n")
+          (pretty-print instrs)
+
           ; Update graphs
           (replace-node graph node1 node2)
           (replace-node move-rels node1 node2)
@@ -166,6 +177,9 @@
 
                ; Update the program
                [instrs (remove-mov node1 node2 new-node instrs)])
+
+          (printf "program after coalescing:~n")
+          (pretty-print instrs)
 
           (when (is-reg? node1)
             (error "Coalescing a reg: ~a ~a~n" node1 node2))
@@ -248,11 +262,12 @@
     (if (eq? (length (filter not-reg? (nodes graph))) 0)
       (values instrs work-set)
 
-      ; Otherwise, try to freeze (remove a more-relation)
+      ; Otherwise, try to freeze (remove a move-relation)
       (let ([freeze-node (freeze graph move-rels num-available-regs)])
         (if freeze-node
 
           (begin
+            (printf "freeze: ~a~n" freeze-node)
             (remove-node move-rels freeze-node)
             (simplify-coalesce-freeze-loop
               instrs work-set graph move-rels num-available-regs (+ iteration 1)))
@@ -360,24 +375,25 @@
 
     (match def
       [`(define ,tag : ,ret-ty . ,instrs)
-       ; (printf "~nregister allocating for program:~n")
-       ; (pretty-print def)
+       (printf "===============================~n")
+       (printf "register allocation iteration ~a~n" iteration)
+       (pretty-print def)
 
        (define-values (def-w-lives live-after-sets) (gen-live-afters def))
 
        (define int-graph (mk-interference-graph def-w-lives live-after-sets))
        ; Copy the original interference graph, to be used for debugging later
-       (define int-graph-copy (graph-copy int-graph))
+       ;(define int-graph-copy (graph-copy int-graph))
 
        (define move-rels (mk-mov-rel-graph def-w-lives int-graph))
 
        ; (printf "~nlive-after sets:~n")
        ; (pretty-print live-after-sets)
-       ; (printf "~ninterference graph:~n")
-       ; (pretty-print int-graph)
+       (printf "interference graph:~n")
+       (pretty-print int-graph)
        ; (print-dot int-graph (string-append pgm-name (format "-int-orig-~a.dot" iteration)) cadr)
-       ; (printf "~nmove-relation graph:~n")
-       ; (pretty-print move-rels)
+       (printf "move-relation graph:~n")
+       (pretty-print move-rels)
        ; (print-dot move-rels (string-append pgm-name (format "-mov-~a.dot" iteration)) cadr)
 
        (define-values (coalesced-instrs work-stack)
@@ -398,16 +414,19 @@
        (define all-vars (collect-vars-instrs coalesced-instrs))
        (define spilled-vars (set->list (set-subtract all-vars mapped-vars)))
 
-       (printf "work-stack:~n")
-       (pretty-print work-stack)
-       (printf "coalesced instrs:~n")
-       (pretty-print coalesced-instrs)
+       ; (printf "work-stack:~n")
+       ; (pretty-print work-stack)
+       ; (printf "coalesced instrs:~n")
+       ; (pretty-print coalesced-instrs)
        ; (printf "mapping:~n")
        ; (pretty-print mapping)
        ; (printf "mapped:~n")
        ; (pretty-print mapped-vars)
+       ; (printf "all-vars:~n")
+       ; (pretty-print all-vars)
        ; (printf "spilled:~n")
        ; (pretty-print spilled-vars)
+       ; (printf "~n~n~n~n~n")
 
        ; (print-dot int-graph-rebuilt
        ;            (string-append pgm-name (format "-final-~a.dot" iteration)) cadr)
