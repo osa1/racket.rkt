@@ -71,9 +71,9 @@
      ; Variables need to stay alive across a function call interfere with the
      ; caller-save registers.
      (for ([live lives])
-       (for ([save (cons 'rax caller-save-regs)])
-         (unless (equal? live s)
-           (add-int graph `(reg ,save) live))))]
+       (unless (equal? live s)
+         (for ([save (cons '(reg rax) caller-save-regs)])
+           (add-int graph save live))))]
 
     [`(if (eq? ,_ ,_) ,pgm-t ,t-lives ,pgm-f ,f-lives)
      (build-int-graph-instrs pgm-t t-lives graph)

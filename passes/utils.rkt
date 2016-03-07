@@ -125,7 +125,16 @@
 
 (define (not-reg? arg) (not (is-reg? arg)))
 
-(define (mk-reg r) `(reg ,r))
+(define (mk-reg r)
+  (match r
+    [`(reg ,_) (error 'mk-reg "Argument is already a register! ~a" r)]
+    [(? symbol?) `(reg ,r)]
+    [_ (unsupported-form 'mk-reg r)]))
+
+(define (reg-sym r)
+  (match r
+    [`(reg ,r) r]
+    [_ (unsupported-form 'reg-sym r)]))
 
 (define arg-reg-syms `(rdi rsi rdx rcx r8 r9))
 (define arg-regs (map mk-reg arg-reg-syms))
@@ -137,4 +146,4 @@
 (define callee-save-regs (map mk-reg callee-save-syms))
 
 (define all-reg-syms (list->set (append caller-save-syms callee-save-syms)))
-(define all-regs (list->set (map mk-reg (append caller-save-syms callee-save-syms))))
+(define all-regs-set (list->set (map mk-reg (append caller-save-syms callee-save-syms))))

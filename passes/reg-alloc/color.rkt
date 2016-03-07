@@ -317,7 +317,7 @@
   (define mapping (make-hash))
 
   ; (define reg-set (list->set (range num-available-regs)))
-  (define reg-set all-reg-syms)
+  (define reg-set all-regs-set)
 
   (define (select-iter work)
     (define node (car work))
@@ -332,7 +332,11 @@
              ; Register used by the interfering variables.
              [used-regs
                (list->set
-                 (filter id (map (lambda (nb) (hash-ref mapping nb #f)) nbs)))]
+                 (map mk-reg
+                      (filter id (map (lambda (nb)
+                                        (if (is-reg? nb)
+                                          (reg-sym nb)
+                                          (hash-ref mapping nb #f))) nbs))))]
 
              [avail-regs (set->list (set-subtract reg-set used-regs))])
 
@@ -347,8 +351,8 @@
         (if (null? avail-regs)
           (debug-printf "not mapping~n")
           (begin
-            (hash-set! mapping node (car avail-regs))
-            (debug-printf "mapped to: ~a~n" (car avail-regs))))
+            (hash-set! mapping node (reg-sym (car avail-regs)))
+            (debug-printf "mapped to: ~a~n" (reg-sym (car avail-regs)))))
 
         (debug-printf "================~n")
 
