@@ -25,7 +25,7 @@
       (let ([nb-set (hash-ref graph nb #f)])
         (when nb-set
           (hash-set! graph nb (set-remove nb-set node)))))
-    (let ([ret (hash-ref graph node)])
+    (let ([ret (hash-ref graph node set)])
       (hash-remove! graph node)
       ret)))
 
