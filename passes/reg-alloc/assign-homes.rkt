@@ -8,10 +8,10 @@
 ; Assigning vars to their locations on the machine
 
 (define (assign-homes def mapping)
-  (printf "============ assign homes ==========~n")
-  (pretty-print def)
-  (pretty-print mapping)
-  (printf "====================================~n")
+  ; (printf "============ assign homes ==========~n")
+  ; (pretty-print def)
+  ; (pretty-print mapping)
+  ; (printf "====================================~n")
   (match def
     [`(define ,tag : ,ret-ty ,stack-locs-used . ,instrs)
      `(define ,tag : ,ret-ty

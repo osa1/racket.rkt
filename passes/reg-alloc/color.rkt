@@ -11,7 +11,7 @@
 (require "../utils.rkt")
 (require "../../graph.rkt")
 
-(provide reg-alloc)
+(provide reg-alloc debug-reg-alloc)
 
 ; For testing purposes
 (require "../typecheck.rkt")
@@ -29,18 +29,30 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define debug-reg-alloc (make-parameter #f))
+
+(define (debug-printf . args)
+  (when (debug-reg-alloc)
+    (apply printf args)))
+
+(define (debug-pretty-print . args)
+  (when (debug-reg-alloc)
+    (apply pretty-print args)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define (simplify graph move-rels num-available-regs)
 
   (define (loop key)
     (let ([ns (neighbors graph key)])
       (if (and (< (length ns) num-available-regs) (not (has-node? move-rels key)))
         (let ([node-nbs (remove-node graph key)])
-          (printf "simplify: ~a~n" key)
+          (debug-printf "simplify: ~a~n" key)
           (cons key node-nbs))
         (begin
-          ; (printf "can't simplify! num-available-regs: ~a graph:~n" num-available-regs)
-          ; (pretty-print graph)
-          (printf "simplify: can't simplify.~n")
+          ; (debug-printf "can't simplify! num-available-regs: ~a graph:~n" num-available-regs)
+          ; (debug-pretty-print graph)
+          (debug-printf "simplify: can't simplify.~n")
           #f))))
 
   (let ([iter (filter id (map loop (filter not-reg? (nodes graph))))])
@@ -66,14 +78,14 @@
       (if (all
             ; For every neighbor t of a
             (lambda (nb)
-              (printf "checking coalesce between ~a and ~a~n" current-key nb)
+              (debug-printf "checking coalesce between ~a and ~a~n" current-key nb)
               (or ; either t already interferes with b
                   (has-edge? int-graph nb move-related-key)
                   ; or t is of insignificant degree
                   (< (node-degree int-graph nb) num-available-regs)))
             nbs)
         (begin
-          ; (printf "maybe coalesce ~a and ~a?~n" current-key move-related-key)
+          ; (debug-printf "maybe coalesce ~a and ~a?~n" current-key move-related-key)
           move-related-key)
         #f)))
 
@@ -122,7 +134,7 @@
     (let ([node1 (car coalesce-mb)]
           [node2 (cdr coalesce-mb)])
 
-      (printf "coalesce: ~a ~a~n" node1 node2)
+      (debug-printf "coalesce: ~a ~a~n" node1 node2)
 
       ; As a sanity check, make sure node1 is in both the interference graph
       ; and move-relation graph.
@@ -144,8 +156,8 @@
         ; 'simplify-coalesce-freeze-loop', 'reg-alloc-def'...)
 
         (let ([instrs (remove-mov node1 node2 node2 instrs)])
-          (printf "program after coalescing:~n")
-          (pretty-print instrs)
+          (debug-printf "program after coalescing:~n")
+          (debug-pretty-print instrs)
 
           ; Update graphs
           (replace-node graph node1 node2)
@@ -183,8 +195,8 @@
                ; Update the program
                [instrs (remove-mov node1 node2 new-node instrs)])
 
-          (printf "program after coalescing:~n")
-          (pretty-print instrs)
+          (debug-printf "program after coalescing:~n")
+          (debug-pretty-print instrs)
 
           (when (is-reg? node1)
             (error "Coalescing a reg: ~a ~a~n" node1 node2))
@@ -272,7 +284,7 @@
         (if freeze-node
 
           (begin
-            (printf "freeze: ~a~n" freeze-node)
+            (debug-printf "freeze: ~a~n" freeze-node)
             (remove-node move-rels freeze-node)
             (simplify-coalesce-freeze-loop
               instrs work-set graph move-rels num-available-regs (+ iteration 1)))
@@ -282,7 +294,7 @@
           (let* ([node-to-spill (car (graph-find-max-degree graph not-reg?))]
                  [nbs (remove-node graph node-to-spill)]
                  [work-set (cons (cons node-to-spill nbs) work-set)])
-            (printf "spill: ~a~n" node-to-spill)
+            (debug-printf "spill: ~a~n" node-to-spill)
             (simplify-coalesce-freeze-loop
               instrs work-set graph move-rels num-available-regs (+ iteration 1))))))))
 
@@ -311,7 +323,7 @@
     (define node (car work))
     (define nbs-set (cdr work))
 
-    ; (printf "work ~a~n" node)
+    ; (debug-printf "work ~a~n" node)
     (when (is-reg? node)
       (error 'select "Can't work a reg: ~a~n~a" node work-stack))
 
@@ -324,21 +336,21 @@
 
              [avail-regs (set->list (set-subtract reg-set used-regs))])
 
-        (printf "==== select ====~n")
-        (printf "node: ~s~n" node)
-        (printf "interfering nodes: ~s~n" nbs)
-        (printf "mapping: ~s~n" mapping)
-        (printf "used-regs: ~s~n" used-regs)
-        (printf "avail-regs: ~s~n" avail-regs)
+        (debug-printf "==== select ====~n")
+        (debug-printf "node: ~s~n" node)
+        (debug-printf "interfering nodes: ~s~n" nbs)
+        (debug-printf "mapping: ~s~n" mapping)
+        (debug-printf "used-regs: ~s~n" used-regs)
+        (debug-printf "avail-regs: ~s~n" avail-regs)
 
         ; Map the variable, if possible.
         (if (null? avail-regs)
-          (printf "not mapping~n")
+          (debug-printf "not mapping~n")
           (begin
             (hash-set! mapping node (car avail-regs))
-            (printf "mapped to: ~a~n" (car avail-regs))))
+            (debug-printf "mapped to: ~a~n" (car avail-regs))))
 
-        (printf "================~n")
+        (debug-printf "================~n")
 
         ; Rebuild the interference graph.
         ; Some nodes don't interfere with any others, so we need this step.
@@ -362,8 +374,8 @@
       [`(program . ,defs)
        (let ([defs (map (lambda (def)
                           (let-values ([(def mapping) (reg-alloc-def pgm-name def)])
-                            ; (printf "register mapping:~n")
-                            ; (pretty-print mapping)
+                            ; (debug-printf "register mapping:~n")
+                            ; (debug-pretty-print mapping)
                             (assign-homes def mapping))) defs)])
          `(program ,@defs))]
        ; (for ([def defs])
@@ -386,9 +398,9 @@
 
     (match def
       [`(define ,tag : ,ret-ty . ,instrs)
-       (printf "===============================~n")
-       (printf "register allocation iteration ~a~n" iteration)
-       (pretty-print def)
+       (debug-printf "===============================~n")
+       (debug-printf "register allocation iteration ~a~n" iteration)
+       (debug-pretty-print def)
 
        (define-values (def-w-lives live-after-sets) (gen-live-afters def))
 
@@ -398,13 +410,13 @@
 
        (define move-rels (mk-mov-rel-graph def-w-lives int-graph))
 
-       ; (printf "~nlive-after sets:~n")
-       ; (pretty-print live-after-sets)
-       (printf "interference graph:~n")
-       (pretty-print int-graph)
+       ; (debug-printf "~nlive-after sets:~n")
+       ; (debug-pretty-print live-after-sets)
+       (debug-printf "interference graph:~n")
+       (debug-pretty-print int-graph)
        ; (print-dot int-graph (string-append pgm-name (format "-int-orig-~a.dot" iteration)) cadr)
-       (printf "move-relation graph:~n")
-       (pretty-print move-rels)
+       (debug-printf "move-relation graph:~n")
+       (debug-pretty-print move-rels)
        ; (print-dot move-rels (string-append pgm-name (format "-mov-~a.dot" iteration)) cadr)
 
        (define-values (coalesced-instrs work-stack)
@@ -425,19 +437,19 @@
        (define all-vars (collect-vars-instrs coalesced-instrs))
        (define spilled-vars (set->list (set-subtract all-vars mapped-vars)))
 
-       ; (printf "work-stack:~n")
-       ; (pretty-print work-stack)
-       ; (printf "coalesced instrs:~n")
-       ; (pretty-print coalesced-instrs)
-       ; (printf "mapping:~n")
-       ; (pretty-print mapping)
-       ; (printf "mapped:~n")
-       ; (pretty-print mapped-vars)
-       ; (printf "all-vars:~n")
-       ; (pretty-print all-vars)
-       ; (printf "spilled:~n")
-       ; (pretty-print spilled-vars)
-       ; (printf "~n~n~n~n~n")
+       ; (debug-printf "work-stack:~n")
+       ; (debug-pretty-print work-stack)
+       ; (debug-printf "coalesced instrs:~n")
+       ; (debug-pretty-print coalesced-instrs)
+       ; (debug-printf "mapping:~n")
+       ; (debug-pretty-print mapping)
+       ; (debug-printf "mapped:~n")
+       ; (debug-pretty-print mapped-vars)
+       ; (debug-printf "all-vars:~n")
+       ; (debug-pretty-print all-vars)
+       ; (debug-printf "spilled:~n")
+       ; (debug-pretty-print spilled-vars)
+       ; (debug-printf "~n~n~n~n~n")
 
        ; (print-dot int-graph-rebuilt
        ;            (string-append pgm-name (format "-final-~a.dot" iteration)) cadr)
@@ -446,10 +458,10 @@
          ; Generate spill instructions, loop
          (let ([instrs-w-spills
                  (generate-spills (car spilled-vars) (+ last-mem-loc 1) coalesced-instrs)])
-           ; (printf "instructions before actual spill:~n")
-           ; (pretty-print coalesced-instrs)
-           (printf "instructions after actual spill:~n")
-           (pretty-print instrs-w-spills)
+           ; (debug-printf "instructions before actual spill:~n")
+           ; (debug-pretty-print coalesced-instrs)
+           (debug-printf "instructions after actual spill:~n")
+           (debug-pretty-print instrs-w-spills)
            (reg-alloc-iter `(define ,tag : ,ret-ty ,@instrs-w-spills)
                            #t (+ last-mem-loc 1) (+ iteration 1)))
          ; We're done
@@ -510,4 +522,4 @@
 
 ; test-graph
 
-(pretty-print (reg-alloc-test "tests/uniquify_2.rkt"))
+; (debug-pretty-print (reg-alloc-test "tests/uniquify_2.rkt"))
