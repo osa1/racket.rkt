@@ -19,7 +19,10 @@
         ,@(assign-home-instrs mapping instrs))]
     [_ (unsupported-form 'assign-homes def)]))
 
-(define (align-stack stack) (+ stack (modulo stack 16)))
+(define (align-stack stack)
+  ; TODO: Document this. Since we don't push %rbp anymore we need to play this
+  ; game.
+  (+ stack 8))
 
 (define (assign-home-instrs asgns instrs)
   (map (lambda (instr) (assign-home-instr asgns instr)) instrs))
