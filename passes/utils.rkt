@@ -130,3 +130,6 @@
 
 (define caller-save '(rdx rcx rsi rdi r8 r9 r10 r11))
 (define callee-save '(rbx r12 r13 r14 r15 rbp))
+
+(define all-reg-syms (list->set (append caller-save callee-save)))
+(define all-regs (list->set (map (lambda (s) `(reg ,s)) (append caller-save callee-save))))
