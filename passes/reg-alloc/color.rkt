@@ -441,7 +441,8 @@
            (reg-alloc-iter `(define ,tag : ,ret-ty ,@instrs-w-spills)
                            (+ next-mem-loc 1) (+ iteration 1)))
          ; We're done
-         (values def mapping))]
+         (let ([def `(define ,tag : ,ret-ty ,@coalesced-instrs)])
+           (values def mapping)))]
 
       [_ (unsupported-form 'reg-alloc-def def)]))
 
