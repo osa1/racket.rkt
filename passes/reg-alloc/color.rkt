@@ -11,7 +11,7 @@
 (require "../utils.rkt")
 (require "../../graph.rkt")
 
-(provide simplify)
+(provide reg-alloc)
 
 ; For testing purposes
 (require "../typecheck.rkt")
@@ -20,11 +20,11 @@
 (require "../uniquify.rkt")
 (require "../reveal-functions.rkt")
 (require "../flatten.rkt")
+(require "../initialize-rts.rkt")
 (require "../expose-allocations.rkt")
 (require "../annotate-lives.rkt")
 (require "../uncover-call-live-roots.rkt")
 (require "../instr-sel.rkt")
-(require "../initialize-rts.rkt")
 (require (only-in "../../public/utilities.rkt" read-program))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -466,16 +466,16 @@
             [pgm (read-program file)])
 
         ((reg-alloc name)
-          (initialize-rts
-            (instr-sel
-              (uncover-call-live-roots
-                (annotate-lives
-                  (expose-allocations
-                    (flatten
-                      (reveal-functions
-                        (uniquify
-                          (desugar
-                            (typecheck pgm)))))))))))))))
+         (instr-sel
+           (uncover-call-live-roots
+             (annotate-lives
+               (expose-allocations
+                 (initialize-rts
+                   (flatten
+                     (reveal-functions
+                       (uniquify
+                         (desugar
+                           (typecheck pgm)))))))))))))))
 
 ; (define test-graph (mk-graph))
 ;

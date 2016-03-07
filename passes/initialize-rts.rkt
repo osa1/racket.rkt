@@ -13,11 +13,11 @@
 
 (define (initialize-rts-iter defs)
   (match defs
-    [`((define main : void . ,stmts) . ,rest)
-     (cons `(define main : void
-              (movq (int ,(initial-root-stack-size)) (reg rdi))
-              (movq (int ,(initial-heap-size)) (reg rsi))
-              (callq (toplevel-fn initialize))
+    [`((define main : void ,meta . ,stmts) . ,rest)
+     (cons `(define main : void ,meta
+              (assign ,(gensym "unused") 'void
+                      (app (toplevel-fn initialize)
+                           ,(initial-root-stack-size) ,(initial-heap-size)))
               ,@stmts)
            rest)]
     [`(,def . ,defs)

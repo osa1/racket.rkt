@@ -15,7 +15,8 @@
 (require "passes/uncover-call-live-roots.rkt")
 (require "passes/instr-sel.rkt")
 (require "passes/initialize-rts.rkt")
-(require "passes/reg-alloc.rkt")
+; (require "passes/reg-alloc.rkt")
+(require "passes/reg-alloc/color.rkt")
 (require "passes/patch-instructions.rkt")
 (require "passes/elim-movs.rkt")
 (require "passes/lower-conditionals.rkt")
@@ -36,7 +37,7 @@
          expose-allocations annotate-lives uncover-call-live-roots instr-sel initialize-rts
 
          ;; asm passes
-         assign-homes patch-instructions elim-movs lower-conditionals
+         reg-alloc patch-instructions elim-movs lower-conditionals
 
          print-x86_64)
 
@@ -50,12 +51,13 @@
     ("uniquify" ,uniquify ,interp-scheme)
     ("reveal-functions" ,reveal-functions ,interp-scheme)
     ("flatten" ,flatten ,interp-C)
+    ("initialize-rts" ,initialize-rts ,interp-x86)
     ("expose-allocations" ,expose-allocations ,interp-C)
     ("annotate-lives" ,annotate-lives ,interp-C)
     ("uncover-call-live-roots" ,uncover-call-live-roots ,interp-C)
     ("instr-sel" ,instr-sel ,interp-x86)
-    ("initialize-rts" ,initialize-rts ,interp-x86)
-    ("assign-homes" ,assign-homes ,interp-x86)
+    ; ("assign-homes" ,assign-homes ,interp-x86)
+    ("reg-alloc" ,(reg-alloc "???") ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)
     ("lower-conditionals" ,lower-conditionals ,interp-x86)
