@@ -249,7 +249,8 @@
 
 (define (collect-vars-instr instr)
   (match instr
-    [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+    [(or `(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+         `(if (eq? ,arg1 ,arg2) ,pgm-t ,_ ,pgm-f ,_))
      (set-union (collect-vars-arg arg1)
                 (collect-vars-arg arg2)
                 (collect-vars-instrs pgm-t)
