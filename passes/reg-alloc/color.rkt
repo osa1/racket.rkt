@@ -267,53 +267,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; 'num-available-regs' is for sanity checking only. 'spill' doesn't really need
-; to know 'k' as we should only run it when we can't simplify the graph
-; further.
-(define (spill graph num-available-regs)
-
-  ; Make sure the graph can't be simplified - otherwise we have a bug.
-
-  (let* ([graph-nodes (nodes graph)]
-         [degrees (map (lambda (node) (node-degree graph node)) graph-nodes)])
-    (unless (all (lambda (d) (>= d num-available-regs)) degrees)
-      (error 'spill "Input graph can be simplified further: ~n~a~n" graph)))
-
-  ; Just pick a node and remove it from the graph.
-
-  (if (= (graph-size graph) 0)
-    #f
-    (let ([node (car (nodes graph))])
-      (cons node (set->list (remove-node graph node))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; Run simplify and spill until we have a work stack.
-; 'iteration' is used for debugging.
-; (define (simplify-spill-loop graph num-available-regs [iteration 0])
-;
-;   (define simplify-work-stack (simplify graph num-available-regs))
-;   (print-dot graph (format "iter-~a-simpl.dot" iteration) cadr)
-;
-;   ; Simplifier recursively runs until it can't simplify anymore.
-;   (define spilled (spill graph num-available-regs))
-;   (print-dot graph (format "iter-~a-spill.dot" iteration) cadr)
-;
-;   ; We need to keep simplifying after a successful spill.
-;   (if spilled
-;     (append (simplify-spill-loop graph num-available-regs (+ iteration 1))
-;             (list spilled)
-;             simplify-work-stack)
-;     (begin
-;       ; A sanity check: Spill failed so at this point the graph should be
-;       ; empty.
-;       (unless (= (graph-size graph) 0)
-;         (error 'simplify-spill-loop "Spill failed, but graph is not empty: ~a~n" graph))
-;
-;       simplify-work-stack)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ; Select returns two things:
 ;
 ; - An interference graph, which should be the same as the original one.
