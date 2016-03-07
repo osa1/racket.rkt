@@ -20,20 +20,8 @@ Then `racket test.rkt` should just work.
 
 - Generated x86\_64 could use some optimizations.
 
-- We're having some redundant stack traffic. As an example, identity function is compiled to this:
+- Implement mem-loc coalescing. In programs like r1_12 we're using more stack
+  space than necessary.
 
-    ```assembly
-    id:
-        pushq %rbp
-        movq %rsp, %rbp
-        subq $16, %rsp
-
-        movq %rdi, %rax
-
-        addq $16, %rsp
-        popq %rbp
-
-        retq
-    ```
-
-  I think we should be able to compile this to a `movq ... ; retq`.
+- Stop using Racket's `gensym` for deterministic outputs. (it's even effecting
+  the register allocation since the order of variables in maps depend on names)
