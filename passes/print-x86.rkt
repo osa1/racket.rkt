@@ -66,7 +66,7 @@
     [`(int ,int) (format "$~s" int)]
     [`(reg ,reg) (format "%~s" reg)]
     [`(byte-reg ,reg) (format "%~s" reg)]
-    [`(stack ,offset) (format "~s(%rbp)" offset)]
+    [`(stack ,offset) (format "~s(%rsp)" offset)]
     [`(global-value ,var) (format "~s(%rip)" var)]
     [`(offset ,arg ,offset) (format "~s(~a)" offset (print-x86_64-arg arg))]
     [`(toplevel-fn ,f) (format "~s" (encode-symbol f))]
