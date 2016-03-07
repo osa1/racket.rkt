@@ -27,7 +27,7 @@
 ; movs when not necessary.
 (define (save-callee-saves instrs)
   (define temps (map (lambda (reg-sym)
-                       (cons `(var ,(gensym (string-append "save-" (symbol->string reg-sym) "-")))
+                       (cons `(var ,(gensym (string-append "save_" (symbol->string reg-sym) "_")))
                              `(reg ,reg-sym)))
                      callee-save))
 
@@ -190,9 +190,9 @@
               [regs-to-save (drop arg-regs (length reg-args))]
               [save-temps (map (lambda (reg)
                                  (cons
-                                   `(var ,(gensym (string-append "save-"
+                                   `(var ,(gensym (string-append "save_"
                                                                  (symbol->string (cadr reg))
-                                                                 "-")))
+                                                                 "_")))
                                    reg))
                                regs-to-save)])
 

@@ -161,7 +161,7 @@
         (let* ([new-node
                  `(var ,(gensym (string-append "c-"
                                                (symbol->string (car node1))
-                                               "-"
+                                               "_"
                                                (symbol->string (car node2)))))]
 
                ; Update the program
