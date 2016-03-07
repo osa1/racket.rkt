@@ -16,6 +16,11 @@
        graph)]
     [_ (unsupported-form 'mk-interference-graph def)]))
 
+(define (add-int graph arg1 arg2)
+  (when (and (or (eq? (car arg1) 'reg) (eq? (car arg1) 'var))
+             (or (eq? (car arg2) 'reg) (eq? (car arg2) 'var)))
+    (add-edge graph arg1 arg2)))
+
 (define (build-int-graph-instrs instrs live-sets graph)
   (map (lambda (instr lives) (build-int-graph instr (set->list lives) graph)) instrs live-sets))
 
@@ -24,7 +29,7 @@
     [`(,(or 'addq 'subq 'xorq) ,s ,d)
      (for ([live lives])
        (unless (equal? live d)
-         (add-edge graph d live)))]
+         (add-int graph d live)))]
 
     [`(cmpq ,_ ,_) (void)]
 
@@ -32,12 +37,12 @@
          `(movzbq (byte-reg al) ,d))
      (for ([live lives])
        (unless (equal? live d)
-         (add-edge graph d live)))]
+         (add-int graph d live)))]
 
     [`(,(or 'movq 'leaq) ,s ,d)
      (for ([live lives])
        (unless (or (equal? live s) (equal? live d))
-         (add-edge graph d live)))]
+         (add-int graph d live)))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Handling movs with relative addressing
@@ -46,7 +51,7 @@
          `(movq (offset ,s ,_) ,d))
      (for ([live lives])
        (unless (or (equal? live s) (equal? live d))
-         (add-edge graph d live)))]
+         (add-int graph d live)))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -55,9 +60,11 @@
     [`(callq ,s)
      ;; TODO: Do we need to do something with the argument here?
      (for ([live lives])
-       (for ([save (set->list caller-save)])
-         (unless (equal? live s)
-           (add-edge graph `(reg ,save) live))))]
+       ; (for ([save (set->list caller-save)])
+       ;   (unless (equal? live s)
+       ;     (add-int graph `(reg ,save) live))))]
+       (add-int graph '(reg rax) live))]
+
 
     [`(if (eq? ,_ ,_) ,pgm-t ,t-lives ,pgm-f ,f-lives)
      (build-int-graph-instrs pgm-t t-lives graph)

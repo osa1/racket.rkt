@@ -139,17 +139,15 @@
           ; TODO: This code is too similary to the work-set update in the other
           ; branch.
           (let ([work-set
-                  (cons
-                    (cons node1 node2) ; HACKHACKHACKHACKHACK. consing a node instead of a set.
-                    (map (lambda (work)
-                           (let* ([nbs (cdr work)]
-                                  [was-nb (set-member? nbs node1)]
-                                  [new-set
-                                    (if was-nb
-                                      (set-add (set-remove nbs node1) node2)
-                                      nbs)])
-                             (cons (car work) new-set)))
-                         (append simplify-work work-set)))])
+                  (map (lambda (work)
+                         (let* ([nbs (cdr work)]
+                                [was-nb (set-member? nbs node1)]
+                                [new-set
+                                  (if was-nb
+                                    (set-add (set-remove nbs node1) node2)
+                                    nbs)])
+                           (cons (car work) new-set)))
+                       (append simplify-work work-set))])
 
             ; Loop
             (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs
@@ -214,7 +212,9 @@
 ; (weird name, keeping it to stay compatible with the book)
 (define (freeze graph move-rels num-available-regs)
   (define move-related-nodes
-    (set-intersect (list->set (nodes move-rels)) (list->set (nodes graph))))
+    (set-intersect
+      (list->set (filter not-reg? (nodes move-rels)))
+      (list->set (filter not-reg? (nodes graph)))))
 
   (define node-degrees
     (set-map move-related-nodes (lambda (node) (cons node (node-degree graph node)))))
@@ -245,7 +245,7 @@
     ; (print-dot graph (format "scfl-~a.dot" iteration) cadr)
 
     ; We're done if the graph is empty
-    (if (eq? (graph-size graph) 0)
+    (if (eq? (length (filter not-reg? (nodes graph))) 0)
       (values instrs work-set)
 
       ; Otherwise, try to freeze (remove a more-relation)
@@ -259,7 +259,7 @@
 
           ; Can't freeze, push the node to the stack as a potential spill,
           ; restart the loop.
-          (let* ([node-to-spill (car (graph-find-max-degree graph))]
+          (let* ([node-to-spill (car (graph-find-max-degree graph not-reg?))]
                  [nbs (remove-node graph node-to-spill)]
                  [work-set (cons (cons node-to-spill nbs) work-set)])
             (simplify-coalesce-freeze-loop
@@ -336,12 +336,16 @@
     (define node (car work))
     (define nbs-set (cdr work))
 
+    ; (printf "work ~a~n" node)
+    (when (is-reg? node)
+      (error 'select "Can't work a reg: ~a~n~a" node work-stack))
+
     (if (set? nbs-set)
       (let* ([nbs (set->list nbs-set)]
              ; Register used by the interfering variables.
              [used-regs
                (list->set
-                 (filter id (map (lambda (nb) (hash-ref! mapping nb #f)) nbs)))]
+                 (filter id (map (lambda (nb) (hash-ref mapping nb #f)) nbs)))]
 
              [avail-regs (set->list (set-subtract reg-set used-regs))])
 
@@ -363,9 +367,8 @@
         (for ([nb nbs])
           (add-edge int-graph node nb)))
 
-      ; Hacky part: A variable is coalesced to a register. See HACKHACKHACK in
-      ; 'simplify-coalesce-loop'.
-      (hash-set! mapping node reg-set)))
+      (begin
+        (error 'select "coalescing to register ~a ~a~n" node nbs-set))))
 
   (for ([work work-stack])
     (select-iter work))
@@ -378,15 +381,15 @@
   (lambda (pgm)
     (match pgm
       [`(program . ,defs)
-       ; (let ([defs (map (lambda (def)
-       ;                    (let-values ([(def mapping) (reg-alloc-def pgm-name def)])
-       ;                      ; (printf "register mapping:~n")
-       ;                      ; (pretty-print mapping)
-       ;                      (assign-homes def mapping))) defs)])
-       ;   `(program ,@defs))]
-       (for ([def defs])
-         (reg-alloc-def pgm-name def))
-       `(program ,@defs)]
+       (let ([defs (map (lambda (def)
+                          (let-values ([(def mapping) (reg-alloc-def pgm-name def)])
+                            ; (printf "register mapping:~n")
+                            ; (pretty-print mapping)
+                            (assign-homes def mapping))) defs)])
+         `(program ,@defs))]
+       ; (for ([def defs])
+       ;   (reg-alloc-def pgm-name def))
+       ; `(program ,@defs)]
       [_ (unsupported-form 'reg-alloc pgm)])))
 
 ; Returns two things:
@@ -438,12 +441,9 @@
        ;          int-graph-copy
        ;          int-graph-rebuilt))
 
-       (define mapped-vars
-         (filter id (hash-map mapping (lambda (k v) (if (eq? v #f) #f k)))))
-       (define spilled-vars
-         (filter
-           not-reg?
-           (filter id (hash-map mapping (lambda (k v) (if (eq? v #f) k #f))))))
+       (define mapped-vars (list->set (hash-keys mapping)))
+       (define all-vars (collect-vars-instrs coalesced-instrs))
+       (define spilled-vars (set->list (set-subtract all-vars mapped-vars)))
 
        (printf "work-stack:~n")
        (pretty-print work-stack)

@@ -6,9 +6,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (generate-spills var mem-loc instrs)
-  (define var-sym (cadr var))
+(define (generate-spills var-sym mem-loc instrs)
   (define mem-loc-arg `(mem-loc ,mem-loc))
+  (define var `(var ,var-sym))
 
   (printf "spilling ~a~n" var-sym)
 

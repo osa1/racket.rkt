@@ -9,8 +9,8 @@
 (define mk-graph make-hash)
 
 (define (add-edge graph node1 node2)
-  (let ([node1-set (hash-ref! graph node1 set)]
-        [node2-set (hash-ref! graph node2 set)])
+  (let ([node1-set (hash-ref graph node1 set)]
+        [node2-set (hash-ref graph node2 set)])
     (let ([node1-set (set-add node1-set node2)]
           [node2-set (set-add node2-set node1)])
       (hash-set! graph node1 node1-set)
@@ -20,9 +20,9 @@
   (hash-set! graph node (set)))
 
 (define (remove-node graph node)
-  (let ([nbs (hash-ref! graph node set)])
+  (let ([nbs (hash-ref graph node set)])
     (for ([nb (set->list nbs)])
-      (let ([nb-set (hash-ref! graph nb #f)])
+      (let ([nb-set (hash-ref graph nb #f)])
         (when nb-set
           (hash-set! graph nb (set-remove nb-set node)))))
     (let ([ret (hash-ref graph node)])
@@ -30,10 +30,10 @@
       ret)))
 
 (define (remove-edge graph node1 node2)
-  (define node1-nbs (hash-ref! graph node1 #f))
+  (define node1-nbs (hash-ref graph node1 #f))
   (when node1-nbs
     (hash-set! graph node1 (set-remove node1-nbs node2)))
-  (define node2-nbs (hash-ref! graph node2 #f))
+  (define node2-nbs (hash-ref graph node2 #f))
   (when node2-nbs
     (hash-set! graph node2 (set-remove node2-nbs node1))))
 
@@ -50,13 +50,13 @@
   (set-member? (neighbors graph node1) node2))
 
 (define (has-node? graph node)
-  (hash-ref! graph node #f))
+  (hash-ref graph node #f))
 
 (define (neighbors graph node)
-  (set->list (hash-ref! graph node set)))
+  (set->list (hash-ref graph node set)))
 
 (define (node-degree graph node)
-  (set-count (hash-ref! graph node set)))
+  (set-count (hash-ref graph node set)))
 
 (define graph-elems hash->list)
 
@@ -64,12 +64,16 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (graph-find-min-degree graph)
-  (define node-degrees (map (lambda (n) (cons (car n) (set-count (cdr n)))) (graph-elems graph)))
+(define (graph-find-min-degree graph pred)
+  (define node-degrees
+    (map (lambda (n) (cons (car n) (set-count (cdr n))))
+         (filter (lambda (kv) (pred (car kv))) (graph-elems graph))))
   (min-by cdr node-degrees))
 
-(define (graph-find-max-degree graph)
-  (define node-degrees (map (lambda (n) (cons (car n) (set-count (cdr n)))) (graph-elems graph)))
+(define (graph-find-max-degree graph pred)
+  (define node-degrees
+    (map (lambda (n) (cons (car n) (set-count (cdr n))))
+         (filter (lambda (kv) (pred (car kv))) (graph-elems graph))))
   (max-by cdr node-degrees))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
