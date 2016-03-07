@@ -453,6 +453,9 @@
        (debug-pretty-print move-rels)
        ; (print-dot move-rels (string-append pgm-name (format "-mov-~a.dot" iteration)) cadr)
 
+       ; FIXME: Forgot to update number of registers here. It should still work
+       ; fine though, so fix this after fixing spill bugs.
+
        (define-values (coalesced-instrs work-stack)
          (simplify-coalesce-freeze-loop instrs `() int-graph move-rels 5 cs))
 
@@ -499,6 +502,9 @@
            (reg-alloc-iter `(define ,tag : ,ret-ty ,@instrs-w-spills)
                            #t (+ last-mem-loc 1) (+ iteration 1)))
          ; We're done
+         ; FIXME: last-mem-loc is wrong! Spill isntructions are sometimes
+         ; removed by coalescing, in which case we still report here as if we
+         ; used the stack location! (safe, but wasteful)
          (let ([def `(define ,tag : ,ret-ty ,last-mem-loc ,@coalesced-instrs)])
            (values def mapping)))]
 
