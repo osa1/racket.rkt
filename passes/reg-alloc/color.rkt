@@ -298,7 +298,8 @@
   ; Variable-to-register mapping.
   (define mapping (make-hash))
 
-  (define reg-set (list->set (range num-available-regs)))
+  ; (define reg-set (list->set (range num-available-regs)))
+  (define reg-set all-reg-syms)
 
   (define (select-iter work)
     (define node (car work))
@@ -323,11 +324,15 @@
         (printf "mapping: ~s~n" mapping)
         (printf "used-regs: ~s~n" used-regs)
         (printf "avail-regs: ~s~n" avail-regs)
-        (printf "================~n")
 
         ; Map the variable, if possible.
-        (unless (null? avail-regs)
-          (hash-set! mapping node (car avail-regs)))
+        (if (null? avail-regs)
+          (printf "not mapping~n")
+          (begin
+            (hash-set! mapping node (car avail-regs))
+            (printf "mapped to: ~a~n" (car avail-regs))))
+
+        (printf "================~n")
 
         ; Rebuild the interference graph.
         ; Some nodes don't interfere with any others, so we need this step.

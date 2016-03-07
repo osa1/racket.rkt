@@ -187,7 +187,7 @@
      (let-values ([(reg-args stack-args) (split-at-max args (length arg-regs))])
        ; Push stack args in reverse order
        (let* ([stack-args (reverse stack-args)]
-              [regs-to-save (drop arg-regs (length reg-args))]
+              [regs-to-save (map (lambda (s) `(reg ,s)) caller-save)] ; (drop arg-regs (length reg-args))]
               [save-temps (map (lambda (reg)
                                  (cons
                                    `(var ,(gensym (string-append "save_"

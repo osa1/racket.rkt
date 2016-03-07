@@ -59,7 +59,7 @@
      (let [(asgn (hash-ref asgns `(var ,var) '()))]
        (cond [(null? asgn)
               (error 'assign-home-arg "can't find var in assignments: ~s ~s~n" var asgns)]
-             [(fixnum? asgn) `(reg ,asgn)]
+             [(symbol? asgn) `(reg ,asgn)]
              [#t (error 'assign-home-arg "Variable mapped to an unknown thing: ~s~n"
                         asgn)]))]
     [_ (unsupported-form 'assign-home-arg arg)]))
