@@ -14,7 +14,9 @@
   (printf "====================================~n")
   (match def
     [`(define ,tag : ,ret-ty ,stack-locs-used . ,instrs)
-     `(define ,tag : ,ret-ty (,(* 8 stack-locs-used)) ,@(assign-home-instrs mapping instrs))]
+     `(define ,tag : ,ret-ty
+        (,(align-stack (* 8 stack-locs-used)))
+        ,@(assign-home-instrs mapping instrs))]
     [_ (unsupported-form 'assign-homes def)]))
 
 (define (align-stack stack) (+ stack (modulo stack 16)))
