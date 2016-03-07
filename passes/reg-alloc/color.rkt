@@ -11,7 +11,7 @@
 (require "../utils.rkt")
 (require "../../graph.rkt")
 
-(provide reg-alloc debug-reg-alloc)
+(provide reg-alloc)
 
 ; For testing purposes
 (require "../typecheck.rkt")
@@ -68,26 +68,50 @@
 
   ; Note that move-relation graph doesn't have edges between interfering nodes,
   ; so we don't need to check that here.
+  ; ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ; This is not correct! Interfering nodes may become move-related after
+  ; coalescing. Example:
+  ;
+  ;   (callq (toplevel-fn read_int))
+  ;   (movq (reg rax) (var c-var_var13176))
+  ;   (callq (toplevel-fn read_int))
+  ;   (movq (reg rax) (var tmp13165))
+  ;   --- c-var_var13176 lives here ---
+  ;
+  ; Here rax interferes with c-var_var13176 because it's live after the second
+  ; function call (remember that rax + caller-save registers interfere with
+  ; live varibles after 'callq'). But there's also a mov, so they're move
+  ; related. If we don't check interference here we end up removing
+  ;
+  ;   (movq (reg rax) (var c-var_var13176))
+  ;
+  ; and this leads to trouble.
 
   ; TODO: Should we coaslesce as much as possible before returning? Currently
   ; coalescing once at most.
 
   (define (check-coalesce current-key move-related-key)
-    ; FIXME: We do this lookup and list->set in every iteration for no reason.
-    (let ([nbs (neighbors int-graph current-key)])
-      (if (all
-            ; For every neighbor t of a
-            (lambda (nb)
-              (debug-printf "checking coalesce between ~a and ~a~n" current-key nb)
-              (or ; either t already interferes with b
+
+    ; If the move-related-key interferes, we return #f. See the comment above.
+
+    (if (has-edge? int-graph current-key move-related-key)
+      #f
+
+      ; FIXME: We do this lookup and list->set in every iteration for no reason.
+      (let ([nbs (neighbors int-graph current-key)])
+        (if (all
+              ; For every neighbor t of a
+              (lambda (nb)
+                (debug-printf "checking coalesce between ~a and ~a~n" current-key nb)
+                (or ; either t already interferes with b
                   (has-edge? int-graph nb move-related-key)
                   ; or t is of insignificant degree
                   (< (node-degree int-graph nb) num-available-regs)))
-            nbs)
-        (begin
-          ; (debug-printf "maybe coalesce ~a and ~a?~n" current-key move-related-key)
-          move-related-key)
-        #f)))
+              nbs)
+          (begin
+            ; (debug-printf "maybe coalesce ~a and ~a?~n" current-key move-related-key)
+            move-related-key)
+          #f))))
 
   ; We need to check every move-related pair. We stop once we find one, to
   ; simplify and coalesce again.
@@ -208,6 +232,9 @@
           (remove-node graph node1)
           (remove-node graph node2)
 
+          (debug-printf "graph after coalescing:~n")
+          (debug-pretty-print graph)
+
           ; Update move-relation graph
           (remove-edge move-rels node1 node2)
           (add-node move-rels new-node)
@@ -215,6 +242,9 @@
           (replace-node move-rels node2 new-node)
           (remove-node move-rels node1)
           (remove-node move-rels node2)
+
+          (debug-printf "move relations after coalescing:~n")
+          (debug-pretty-print move-rels)
 
           ; Update work set
           ; Work set can't have coalesced nodes as we don't remove move-related
