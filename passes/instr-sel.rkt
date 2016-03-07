@@ -29,7 +29,7 @@
   (define temps (map (lambda (reg-sym)
                        (cons `(var ,(gensym (string-append "save_" (symbol->string reg-sym) "_")))
                              `(reg ,reg-sym)))
-                     callee-save))
+                     callee-save-syms))
 
   (append (map (lambda (r) `(movq ,(cdr r) ,(car r))) temps)
           instrs
@@ -187,21 +187,28 @@
      (let-values ([(reg-args stack-args) (split-at-max args (length arg-regs))])
        ; Push stack args in reverse order
        (let* ([stack-args (reverse stack-args)]
-              [regs-to-save (map (lambda (s) `(reg ,s)) caller-save)] ; (drop arg-regs (length reg-args))]
-              [save-temps (map (lambda (reg)
-                                 (cons
-                                   `(var ,(gensym (string-append "save_"
-                                                                 (symbol->string (cadr reg))
-                                                                 "_")))
-                                   reg))
-                               regs-to-save)])
+              ; [regs-to-save caller-save-regs]
+              ; [save-temps (map (lambda (reg)
+              ;                    (cons
+              ;                      `(var ,(gensym (string-append "save_"
+              ;                                                    (symbol->string (cadr reg))
+              ;                                                    "_")))
+              ;                      reg))
+              ;                  regs-to-save)]
+              )
 
          ; FIXME: We don't support passing arguments on stack.
          (when (not (null? stack-args))
            (error 'instr-sel "We don't support passing arguments on stack: ~a~n" expr))
 
-         `(; Save caller-save registers
-           ,@(map (lambda (r) `(movq ,(cdr r) ,(car r))) save-temps)
+         `(; NOTE: We don't save caller-save registers here! It's taken care of
+           ; by the register allocation, because we interfere caller-save
+           ; registers with live variables after a callq. So if a variable
+           ; needs to live across a function call, it gets spilled (or saved to
+           ; another register) by the register allocator. Cool!
+
+           ; Save caller-save registers
+           ; ,@(map (lambda (r) `(movq ,(cdr r) ,(car r))) save-temps)
 
            ; Move register args
            ,@(map (lambda (arg reg)
@@ -213,7 +220,8 @@
            (movq (reg rax) ,(arg->x86-arg bind-to))
 
            ; Restore caller-save registers
-           ,@(map (lambda (r) `(movq ,(car r) ,(cdr r))) save-temps))))]
+           ; ,@(map (lambda (r) `(movq ,(car r) ,(cdr r))) save-temps)
+           )))]
 
     [_ (unsupported-form 'instr-sel-expr expr)]))
 

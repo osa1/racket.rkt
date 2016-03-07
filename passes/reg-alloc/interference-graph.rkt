@@ -68,13 +68,12 @@
     [`(retq) (void)]
 
     [`(callq ,s)
-     ;; TODO: Do we need to do something with the argument here?
+     ; Variables need to stay alive across a function call interfere with the
+     ; caller-save registers.
      (for ([live lives])
-       ; (for ([save (set->list caller-save)])
-       ;   (unless (equal? live s)
-       ;     (add-int graph `(reg ,save) live))))]
-       (add-int graph '(reg rax) live))]
-
+       (for ([save (cons '(reg rax) caller-save-regs)])
+         (unless (equal? live s)
+           (add-int graph `(reg ,save) live))))]
 
     [`(if (eq? ,_ ,_) ,pgm-t ,t-lives ,pgm-f ,f-lives)
      (build-int-graph-instrs pgm-t t-lives graph)

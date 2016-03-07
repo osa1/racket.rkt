@@ -84,18 +84,6 @@
      (values instr (add-live lives arg1))]
 
     [`(callq ,arg1)
-     ; I was confused about this for a while. Here's the idea: live-after sets
-     ; are about variables, not registers, because we use them to map variables
-     ; to registers. If you think about a function call, it doesn't make any
-     ; variables unreachable and it doesn't override. So here we don't kill any
-     ; live variables.
-     ;
-     ; Keeping registers in the set just doesn't make any sense. So disabling
-     ; this one.. (but still keeping it here for documentation purposes)
-     ; (values instr (set-remove lives '(reg rax)))
-     ;
-     ; Note that the argument can be a local variable, so we need to add that
-     ; to the live set.
      (values instr (add-live lives arg1))]
 
     [`(retq)

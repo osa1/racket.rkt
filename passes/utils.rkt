@@ -125,11 +125,16 @@
 
 (define (not-reg? arg) (not (is-reg? arg)))
 
+(define (mk-reg r) `(reg ,r))
+
 (define arg-reg-syms `(rdi rsi rdx rcx r8 r9))
-(define arg-regs (map (lambda (reg) `(reg ,reg)) arg-reg-syms))
+(define arg-regs (map mk-reg arg-reg-syms))
 
-(define caller-save '(rdx rcx rsi rdi r8 r9 r10 r11))
-(define callee-save '(rbx r12 r13 r14 r15 rbp))
+(define caller-save-syms '(rdx rcx rsi rdi r8 r9 r10 r11))
+(define caller-save-regs (map mk-reg caller-save-syms))
 
-(define all-reg-syms (list->set (append caller-save callee-save)))
-(define all-regs (list->set (map (lambda (s) `(reg ,s)) (append caller-save callee-save))))
+(define callee-save-syms '(rbx r12 r13 r14 r15 rbp))
+(define callee-save-regs (map mk-reg callee-save-syms))
+
+(define all-reg-syms (list->set (append caller-save-syms callee-save-syms)))
+(define all-regs (list->set (map mk-reg (append caller-save-syms callee-save-syms))))
