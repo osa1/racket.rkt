@@ -14,7 +14,7 @@
 (define (uniquify-def def)
   (match def
     [`(define (,fname . ,args) : ,ret-ty ,expr)
-     (let* ([rns (map (lambda (arg) (cons (car arg) (gensym "arg"))) args)]
+     (let* ([rns (map (lambda (arg) (cons (car arg) (fresh "arg"))) args)]
             [args (map (lambda (old rn) `(,(cdr rn) : ,(caddr old))) args rns)]
             [expr (uniquify-expr (make-immutable-hash rns) expr)])
        `(define (,fname ,@args) : ,ret-ty ,expr))]
@@ -39,7 +39,7 @@
      `(,(car e0) . ,(hash-ref rns (cdr e0) (cdr e0)))]
 
     [`(let ([,var ,e1]) ,body)
-     (let* ([fresh (gensym "x")]
+     (let* ([fresh (fresh "x")]
             [rns1 (hash-set rns var fresh)])
        `(,(car e0) .
          (let ([,fresh ,(uniquify-expr rns e1)])

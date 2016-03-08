@@ -21,8 +21,8 @@
 (define (lower-conditionals-instr instr)
   (match instr
     [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
-     (let [(then-lbl (gensym "t_branch"))
-           (end-lbl  (gensym "end_branch"))
+     (let [(then-lbl (fresh "t_branch"))
+           (end-lbl  (fresh "end_branch"))
            (t-instrs (append-map lower-conditionals-instr pgm-t))
            (f-instrs (append-map lower-conditionals-instr pgm-f))]
        `(; If one of the arguments is a immediate value, it needs to be the

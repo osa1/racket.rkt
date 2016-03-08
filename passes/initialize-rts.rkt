@@ -15,7 +15,7 @@
   (match defs
     [`((define main : void ,meta . ,stmts) . ,rest)
      (cons `(define main : void ,meta
-              (assign ,(gensym "unused") 'void
+              (assign ,(fresh "unused") 'void
                       (app (toplevel-fn initialize)
                            ,(initial-root-stack-size) ,(initial-heap-size)))
               ,@stmts)

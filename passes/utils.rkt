@@ -147,3 +147,19 @@
 
 (define all-reg-syms (list->set (append caller-save-syms callee-save-syms)))
 (define all-regs-set (list->set (map mk-reg (append caller-save-syms callee-save-syms))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Gensym is the worst thing ever. It's not deterministic, which means if
+; gensym-generated symbols are used as map keys etc. they make iteration order
+; non-deterministic and debugging impossible.
+
+(define fresh-counter 0)
+
+(define (fresh [prefix #f])
+  (let ([next-fresh fresh-counter])
+    (set! fresh-counter (+ next-fresh 1))
+    (string->symbol
+      (if prefix
+        (string-append prefix "_fresh_" (number->string next-fresh))
+        (string-append "fresh_" (number->string next-fresh))))))

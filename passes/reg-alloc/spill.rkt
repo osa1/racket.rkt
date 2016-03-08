@@ -13,7 +13,7 @@
   (printf "spilling ~a~n" var-sym)
 
   (define temp-prefix (string-append "spill_" (symbol->string var-sym)))
-  (define (mk-temp-var) `(var ,(gensym temp-prefix)))
+  (define (mk-temp-var) `(var ,(fresh temp-prefix)))
 
   (define (gen-spill instr)
     (match instr

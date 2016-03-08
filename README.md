@@ -22,6 +22,3 @@ Then `racket test.rkt` should just work.
 
 - Implement mem-loc coalescing. In programs like r1_12 we're using more stack
   space than necessary.
-
-- Stop using Racket's `gensym` for deterministic outputs. (it's even effecting
-  the register allocation since the order of variables in maps depend on names)

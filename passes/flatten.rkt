@@ -60,18 +60,18 @@
      (values binds pgm (cdr e0))]
 
     [`(read)
-     (let [(fresh (gensym "tmp"))]
+     (let [(fresh (fresh "tmp"))]
        (values binds (cons `(assign ,fresh 'Integer (app (toplevel-fn read_int))) pgm) fresh))]
 
     [`(,(or '- 'not) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-       (let [(fresh (gensym "tmp"))]
+       (let [(fresh (fresh "tmp"))]
          (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1)) pgm) fresh)))]
 
     [`(,(or '+ 'eq?) ,e1 ,e2)
      (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
                    [(binds pgm e2) (flatten-expr binds pgm e2)])
-       (let [(fresh (gensym "tmp"))]
+       (let [(fresh (fresh "tmp"))]
          (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1 ,e2)) pgm) fresh)))]
 
     [(? symbol?)
@@ -80,7 +80,7 @@
 
     [`(let ([,var ,e1]) ,body)
      (let-values ([(binds pgm e1-flat) (flatten-expr binds pgm e1)])
-       (let [(fresh (gensym (string-append "tmp_" (symbol->string var) "_")))]
+       (let [(fresh (fresh (string-append "tmp_" (symbol->string var) "_")))]
          (let-values ([(binds pgm body)
                        (flatten-expr (hash-set binds var fresh)
                                      (cons `(assign ,fresh ,(car e1) ,e1-flat) pgm)
@@ -88,7 +88,7 @@
            (values binds pgm body))))]
 
     [`(if ,e1 ,e2 ,e3)
-     (let [(fresh (gensym "tmp-if"))]
+     (let [(fresh (fresh "tmp-if"))]
        (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
                      [(_ pgm-t ret-t) (flatten-expr binds '() e2)]
                      [(_ pgm-f ret-f) (flatten-expr binds '() e3)])
@@ -98,7 +98,7 @@
 
     [`(vector-ref ,e1 ,idx)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-       (let [(fresh (gensym "tmp"))]
+       (let [(fresh (fresh "tmp"))]
          (values binds (cons `(assign ,fresh ,(car e0) (vector-ref ,e1 ,idx)) pgm) fresh)))]
 
     [`(vector-set! ,vec ,idx ,e)
@@ -107,36 +107,36 @@
      ;;    side-effects. It sucks.
      (let*-values ([(binds pgm vec) (flatten-expr binds pgm vec)]
                    [(binds pgm e) (flatten-expr binds pgm e)])
-       (let [(fresh (gensym "void"))]
+       (let [(fresh (fresh "void"))]
          (values binds (cons `(assign ,fresh void (vector-set! ,vec ,idx ,e)) pgm) fresh)))]
 
     [`(vector . ,elems)
      (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
-       (let [(fresh (gensym "tmp-vec"))]
+       (let [(fresh (fresh "tmp-vec"))]
          (values binds (cons `(assign ,fresh ,(car e0) (vector ,@es)) pgm) fresh)))]
 
     ;; We directly apply top-level functions without indirect jumps.
     [`(app (,_ . (toplevel-fn ,f)) . ,args)
      (let-values ([(binds pgm args) (flatten-expr-list binds pgm args)])
-       (let ([fresh (gensym "funret")])
+       (let ([fresh (fresh "funret")])
          (values binds (cons `(assign ,fresh ,(car e0) (app (toplevel-fn ,f) ,@args)) pgm) fresh)))]
 
     ;; Slow application
     [`(app ,f . ,args)
      (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
                    [(binds pgm args) (flatten-expr-list binds pgm args)])
-       (let ([fresh (gensym "funret")])
+       (let ([fresh (fresh "funret")])
          (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
 
     ;; References to functions are already values
     [`(toplevel-fn ,f)
-     (let ([fresh (gensym "fn")])
+     (let ([fresh (fresh "fn")])
        (values binds (cons `(assign ,fresh ,(car e0) (toplevel-fn ,f)) pgm) fresh))]
 
     ;; [`(app ,f . ,args)
     ;;  (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
     ;;                [(binds pgm args) (flatten-expr-list binds pgm args)])
-    ;;    (let [(fresh (gensym "funret"))]
+    ;;    (let [(fresh (fresh "funret"))]
     ;;      (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
 
     [_ (unsupported-form 'flatten-expr (cdr e0))]))

@@ -27,7 +27,7 @@
 ; movs when not necessary.
 (define (save-callee-saves instrs)
   (define temps (map (lambda (reg-sym)
-                       (cons `(var ,(gensym (string-append "save_" (symbol->string reg-sym) "_")))
+                       (cons `(var ,(fresh (string-append "save_" (symbol->string reg-sym) "_")))
                              `(reg ,reg-sym)))
                      callee-save-syms))
 
@@ -51,8 +51,8 @@
            ,(append-map iter pgm-f)))]
 
       [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
-       (let ([free-ptr-updated (gensym "free_ptr_updated")]
-             [fromspace-end (gensym "fromspace_end")])
+       (let ([free-ptr-updated (fresh "free_ptr_updated")]
+             [fromspace-end (fresh "fromspace_end")])
          ; Here's how instructions used here work:
          ;
          ;    cmpq: is setting the comparison flags.
@@ -77,7 +77,7 @@
              ,(append-map iter pgm-t))))]
 
       [`(call-live-roots ,roots (collect ,bytes-needed))
-       (let ([rootstack-ptr (gensym "rootstack")])
+       (let ([rootstack-ptr (fresh "rootstack")])
          `(; Step 1: Move roots to the root stack
            ,@(if (not (null? roots))
                `((movq (global-value rootstack_begin) (var ,rootstack-ptr))
@@ -190,7 +190,7 @@
               ; [regs-to-save caller-save-regs]
               ; [save-temps (map (lambda (reg)
               ;                    (cons
-              ;                      `(var ,(gensym (string-append "save_"
+              ;                      `(var ,(fresh (string-append "save_"
               ;                                                    (symbol->string (cadr reg))
               ;                                                    "_")))
               ;                      reg))

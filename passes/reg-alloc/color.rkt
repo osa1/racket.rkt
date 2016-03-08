@@ -158,8 +158,6 @@
     (let ([node1 (car coalesce-mb)]
           [node2 (cdr coalesce-mb)])
 
-      (debug-printf "coalesce: ~a ~a~n" node1 node2)
-
       ; As a sanity check, make sure node1 is in both the interference graph
       ; and move-relation graph.
       (unless (and (has-node? graph node1) (has-node? move-rels node1))
@@ -180,6 +178,7 @@
         ; 'simplify-coalesce-freeze-loop', 'reg-alloc-def'...)
 
         (let ([instrs (remove-mov node1 node2 node2 instrs)])
+          (debug-printf "coalesce: ~a to ~a~n" node1 node2)
           (debug-printf "program after coalescing:~n")
           (debug-pretty-print instrs)
 
@@ -211,14 +210,15 @@
         ; 'coalesce' doesn't do any updates so we do it here.
 
         (let* ([new-node
-                 `(var ,(gensym (string-append "c-"
-                                               (symbol->string (car node1))
-                                               "_"
-                                               (symbol->string (car node2)))))]
+                 `(var ,(fresh (string-append "coal_"
+                                              (symbol->string (car node1))
+                                              "_"
+                                              (symbol->string (car node2)))))]
 
                ; Update the program
                [instrs (remove-mov node1 node2 new-node instrs)])
 
+          (debug-printf "coalesce: ~a and ~a to ~a~n" node1 node2 new-node)
           (debug-printf "program after coalescing:~n")
           (debug-pretty-print instrs)
 
