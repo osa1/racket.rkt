@@ -23,3 +23,19 @@ tests you're doing well.
 
 ASSIGNMENT 4:
 All test cases interpreted and compiled successfully. Well done!
+
+ASSIGNMENT 5:
+6/19 test cases compiled successfully.
+None of the test cases that failed compilation passed the interpreter past typechecking. 
+Additionally, it seems that the test case r3_11 from the previous assignment causes your compiler to diverge.
+
+Cases 2, 3, 11, 14, 15, 16 work fine, but the rest fail. It seems that
+your typechecker is inserting types into the AST of the program (other
+than the (type)) node, at least within function definitions.
+
+     	     V failing test case from previous assignment
+Grade: 31% - 1% = 30%
+
+If you think this grade is in error please let me (mvitouse) know.
+And remember that you can submit a fixed version of your compiler
+within a week and get almost full credit!
