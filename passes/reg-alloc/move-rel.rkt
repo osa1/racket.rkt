@@ -23,11 +23,6 @@
   (define (can-relate? arg)
     (match arg
       [`(,(or 'reg 'stk 'var) ,_) #t]
-
-      [`(if ,_ ,pgm-t ,pgm-f)
-       (mk-move-relation-instrs graph int-graph pgm-t)
-       (mk-move-relation-instrs graph int-graph pgm-f)]
-
       [_ #f]))
 
   (define (mk-edge graph arg1 arg2)
@@ -38,4 +33,9 @@
 
   (match instr
     [`(movq ,s ,d) (mk-edge graph s d)]
+
+    [`(if ,_ ,pgm-t ,pgm-f)
+     (mk-move-rel-iter graph int-graph pgm-t)
+     (mk-move-rel-iter graph int-graph pgm-f)]
+
     [_ (void)]))
