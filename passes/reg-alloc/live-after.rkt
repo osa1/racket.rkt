@@ -19,7 +19,7 @@
                      ; accumulator for live-after sets, live-after set for the
                      ; last (first in the list, as we reverse the instructions)
                      ; instruction is an empty set so we add it here
-                     (list (set))))]
+                     (list (set `(reg rax)))))]
        ; Here's a sanity check: Having variables in live-after sets doesn't
        ; make sense
        (for ([set live-afters])
@@ -121,7 +121,7 @@
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
              [`(toplevel-fn ,_) lives]
-             [`(reg ,_) lives]
+             [`(reg ,reg) (set-add lives arg)]
              [`(mem-loc ,_) lives]
              [_ (unsupported-form 'add-live arg)]))
          lives args))
@@ -133,7 +133,7 @@
              [`(offset (var ,_) ,_) lives]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
-             [`(reg ,_) lives]
+             [`(reg ,_) (set-remove lives arg)]
              [`(mem-loc ,_) lives]
              [_ (unsupported-form 'remove-live arg)]))
          lives args))
