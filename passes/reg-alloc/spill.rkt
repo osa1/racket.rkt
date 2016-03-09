@@ -23,12 +23,16 @@
       [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,s ,d)
        (define temp-var (mk-temp-var))
        (cond
+         [(and (equal? s var) (equal? d var))
+          (error 'gen-spill "Ops! I wasn't expecting this: s and d are the same spilled var: ~a~n" s)]
+
          [(equal? s var)
           `((movq ,mem-loc-arg ,temp-var)
-            (movq ,temp-var ,d))]
+            (,(car instr) ,temp-var ,d))]
 
          [(equal? d var)
-          `((movq ,s ,temp-var)
+          `((movq ,mem-loc-arg ,temp-var)
+            (,(car instr) ,s ,temp-var)
             (movq ,temp-var ,mem-loc-arg))]
 
          [#t `(,instr)])]
