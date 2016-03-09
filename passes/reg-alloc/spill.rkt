@@ -62,7 +62,7 @@
       [`(leaq ,s ,d)
        (cond
          [(equal? s var)
-          (error 'gen-spill "Werid leaq argument: ~a~n" instr)]
+          (error 'gen-spill "Weird leaq argument: ~a~n" instr)]
 
          [(equal? d var)
           (define temp-var (mk-temp-var))
