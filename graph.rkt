@@ -47,7 +47,7 @@
 (define nodes hash-keys)
 
 (define (has-edge? graph node1 node2)
-  (set-member? (neighbors graph node1) node2))
+  (set-member? (hash-ref graph node1 set) node2))
 
 (define (has-node? graph node)
   (hash-ref graph node #f))
