@@ -22,6 +22,9 @@
 (require "passes/lower-conditionals.rkt")
 (require "passes/print-x86.rkt")
 
+; debugging
+(require "passes/print-pgm.rkt")
+
 (provide r1-passes r2-passes r3-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
@@ -56,11 +59,15 @@
     ("annotate-lives" ,annotate-lives ,interp-C)
     ("uncover-call-live-roots" ,uncover-call-live-roots ,interp-C)
     ("instr-sel" ,instr-sel ,interp-x86)
-    ; ("assign-homes" ,assign-homes ,interp-x86)
+    ; ("print-pgm" ,(print-pgm "after instr-sel") ,interp-x86)
     ("reg-alloc" ,(reg-alloc "???") ,interp-x86)
+    ; ("print-pgm" ,(print-pgm "after reg-alloc") ,interp-x86)
     ("patch-instructions" ,patch-instructions ,interp-x86)
+    ; ("print-pgm" ,(print-pgm "after patch-instructions") ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)
+    ; ("print-pgm" ,(print-pgm "after elim-movs") ,interp-x86)
     ("lower-conditionals" ,lower-conditionals ,interp-x86)
+    ; ("print-pgm" ,(print-pgm "after lower-conditionals") ,interp-x86)
     ("print-x86" ,print-x86_64 #f)))
 
 ; so much for the composable nanopass approach
