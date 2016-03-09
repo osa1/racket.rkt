@@ -21,4 +21,5 @@ Then `racket test.rkt` should just work.
 - Generated x86\_64 could use some optimizations.
 
 - Implement mem-loc coalescing. In programs like r1_12 we're using more stack
-  space than necessary.
+  space than necessary. Also, we don't re-use stack space allocated for
+  arguments.
