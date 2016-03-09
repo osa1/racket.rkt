@@ -299,14 +299,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (simplify-coalesce-freeze-loop
-          instrs work-set graph move-rels num-available-regs coalesce [iteration 0])
+          instrs work-set spill-set
+          graph move-rels num-available-regs coalesce [iteration 0])
   (let-values ([(instrs work-set)
                 (simplify-coalesce-loop instrs work-set graph move-rels num-available-regs coalesce)])
 
     ; (print-dot graph (format "scfl-~a.dot" iteration) cadr)
 
     ; We're done if the graph is empty
-    (if (eq? (length (filter not-reg? (nodes graph))) 0)
+    (if (null? (filter not-reg? (nodes graph)))
       (values instrs work-set)
 
       ; Otherwise, try to freeze (remove a move-relation)
@@ -317,7 +318,7 @@
             (debug-printf "freeze: ~a~n" freeze-node)
             (remove-node move-rels freeze-node)
             (simplify-coalesce-freeze-loop
-              instrs work-set graph move-rels num-available-regs (+ iteration 1)))
+              instrs work-set spill-set graph move-rels num-available-regs (+ iteration 1)))
 
           ; Can't freeze, push the node to the stack as a potential spill,
           ; restart the loop.
@@ -325,8 +326,9 @@
                  [nbs (remove-node graph node-to-spill)]
                  [work-set (cons (cons node-to-spill nbs) work-set)])
             (debug-printf "spill: ~a~n" node-to-spill)
+            (set-add! spill-set (cadr node-to-spill))
             (simplify-coalesce-freeze-loop
-              instrs work-set graph move-rels num-available-regs (+ iteration 1))))))))
+              instrs work-set spill-set graph move-rels num-available-regs (+ iteration 1))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -338,7 +340,7 @@
 ; - A hash table of variable to register mapping. If a variable is not in the
 ;   table, it means that we actully need to spill the variable.
 ;
-(define (select work-stack num-available-regs)
+(define (select work-stack regs-to-use)
 
   ; We build the interference graph again, using our work stack.
   (define int-graph (mk-graph))
@@ -346,8 +348,7 @@
   ; Variable-to-register mapping.
   (define mapping (make-hash))
 
-  ; (define reg-set (list->set (range num-available-regs)))
-  (define reg-set all-regs-set)
+  (define reg-set (list->set (set-map regs-to-use mk-reg)))
 
   (define (select-iter work)
     (define node (car work))
@@ -375,6 +376,7 @@
         (debug-printf "interfering nodes: ~s~n" nbs)
         (debug-printf "mapping: ~s~n" mapping)
         (debug-printf "used-regs: ~s~n" used-regs)
+        (debug-printf "reg-set: ~s~n" reg-set)
         (debug-printf "avail-regs: ~s~n" avail-regs)
 
         ; Map the variable, if possible.
@@ -422,7 +424,10 @@
 ; - A new program which may have some new spill instructions.
 ; - A mapping from variables to registers.
 ;
-(define (reg-alloc-def pgm-name def)
+(define (reg-alloc-def pgm-name def [regs-to-use all-reg-syms])
+
+  (define num-regs (set-count regs-to-use))
+
   (define (reg-alloc-iter def [cs #t] [last-mem-loc 0] [iteration 0])
 
     ; Run simplify and coalesce loop. The loop return only when it can't
@@ -456,10 +461,16 @@
        ; FIXME: Forgot to update number of registers here. It should still work
        ; fine though, so fix this after fixing spill bugs.
 
-       (define-values (coalesced-instrs work-stack)
-         (simplify-coalesce-freeze-loop instrs `() int-graph move-rels 5 cs))
+       ; This is for debugging purposes only. I want to make sure that we're
+       ; not spilling nodes that are not supposed to be spilled. That is, we're
+       ; only spilling nodes that are pushed to the work stack as potential
+       ; spills.
+       (define spill-set (mutable-set))
 
-       (define-values (int-graph-rebuilt mapping) (select work-stack 5))
+       (define-values (coalesced-instrs work-stack)
+         (simplify-coalesce-freeze-loop instrs `() spill-set int-graph move-rels num-regs cs))
+
+       (define-values (int-graph-rebuilt mapping) (select work-stack regs-to-use))
 
        ; The rebuilt interference graph should be the same as the original one
        ; FIXME: Disabling this for now. For some reason %rax is appearing in
@@ -472,6 +483,7 @@
 
        (define mapped-vars (list->set (map cadr (hash-keys mapping))))
        (define all-vars (collect-vars-instrs coalesced-instrs))
+       (define spilled-vars-set (set-subtract all-vars mapped-vars))
        (define spilled-vars (set->list (set-subtract all-vars mapped-vars)))
 
        ; (debug-printf "work-stack:~n")
@@ -484,9 +496,17 @@
        ; (debug-pretty-print mapped-vars)
        ; (debug-printf "all-vars:~n")
        ; (debug-pretty-print all-vars)
-       ; (debug-printf "spilled:~n")
-       ; (debug-pretty-print spilled-vars)
+       (debug-printf "potential spills:~n")
+       (debug-pretty-print spill-set)
+       (debug-printf "spilled:~n")
+       (debug-pretty-print spilled-vars)
        ; (debug-printf "~n~n~n~n~n")
+
+       (unless (subset? spilled-vars-set spill-set)
+         (error 'reg-alloc-iter
+                (string-append "Unexpected spills.~nspill-set: ~a~nspilled-vars:~a~n"
+                               "Extras: ~a~n")
+                spill-set spilled-vars-set (set-subtract spilled-vars-set spill-set)))
 
        ; (print-dot int-graph-rebuilt
        ;            (string-append pgm-name (format "-final-~a.dot" iteration)) cadr)
