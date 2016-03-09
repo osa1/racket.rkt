@@ -424,7 +424,7 @@
 ; - A new program which may have some new spill instructions.
 ; - A mapping from variables to registers.
 ;
-(define (reg-alloc-def pgm-name def [regs-to-use all-reg-syms])
+(define (reg-alloc-def pgm-name def regs-to-use)
 
   (define num-regs (set-count regs-to-use))
 
