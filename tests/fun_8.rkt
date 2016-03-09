@@ -1,4 +1,4 @@
-(define (add9 [i1 : Integer]
+(define (add6 [i1 : Integer]
               [i2 : Integer]
               [i3 : Integer]
               [i4 : Integer]
@@ -13,4 +13,4 @@
 (define (id [i : Integer]) : Integer
   i)
 
-(+ (add9 1 2 3 5 4 6) (add9 1 2 3 5 4 6))
+(+ (add6 1 2 3 5 4 6) (add6 1 2 3 5 4 6))
