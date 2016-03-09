@@ -16,10 +16,10 @@
      (let-values [((instrs live-before live-afters)
                    (gen-live-afters-instrs
                      (reverse instrs)
-                     ; accumulator for live-after sets, live-after set for the
-                     ; last (first in the list, as we reverse the instructions)
-                     ; instruction is an empty set so we add it here
-                     (list (set `(reg rax)))))]
+                     ; Accumulator for live-after sets, we add the live-after
+                     ; set for the last instruction here. See NOTE [Live-afters
+                     ; for the last instruction].
+                     (list (apply set `(reg rax) callee-save-regs))))]
        ; Here's a sanity check: Having variables in live-after sets doesn't
        ; make sense
        (for ([set live-afters])
@@ -137,3 +137,55 @@
              [`(mem-loc ,_) lives]
              [_ (unsupported-form 'remove-live arg)]))
          lives args))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; NOTE [Live-afters after the last instruction]
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;
+; Callee-save registers need to be alive after the last instruction, otherwise
+; we may end up skipping some save/restore instructions thinking that
+; callee-save regs are dead the whole time. E.g. something like this:
+;
+;   (movq (reg r12) (var save-callee-save-2))
+;   ...
+;   (movq (var save-callee-save-1) (reg rbx)) -- lives: {save-callee-save-2}
+;   (movq (var save-callee-save-2) (reg r12)) -- lives: {}
+;   (retq) -- lives: {}
+;
+; Now we can coalesce save-callee-save-2 and r12, and get this:
+;
+;   ...
+;   (movq (var save-callee-save-1) (reg rbx)) -- lives: {}
+;   (retq) -- lives: {}
+;
+; Now r12 is basically free in the function. That means we don't need to save
+; it anymore, which is wrong. Instead, if we make callee-saves live after the
+; last instruction, we get this: (not all callee-saves shown)
+;
+;   (movq (reg r12) (var save-callee-save-2))
+;   ...
+;   (movq (var save-callee-save-1) (reg rbx)) -- lives: {save-callee-save-2}
+;   (movq (var save-callee-save-2) (reg r12)) -- lives: {rbx}
+;   (retq) -- lives: {r12, rbx}
+;
+; Now we again coalesce and it gives us:
+;
+;   ...
+;   (movq (var save-callee-save-1) (reg rbx)) -- lives: {r12}
+;   (retq) -- lives: {r12, rbx}
+;
+; (NOTE: These are live-afters)
+;
+; As an example how this helps, suppose we had a function call in before
+; restoration:
+;
+;   ...
+;   (callq foo)
+;   ...
+;   (movq (var save-callee-save-1) (reg rbx)) -- lives: {r12}
+;   (retq) -- lives: {r12, rbx}
+;
+; Since caller-save registers interfere with lives when we have a callq, r12
+; will now interfere with caller-save registers and so the register allocator
+; will take care of saving r12.
