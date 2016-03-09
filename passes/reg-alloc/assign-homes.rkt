@@ -22,6 +22,7 @@
 (define (align-stack stack)
   ; TODO: Document this. Since we don't push %rbp anymore we need to play this
   ; game.
+  ; TODO: Only do this if the function calls functions.
   (+ stack 8))
 
 (define (assign-home-instrs asgns instrs)
