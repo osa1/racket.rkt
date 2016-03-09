@@ -23,8 +23,10 @@
 
     [`(define (,fname . ,args) : ,ret-ty . ,stmts)
      (let ([instrs
-             (append (move-arg-regs (map car args))
-                     (save-callee-saves
+             ; TODO: Save callee-saves first or args? Understand how this works
+             ; here and document.
+             (save-callee-saves
+               (append (move-arg-regs (map car args))
                        (append-map instr-sel-stmt stmts)))])
        `(define (,fname ,@args) : ,ret-ty ,@instrs))]
 
