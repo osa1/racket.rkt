@@ -76,7 +76,7 @@
      (if (arg-mem? arg2)
        `((leaq ,arg1 (reg rax))
          (movq (reg rax) ,arg2))
-       instr)]
+       `(,instr))]
 
     [`(,(or 'addq 'subq) ,arg1 ,arg2)
      (if (and (arg-mem? arg1) (arg-mem? arg2))
