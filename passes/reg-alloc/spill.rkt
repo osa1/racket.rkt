@@ -20,19 +20,54 @@
 
       ; TODO: What happens if both s and d are the var to spill?
 
-      [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,s ,d)
-       (define temp-var (mk-temp-var))
+      [`(movq ,s ,d)
        (cond
          [(and (equal? s var) (equal? d var))
-          (error 'gen-spill "Ops! I wasn't expecting this: s and d are the same spilled var: ~a~n" s)]
+          (error 'gen-spill
+                 "Ops! I wasn't expecting this: s and d are the same spilled var: ~a~n"
+                 instr)]
 
          [(equal? s var)
+          (define temp-var (mk-temp-var))
+          `((movq ,mem-loc-arg ,temp-var)
+            (movq ,temp-var ,d))]
+
+         [(equal? d var)
+          (define temp-var (mk-temp-var))
+          `((movq ,s ,temp-var)
+            (movq ,temp-var ,mem-loc-arg))]
+
+         [#t `(,instr)])]
+
+      [`(,(or 'addq 'subq 'cmpq 'xorq) ,s ,d)
+       (cond
+         [(and (equal? s var) (equal? d var))
+          (error 'gen-spill
+                 "Ops! I wasn't expecting this: s and d are the same spilled var: ~a~n"
+                 instr)]
+
+         [(equal? s var)
+          (define temp-var (mk-temp-var))
           `((movq ,mem-loc-arg ,temp-var)
             (,(car instr) ,temp-var ,d))]
 
          [(equal? d var)
+          (define temp-var (mk-temp-var))
           `((movq ,mem-loc-arg ,temp-var)
             (,(car instr) ,s ,temp-var)
+            (movq ,temp-var ,mem-loc-arg))]
+
+         [#t `(,instr)])]
+
+      [`(leaq ,s ,d)
+       (cond
+         [(equal? s var)
+          (error 'gen-spill "Werid leaq argument: ~a~n" instr)]
+
+         [(equal? d var)
+          (define temp-var (mk-temp-var))
+          `((movq ,mem-loc-arg ,temp-var)
+            (leaq ,s ,temp-var)
             (movq ,temp-var ,mem-loc-arg))]
 
          [#t `(,instr)])]
