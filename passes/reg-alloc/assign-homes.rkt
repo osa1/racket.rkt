@@ -56,7 +56,9 @@
   (match arg
     [`(int ,_) arg]
     [`(reg ,_) arg]
-    [`(mem-loc ,l) `(stack ,(* 8 l))]
+    [`(mem-loc ,l)
+     ; mem-locs start from 1, and first stack slot is (%rsp)
+     `(stack ,(* 8 (- l 1)))]
     [`(global-value ,_) arg]
     [`(offset ,arg ,offset)
      `(offset ,(assign-home-arg asgns arg) ,offset)]
