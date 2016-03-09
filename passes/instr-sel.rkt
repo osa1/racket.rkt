@@ -17,10 +17,28 @@
 
 (define (instr-sel-def def)
   (match def
-    [`(define ,tag : ,ret-ty . ,stmts)
+    [`(define main : void . ,stmts)
      (let ([instrs (save-callee-saves (append-map instr-sel-stmt stmts))])
-       `(define ,tag : ,ret-ty ,@instrs))]
+       `(define main : void ,@instrs))]
+
+    [`(define (,fname . ,args) : ,ret-ty . ,stmts)
+     (let ([instrs
+             (append (move-arg-regs (map car args))
+                     (save-callee-saves
+                       (append-map instr-sel-stmt stmts)))])
+       `(define (,fname ,@args) : ,ret-ty ,@instrs))]
+
     [_ (unsupported-form 'instr-sel-def def)]))
+
+(define (move-arg-regs args)
+  (when (> (length args) (length arg-reg-syms))
+    (error 'move-arg-regs
+           (string-append "We don't support argument passing on stack yet.~n"
+                          "Number of args passed: ~a~n") (length args)))
+
+  (map (lambda (arg reg)
+         `(movq (reg ,reg) (var ,arg)))
+       args (take arg-reg-syms (length args))))
 
 ; We move callee-save registers to temporary variables, and restore them just
 ; before the return. It's register allocator's job to be smart and remove these
