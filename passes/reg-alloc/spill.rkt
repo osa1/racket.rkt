@@ -10,7 +10,7 @@
   (define mem-loc-arg `(mem-loc ,mem-loc))
   (define var `(var ,var-sym))
 
-  (printf "spilling ~a~n" var-sym)
+  ; (printf "spilling ~a~n" var-sym)
 
   (define temp-prefix (string-append "spill_" (symbol->string var-sym)))
   (define (mk-temp-var) `(var ,(fresh temp-prefix)))
