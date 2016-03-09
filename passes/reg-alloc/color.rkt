@@ -520,7 +520,7 @@
            (debug-printf "instructions after actual spill:~n")
            (debug-pretty-print instrs-w-spills)
            (reg-alloc-iter `(define ,tag : ,ret-ty ,@instrs-w-spills)
-                           #t (+ last-mem-loc 1) (+ iteration 1)))
+                           #f (+ last-mem-loc 1) (+ iteration 1)))
          ; We're done
          ; FIXME: last-mem-loc is wrong! Spill isntructions are sometimes
          ; removed by coalescing, in which case we still report here as if we
