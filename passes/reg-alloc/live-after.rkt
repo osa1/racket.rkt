@@ -19,7 +19,7 @@
                      ; Accumulator for live-after sets, we add the live-after
                      ; set for the last instruction here. See NOTE [Live-afters
                      ; for the last instruction].
-                     (list (apply set `(reg rax) callee-save-regs))))]
+                     (list (list->set callee-save-regs))))]
        ; Here's a sanity check: Having variables in live-after sets doesn't
        ; make sense
        (for ([set live-afters])
