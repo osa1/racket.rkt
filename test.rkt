@@ -17,7 +17,7 @@
 
 (define (run-all-tests)
   (compiler-tests "spill" typechecker r1-passes "spill" (range 1 16))
-  (compiler-tests "first assignment" typechecker r1-passes "uniquify" (range 1 6))
+  (compiler-tests "first assignment" typechecker r1-passes "uniquify" (range 0 6))
   (compiler-tests "first assignment" typechecker r1-passes "flatten" (range 1 5))
   (compiler-tests "r0" typechecker r1-passes "r0" (range 1 5))
   (compiler-tests "r1" typechecker r1-passes "r1" (range 1 22))
@@ -33,7 +33,7 @@
   ;; Vectors
 
   ; (debug-level 4)
-  (compiler-tests "vec" typechecker r2-passes "vector" (range 1 10))
+  (compiler-tests "vec" typechecker r2-passes "vector" (range 0 10))
 
   ; It takes forever after vector-ref-crazy_20
   ; FIXME: Benchmark this. Could it be gcc's fault?
