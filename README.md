@@ -13,6 +13,9 @@ Then `racket test.rkt` should just work.
 
 # TODO
 
+- Most important TODO: I'm currently doing spilling and assign-homes wrong for
+  offset arguments, so no vectors.
+
 - Too much repetition in pattern matching. Implement lift functions for
   transforming function bodies etc.
 
