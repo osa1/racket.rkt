@@ -140,11 +140,11 @@
              (movq ,temp-var ,mem-loc-arg)))
          `(,instr))]
 
-      [`(callq ,arg1)
+      [`(callq ,n ,arg1)
        (if (equal? arg1 var)
          (let ([temp-var (mk-temp-var)])
            `((movq ,mem-loc-arg ,temp-var)
-             (callq ,temp-var)))
+             (callq ,n ,temp-var)))
          `(,instr))]
 
       [`(,(or 'pushq 'popq) ,arg1)

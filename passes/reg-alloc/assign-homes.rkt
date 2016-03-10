@@ -65,7 +65,9 @@
     [`(,(or 'negq 'pushq 'popq) ,arg)
      `(,(car instr) ,(assign-home-arg asgns stack-size arg))]
 
-    [`(callq ,arg) `(callq ,(assign-home-arg asgns stack-size arg))]
+    [`(callq ,_ ,arg)
+     ; Here we're dropping the arity since we're done with register allocation.
+     `(callq ,(assign-home-arg asgns stack-size arg))]
 
     [`(retq) instr]
 
@@ -118,7 +120,8 @@
        [`(,(or 'negq 'pushq 'popq) ,arg)
         (has-callq? instrs)]
 
-       [`(callq ,_) #t]
+       [(or `(callq ,_ ,_) `(callq ,_))
+        #t]
 
        [`(retq) (has-callq? instrs)]
 

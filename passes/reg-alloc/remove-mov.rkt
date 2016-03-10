@@ -40,8 +40,8 @@
       [`(,(or 'negq 'pushq 'popq) ,arg)
        `((,(car instr) ,(replace-arg arg)))]
 
-      [`(callq ,arg)
-       `((callq ,(replace-arg arg)))]
+      [`(callq ,n ,arg)
+       `((callq ,n ,(replace-arg arg)))]
 
     [`(retq) `(,instr)]
 

@@ -117,7 +117,7 @@
            (movq (int ,bytes-needed) (reg rsi))
 
            ; Step 3: Call the collector
-           (callq (toplevel-fn collect))
+           (callq 2 (toplevel-fn collect))
 
            ; Step 4: Move new roots back to the variables
            ,@(if (not (null? roots))
@@ -243,7 +243,7 @@
 
            ,@(map (lambda (arg) `(pushq ,(arg->x86-arg arg))) stack-args)
 
-           (callq ,(arg->x86-arg f))
+           (callq ,(length args) ,(arg->x86-arg f))
 
            ,@(if (not (null? stack-args))
                (if (odd? (length stack-args))
@@ -297,7 +297,7 @@
     [`(,(or 'negq 'pushq 'popq) ,arg)
      (collect-vars-arg  arg)]
 
-    [`(callq ,arg) (collect-vars-arg arg)]
+    [`(callq ,_ ,arg) (collect-vars-arg arg)]
 
     [`(retq) (set)]
 

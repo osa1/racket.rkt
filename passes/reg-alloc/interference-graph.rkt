@@ -77,7 +77,7 @@
 
     [`(retq) (void)]
 
-    [`(callq ,s)
+    [`(callq ,_ ,s)
      ; Variables need to stay alive across a function call interfere with the
      ; caller-save registers.
      (for ([live lives])

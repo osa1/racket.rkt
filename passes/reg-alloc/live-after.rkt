@@ -82,8 +82,35 @@
     [`(negq ,arg1)
      (values instr (add-live lives arg1))]
 
-    [`(callq ,arg1)
-     (values instr (add-live lives arg1))]
+    [`(callq ,n ,arg1)
+     ; callq reads argument registers! Here's a bug that happens when we're not
+     ; careful about this:
+     ;
+     ;   (movq (reg rdi) (var arg0))
+     ;   ...
+     ;   (movq (var arg0) (reg rdi))
+     ;   (callq fn)
+     ;
+     ; Now we coalesce (var arg0) and (reg rdi). Previously arg0 was live just
+     ; before the function call, but now it's dead, because it's now %rdi and
+     ; %rdi is dead, which means we can freely use %rdi in ... part, which is
+     ; wrong.
+     ;
+     ; Note that while adding all argument registers would solve the problem,
+     ; it has another problem, namely, it can make more register live than
+     ; necessary. In our example, we only need to make sure %rdi is live, other
+     ; arg registers could be used freely. If they need to live across the
+     ; function call, interference graph will have an edge and so the register
+     ; allocator will take care of that.
+     ;
+     ; So instead here we annotate callq instructions with number of arguments
+     ; the function is expecting, and use that to add only the actual argument
+     ; registers to the live set.
+     ;
+     ; TODO: We need to handle stack arguments once we start doing stack
+     ; location coalescing.
+     (values instr (apply add-live lives
+                          (cons arg1 (take arg-regs (min n (length arg-regs))))))]
 
     [`(retq)
      (values instr lives)]
