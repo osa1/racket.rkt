@@ -86,9 +86,10 @@
       [`(,(or 'addq 'subq 'cmpq 'xorq) ,s ,d)
        (cond
          [(and (equal? s var) (equal? d var))
-          (error 'gen-spill
-                 "Ops! I wasn't expecting this: s and d are the same spilled var: ~a~n"
-                 instr)]
+          (define temp-var (mk-temp-var))
+          `((movq ,mem-loc-arg ,temp-var)
+            (,(car instr) ,temp-var ,temp-var)
+            (movq ,temp-var ,mem-loc-arg))]
 
          [(equal? s var)
           (define temp-var (mk-temp-var))
