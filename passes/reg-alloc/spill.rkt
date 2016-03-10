@@ -20,6 +20,50 @@
 
       ; TODO: What happens if both s and d are the var to spill?
 
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ; Special case for offset
+      ; Currently only place where a offset can appear is in mov instructions.
+
+      [`(movq (offset ,s ,offset) ,d)
+       (cond
+         [(and (equal? s var) (equal? d var))
+          (error 'gen-spill
+                 "Ops! I wasn't expecting this: s and d are the same spilled var: ~a~n"
+                 instr)]
+
+         [(equal? s var)
+          (define temp-var (mk-temp-var))
+          `((movq ,mem-loc-arg ,temp-var)
+            (movq (offset ,temp-var ,offset) ,d))]
+
+         [(equal? d var)
+          (define temp-var (mk-temp-var))
+          `((movq (offset ,s ,offset) ,temp-var)
+            (movq ,temp-var ,mem-loc-arg))]
+
+         [#t `(,instr)])]
+
+      [`(movq ,s (offset ,d ,offset))
+       (cond
+         [(and (equal? s var) (equal? d var))
+          (error 'gen-spill
+                 "Ops! I wasn't expecting this: s and d are the same spilled var: ~a~n"
+                 instr)]
+
+         [(equal? s var)
+          (define temp-var (mk-temp-var))
+          `((movq ,mem-loc-arg ,temp-var)
+            (movq ,temp-var ,d))]
+
+         [(equal? d var)
+          (define temp-var (mk-temp-var))
+          `((movq ,mem-loc-arg ,temp-var)
+            (movq ,s (offset ,temp-var ,offset)))]
+
+         [#t `(,instr)])]
+
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
       [`(movq ,s ,d)
        (cond
          [(and (equal? s var) (equal? d var))

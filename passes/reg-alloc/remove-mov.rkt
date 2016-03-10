@@ -22,6 +22,12 @@
            ,(append-map iter pgm-t)
            ,(append-map iter pgm-f)))]
 
+      [`(movq (offset ,arg1 ,offset) ,arg2)
+       `((movq (offset ,(replace-arg arg1) ,offset) ,(replace-arg arg2)))]
+
+      [`(movq ,arg1 (offset ,arg2 ,offset))
+       `((movq ,(replace-arg arg1) (offset ,(replace-arg arg2) ,offset)))]
+
       [`(movq ,arg1 ,arg2)
        (if (or (and (equal? arg1 var1) (equal? arg2 var2))
                (and (equal? arg1 var2) (equal? arg2 var1)))
