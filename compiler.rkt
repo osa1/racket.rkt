@@ -25,6 +25,8 @@
 ; debugging
 (require "passes/print-pgm.rkt")
 
+(require (only-in "passes/utils.rkt" reset-fresh-counter-pass))
+
 (provide r1-passes r2-passes r3-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
@@ -45,7 +47,12 @@
          print-x86_64)
 
 (define r1-passes
-  `(("desugar" ,desugar ,interp-scheme)
+  `(; Reset the fresh name generator counter before each compilation to get
+    ; deterministic outputs when running batch compilations.
+    ; FIXME: What happens if we use (fresh) in type checker?
+    ("reset-fresh-counter" ,reset-fresh-counter-pass ,interp-scheme)
+
+    ("desugar" ,desugar ,interp-scheme)
 
     ;; TODO: Think about the best place for this. One of the goals here is to
     ;; avoid generating illegal instructions for code like (if (eq? 1 1) _ _).

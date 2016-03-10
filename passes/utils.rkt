@@ -156,6 +156,13 @@
 
 (define fresh-counter 0)
 
+(define (reset-fresh-counter)
+  (set! fresh-counter 0))
+
+(define (reset-fresh-counter-pass pgm)
+  (set! fresh-counter 0)
+  pgm)
+
 (define (fresh [prefix #f])
   (let ([next-fresh fresh-counter])
     (set! fresh-counter (+ next-fresh 1))
