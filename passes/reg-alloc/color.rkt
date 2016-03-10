@@ -52,7 +52,7 @@
         (begin
           ; (debug-printf "can't simplify! num-available-regs: ~a graph:~n" num-available-regs)
           ; (debug-pretty-print graph)
-          (debug-printf "simplify: can't simplify.~n")
+          ; (debug-printf "simplify: can't simplify.~n")
           #f))))
 
   (let ([iter (filter id (map loop (filter not-reg? (nodes graph))))])
