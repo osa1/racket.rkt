@@ -27,9 +27,19 @@
     [_ (unsupported-form 'mk-interference-graph def)]))
 
 (define (add-int graph arg1 arg2)
-  (when (and (or (eq? (car arg1) 'reg) (eq? (car arg1) 'var))
-             (or (eq? (car arg2) 'reg) (eq? (car arg2) 'var)))
-    (add-edge graph arg1 arg2)))
+
+  (define (int-ok? arg)
+    (match arg
+      [`(reg ,_) arg]
+      [`(var ,_) arg]
+      [`(offset ,arg ,_) (int-ok? arg)]
+      [_ #f]))
+
+  (define int-val-arg1 (int-ok? arg1))
+  (define int-val-arg2 (int-ok? arg2))
+
+  (when (and int-val-arg1 int-val-arg2)
+    (add-edge graph int-val-arg1 int-val-arg2)))
 
 (define (build-int-graph-instrs instrs live-sets graph)
   (map (lambda (instr lives) (build-int-graph instr (set->list lives) graph)) instrs live-sets))
