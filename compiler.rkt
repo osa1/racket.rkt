@@ -69,7 +69,7 @@
     ; ("print-pgm" ,(print-pgm "after instr-sel") ,interp-x86)
     ("reg-alloc" ,(reg-alloc "???") ,interp-x86)
     ; ("print-pgm" ,(print-pgm "after reg-alloc") ,interp-x86)
-    ("patch-instructions" ,patch-instructions ,interp-x86)
+    ; ("patch-instructions" ,patch-instructions ,interp-x86)
     ; ("print-pgm" ,(print-pgm "after patch-instructions") ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)
     ; ("print-pgm" ,(print-pgm "after elim-movs") ,interp-x86)
