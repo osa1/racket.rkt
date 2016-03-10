@@ -116,7 +116,7 @@
   (foldl (lambda (arg lives)
            (match arg
              [`(var ,_) (set-add lives arg)]
-             [`(offset (var ,_) ,_) (set-add lives (cadr arg))]
+             [`(offset (,(or 'var 'reg) ,_) ,_) (set-add lives (cadr arg))]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
              [`(toplevel-fn ,_) lives]
@@ -129,7 +129,7 @@
   (foldl (lambda (arg lives)
            (match arg
              [`(var ,_) (set-remove lives arg)]
-             [`(offset (var ,_) ,_) lives]
+             [`(offset (,(or 'var 'reg) ,_) ,_) lives]
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
              [`(reg ,_) (set-remove lives arg)]
