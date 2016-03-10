@@ -27,7 +27,7 @@
 
 (require (only-in "passes/utils.rkt" reset-fresh-counter-pass))
 
-(provide r1-passes r2-passes r3-passes
+(provide r1-passes r2-passes r3-passes r4-passes
          ; export individual passes for testing purposes
          ; (see test.rkt)
 
@@ -80,3 +80,4 @@
 ; so much for the composable nanopass approach
 (define r2-passes r1-passes)
 (define r3-passes r1-passes)
+(define r4-passes r1-passes)
