@@ -147,6 +147,11 @@
              (callq ,temp-var)))
          `(,instr))]
 
+      [`(,(or 'pushq 'popq) ,arg1)
+       (if (equal? arg1 var)
+         `((,(car instr) ,mem-loc-arg))
+         `(,instr))]
+
       [`(retq) `(,instr)]
 
       [`(,(or 'sete 'setl) (byte-reg al))
