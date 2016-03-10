@@ -53,7 +53,7 @@
          [(equal? s var)
           (define temp-var (mk-temp-var))
           `((movq ,mem-loc-arg ,temp-var)
-            (movq ,temp-var ,d))]
+            (movq ,temp-var (offset ,d ,offset)))]
 
          [(equal? d var)
           (define temp-var (mk-temp-var))
@@ -111,8 +111,7 @@
 
          [(equal? d var)
           (define temp-var (mk-temp-var))
-          `((movq ,mem-loc-arg ,temp-var)
-            (leaq ,s ,temp-var)
+          `((leaq ,s ,temp-var)
             (movq ,temp-var ,mem-loc-arg))]
 
          [#t `(,instr)])]
