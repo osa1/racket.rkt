@@ -26,7 +26,7 @@
     [`(and ,e1 ,e2)
      (let [(e1-ds (desugar-expr e1))
            (e2-ds (desugar-expr e2))]
-       `((car e0) . (if (Bool . (eq? ,e1-ds (Bool . #t))) ,e2-ds (Bool . #f))))]
+       `((car e0) . (if (Boolean . (eq? ,e1-ds (Boolean . #t))) ,e2-ds (Boolean . #f))))]
 
     [`(if ,e1 ,e2 ,e3)
      `(,(car e0) . (if ,(desugar-expr e1) ,(desugar-expr e2) ,(desugar-expr e3)))]

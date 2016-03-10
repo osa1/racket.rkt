@@ -33,10 +33,10 @@
                  [`(,e2-ty . ,e2) (choose-branch-expr e2)])
        (cond [(and (or (fixnum? e1) (boolean? e1))
                    (or (fixnum? e2) (boolean? e2)))
-              `(Bool . ,(equal? e1 e2))]
+              `(Boolean . ,(equal? e1 e2))]
 
              [(and (symbol? e1) (symbol? e2) (equal? e1 e2))
-              `(Bool . #t)]
+              `(Boolean . #t)]
 
              [else `(,(car e0) . (eq? (,e1-ty . ,e1) (,e2-ty . ,e2)))]))]
 
