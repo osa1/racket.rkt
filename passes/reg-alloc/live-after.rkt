@@ -70,9 +70,8 @@
     [`(popq ,arg1)
      (values instr (remove-live lives arg1))]
 
-    ; Don't do anything -- argument has to be a register.
-    [`(,(or 'sete 'setl) ,_)
-     (values instr lives)]
+    [`(,(or 'sete 'setl) (byte-reg al))
+     (values instr (remove-live lives `(reg rax)))]
 
     [`(movzbq (byte-reg al) ,arg2)
      (values instr (remove-live lives arg2))]
