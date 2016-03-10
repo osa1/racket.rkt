@@ -14,9 +14,9 @@
   ; (printf "====================================~n")
   (match def
     [`(define ,tag : ,ret-ty ,stack-locs-used . ,instrs)
-     `(define ,tag : ,ret-ty
-        (,(align-stack stack-locs-used instrs))
-        ,@(assign-home-instrs mapping instrs))]
+     (define stack-aligned (align-stack stack-locs-used instrs))
+     `(define ,tag : ,ret-ty (,stack-aligned)
+        ,@(assign-home-instrs mapping stack-aligned instrs))]
     [_ (unsupported-form 'assign-homes def)]))
 
 (define (align-stack stack-locs-used instrs)
@@ -47,43 +47,53 @@
       (* 8 stack-locs-used))
     (* 8 stack-locs-used)))
 
-(define (assign-home-instrs asgns instrs)
-  (map (lambda (instr) (assign-home-instr asgns instr)) instrs))
+(define (assign-home-instrs asgns stack-size instrs)
+  (map (lambda (instr) (assign-home-instr asgns stack-size instr)) instrs))
 
-(define (assign-home-instr asgns instr)
+(define (assign-home-instr asgns stack-size instr)
   (match instr
     [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
-     `(if (eq? ,(assign-home-arg asgns arg1) ,(assign-home-arg asgns arg2))
-        ,(assign-home-instrs asgns pgm-t)
-        ,(assign-home-instrs asgns pgm-f))]
+     `(if (eq? ,(assign-home-arg asgns stack-size arg1)
+               ,(assign-home-arg asgns stack-size arg2))
+        ,(assign-home-instrs asgns stack-size pgm-t)
+        ,(assign-home-instrs asgns stack-size pgm-f))]
 
     [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,arg1 ,arg2)
-     `(,(car instr) ,(assign-home-arg asgns arg1) ,(assign-home-arg asgns arg2))]
+     `(,(car instr) ,(assign-home-arg asgns stack-size arg1)
+                    ,(assign-home-arg asgns stack-size arg2))]
 
     [`(,(or 'negq 'pushq 'popq) ,arg)
-     `(,(car instr) ,(assign-home-arg asgns arg))]
+     `(,(car instr) ,(assign-home-arg asgns stack-size arg))]
 
-    [`(callq ,arg) `(callq ,(assign-home-arg asgns arg))]
+    [`(callq ,arg) `(callq ,(assign-home-arg asgns stack-size arg))]
 
     [`(retq) instr]
 
     [`(,(or 'sete 'setl) (byte-reg al)) instr]
 
     [`(movzbq (byte-reg al) ,arg)
-     `(movzbq (byte-reg al) ,(assign-home-arg asgns arg))]
+     `(movzbq (byte-reg al) ,(assign-home-arg asgns stack-size arg))]
 
     [_ (unsupported-form 'assign-home-instr instr)]))
 
-(define (assign-home-arg asgns arg)
+(define (assign-home-arg asgns stack-size arg)
   (match arg
     [`(int ,_) arg]
     [`(reg ,_) arg]
     [`(mem-loc ,l)
-     ; mem-locs start from 1, and first stack slot is (%rsp)
-     `(stack ,(* 8 (- l 1)))]
+     (cond
+       [(eq? l 0)
+        ; This slot is occupied by the return address pushed by callq.
+        (error 'assign-home-arg "Found mem-loc 0.")]
+       [(< l 0)
+        ; An argument passed on stack
+        `(stack ,(+ (* 8 (- l)) stack-size))]
+       [#t
+        ; Local variable
+        `(stack ,(* 8 (- l 1)))])]
     [`(global-value ,_) arg]
     [`(offset ,arg ,offset)
-     `(offset ,(assign-home-arg asgns arg) ,offset)]
+     `(offset ,(assign-home-arg asgns stack-size arg) ,offset)]
     [`(toplevel-fn ,_) arg]
     [`(var ,var)
      (let [(asgn (hash-ref asgns `(var ,var) '()))]

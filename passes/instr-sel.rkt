@@ -33,14 +33,17 @@
     [_ (unsupported-form 'instr-sel-def def)]))
 
 (define (move-arg-regs args)
-  (when (> (length args) (length arg-reg-syms))
-    (error 'move-arg-regs
-           (string-append "We don't support argument passing on stack yet.~n"
-                          "Number of args passed: ~a~n") (length args)))
+  (define-values (reg-args stack-args) (split-at-max args (length arg-reg-syms)))
 
-  (map (lambda (arg reg)
-         `(movq (reg ,reg) (var ,arg)))
-       args (take arg-reg-syms (length args))))
+  (append
+    (map (lambda (arg reg)
+           `(movq (reg ,reg) (var ,arg)))
+         reg-args (take arg-reg-syms (length reg-args)))
+
+    (map (lambda (idx arg)
+           ; Using negative index as indicator
+           `(movq (mem-loc ,(- idx)) (var ,arg)))
+         (range 1 (+ (length stack-args) 1)) stack-args)))
 
 ; We move callee-save registers to temporary variables, and restore them just
 ; before the return. It's register allocator's job to be smart and remove these
@@ -216,11 +219,6 @@
               ;                      reg))
               ;                  regs-to-save)]
               )
-
-         ; FIXME: We don't support passing arguments on stack.
-         (when (not (null? stack-args))
-           (error 'instr-sel "We don't support passing arguments on stack: ~a~n" expr))
-
          `(; NOTE: We don't save caller-save registers here! It's taken care of
            ; by the register allocation, because we interfere caller-save
            ; registers with live variables after a callq. So if a variable
@@ -234,7 +232,24 @@
            ,@(map (lambda (arg reg)
                     `(movq ,(arg->x86-arg arg) ,reg)) reg-args (take arg-regs (length reg-args)))
 
+           ; Move stack args.
+           ; I don't like pushq/popq, but that's all I could think of at the moment.
+           ; Make sure the stack will stay aligned:
+           ,@(if (not (null? stack-args))
+               (if (odd? (length stack-args))
+                 `((addq (int 8) (reg rsp)))
+                 `())
+               `())
+
+           ,@(map (lambda (arg) `(pushq ,(arg->x86-arg arg))) stack-args)
+
            (callq ,(arg->x86-arg f))
+
+           ,@(if (not (null? stack-args))
+               (if (odd? (length stack-args))
+                 `((addq (int ,(* 8 (+ (length stack-args) 1))) (reg rsp)))
+                 `((addq (int ,(* 8    (length stack-args)   )) (reg rsp))))
+               `())
 
            ; Move return value to its destination
            (movq (reg rax) ,(arg->x86-arg bind-to))
