@@ -156,7 +156,14 @@
   (foldl (lambda (arg lives)
            (match arg
              [`(var ,_) (set-remove lives arg)]
-             [`(offset (,(or 'var 'reg) ,_) ,_) lives]
+
+             [`(offset (,(or 'var 'reg) ,_) ,_)
+              ; TODO: Maybe we should do this in the call site. The idea is
+              ; that the arguments used for relative addressing are not killed
+              ; even if they're in the destination position, as we actually use
+              ; the argument for reading.
+              (add-live lives arg)]
+
              [(or `(int ,_) `(stack ,_) `(global-value ,_))
               lives]
              [`(reg ,_) (set-remove lives arg)]
