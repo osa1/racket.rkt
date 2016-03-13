@@ -52,7 +52,7 @@
      (instr2 (car stmt) (print-x86_64-arg arg1))]
 
     [`(label ,lbl)
-     (string-append "\n" (symbol->string lbl) ":")]
+     (string-append (symbol->string lbl) ":")]
 
     [`(retq) (instr1 (car stmt))]
 
