@@ -113,7 +113,9 @@
                           (cons arg1 (take arg-regs (min n (length arg-regs))))))]
 
     [`(retq)
-     (values instr lives)]
+     ; FIXME: This is only true if return type is not void. Otherwise it's OK
+     ; to return garbage.
+     (values instr (add-live lives `(reg rax)))]
 
     [(or `(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
          ; It's important that we handle this pattern here. We sometimes
