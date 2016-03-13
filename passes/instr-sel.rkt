@@ -199,16 +199,7 @@
     [`(allocate ,obj-types)
      ; We need to allocate 8 bytes (for header) + 1 dword for each object
      (let* ([alloc-size (+ 8 (* 8 (length obj-types)))]
-            [ptr-idxs (filter-nulls (map (lambda (idx obj-type)
-                                           (if (and (list? obj-type)
-                                                    (eq? (car obj-type) 'Vector))
-                                             idx '()))
-                                         (range (length obj-types)) obj-types))]
-
-            [length-bits (arithmetic-shift (length obj-types) 1)]
-            ; TODO: We need to do some range checking here.
-            [bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7)]
-            [obj-tag (bitwise-ior length-bits bitfield 1)]
+            [obj-tag (vec-info-field obj-types)]
             [vec-arg (arg->x86-arg bind-to)])
        `(; Step 0: Read the free_ptr
          (movq (global-value free_ptr) ,vec-arg)

@@ -150,6 +150,42 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (is-ptr-obj? obj-type)
+  (match obj-type
+    [`(Vector . ,_) #t]
+    [_ #f]))
+
+; Generating info fields for vectors
+(define (vec-info-field field-types)
+
+  ; Format:
+  ;
+  ;  Most significant bit                       Least significant bit
+  ;  V                                                              V
+  ; +----------------------------------------------------------------+ 64-bit
+  ; |       ppppppppppppppppppppppppppppppppppppppppppppppppppllllllf|
+  ; +----------------------------------------------------------------+
+  ;
+  ; f: Forwarding bit
+  ; l: 6-bits, length
+  ; p: 50-bits, pointer mask
+  ; empty space: 7-bits, unused
+
+  (define ptr-idxs
+    (append-map (lambda (idx field-type)
+                  (if (is-ptr-obj? field-type) `(,idx) '()))
+                (range (length field-types)) field-types))
+
+  ; TODO: We need to do some range checking here.
+
+  (define length-bits (arithmetic-shift (length field-types) 1))
+  (define bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7))
+  (define obj-tag (bitwise-ior length-bits bitfield 1))
+
+  obj-tag)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; Gensym is the worst thing ever. It's not deterministic, which means if
 ; gensym-generated symbols are used as map keys etc. they make iteration order
 ; non-deterministic and debugging impossible.
