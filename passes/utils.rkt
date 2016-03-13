@@ -166,7 +166,8 @@
   ; |       ppppppppppppppppppppppppppppppppppppppppppppppppppllllllf|
   ; +----------------------------------------------------------------+
   ;
-  ; f: Forwarding bit
+  ; f: Forwarding bit - 1 means not forwarding,
+  ;                     0 means this whole thing is actually a pointer
   ; l: 6-bits, length
   ; p: 50-bits, pointer mask
   ; empty space: 7-bits, unused
