@@ -26,3 +26,5 @@ Then `racket test.rkt` should just work.
 - Implement mem-loc coalescing. In programs like r1_12 we're using more stack
   space than necessary. Also, we don't re-use stack space allocated for
   arguments.
+
+- Implement root stack overflow checks.
