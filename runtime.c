@@ -92,6 +92,8 @@ void initialize(uint64_t rootstack_size, uint64_t heap_size)
     exit(EXIT_FAILURE);
   }
 
+  rootstack_ptr = rootstack_begin;
+
   // 2.5 Calculate the ends memory we are using.
   // Note: the pointers are for a half open interval [begin, end)
   fromspace_end = fromspace_begin + heap_size;
@@ -105,9 +107,27 @@ void initialize(uint64_t rootstack_size, uint64_t heap_size)
   initialized = 1;
 }
 
+int shutdown()
+{
+#ifndef NDEBUG
+    if (rootstack_ptr != rootstack_begin)
+    {
+        printf("rootstack_ptr is not reset before shutdown.\n");
+        printf("rootstack_ptr: %p rootstack_begin: %p\n",
+               (void*)rootstack_ptr, (void*)rootstack_begin);
+        return 1;
+    }
+
+#endif
+    free(fromspace_begin);
+    free(tospace_begin);
+    free(rootstack_begin);
+    return 0;
+}
+
 // cheney implements cheney's copying collection algorithm
 // There is a stub and explaination below.
-static void cheney(uint8_t** rootstack_ptr);
+static void cheney();
 
 void print_vector(int64_t* vector)
 {
@@ -158,7 +178,7 @@ void print_vector(int64_t* vector)
     }
 }
 
-void print_root_stack(uint8_t** rootstack_ptr)
+void print_root_stack()
 {
     printf("[\n");
 
@@ -172,7 +192,7 @@ void print_root_stack(uint8_t** rootstack_ptr)
     printf("]\n");
 }
 
-void print_pointers(void* free_ptr, void* rootstack_ptr)
+void print_pointers(void* free_ptr)
 {
     printf("=== POINTERS ===\n");
     printf("fromspace begin = %p\n", (void*)fromspace_begin);
@@ -184,7 +204,7 @@ void print_pointers(void* free_ptr, void* rootstack_ptr)
     printf("================\n");
 }
 
-void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
+void collect(int64_t bytes_requested)
 {
   // 1. Check our assumptions about the world
 #ifndef NDEBUG
@@ -226,7 +246,7 @@ void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
 #endif
 
     // 2. Perform collection
-    cheney(rootstack_ptr);
+    cheney();
 
     // 3. Check if collection freed enough space in order to allocate
     if (fromspace_end - free_ptr < bytes_requested)
@@ -276,7 +296,7 @@ void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
       // so this cannot be just a memcopy of the heap.
       // Performing cheney's algorithm again will have the correct
       // effect, and we have already implemented it.
-      cheney(rootstack_ptr);
+      cheney();
 
       // Cheney flips tospace and fromspace. Thus, we allocate another
       // tospace not fromspace as we might expect.
@@ -298,40 +318,7 @@ void collect(uint8_t** rootstack_ptr, int64_t bytes_requested)
 // There is a stub and explaination for copy_vector below.
 static void copy_vector(int64_t** vector_ptr_loc);
 
-/*
-  The cheney algorithm takes a pointer to the top of the rootstack.
-  It resets the free pointer to be at the begining of tospace, copies
-  (or reallocates) the data pointed to by the roots into tospace and
-  replaces the pointers in the rootset with pointers to the
-  copies. (See the description of copy_vector below).
-
-  While this initial copying of root vectors is occuring the free_ptr
-  has been maintained to remain at the next free memory location in
-  tospace. Cheney's algorithm then scans a vector at a time until it
-  reaches the free_ptr.
-
-  At each vector we use the meta information stored in the vector tag
-  to find the length of the vector and tell which fields inside the
-  vector are vector pointers. Each new vector pointer must have its
-  data copied and every vector pointer must be updated to to point to
-  the copied data. (The description of copy_vector will help keep this
-  organized.
-
-  This process is a breadth first graph traversal. Copying a vector
-  places its contents at the end of a Fifo queue and scanning a vector
-  removes it. Eventually the graph traversal will run out of unseen
-  nodes "catch up" to the free pointer. When this occurs we know that
-  all live data in the program is contained by tospace, and that
-  everything left in fromspace is unreachable by the program.
-
-  After this point the free pointer will be pointing into what until
-  now we considered tospace. This means the program will allocate
-  object here. In order to keep track of the we "flip" fromspace and
-  tospace by making the fromspace pointers point to tospace and vice
-  versa.
-*/
-
-void cheney(uint8_t** rootstack_ptr)
+void cheney()
 {
     free_ptr = tospace_begin;
 
@@ -380,57 +367,6 @@ void cheney(uint8_t** rootstack_ptr)
     fromspace_end = tmp;
 }
 
-
-/*
- copy_vector takes a pointer, (`location`) to a vector pointer,
- copies the vector data from fromspace into tospace, and updates the
- vector pointer so that it points to the the data's new address in
- tospace.
-
-  Precondition:
-    *  original vector pointer location
-    |
-    V
-   [*] old vector pointer
-    |
-    +-> [tag or forwarding pointer | ? | ? | ? | ...] old vector data
-
- Postcondition:
-    * original vector pointer location
-    |
-    V
-   [*] new vector pointer
-    |
-    |   [ * forwarding pointer | ? | ? | ? | ...] old vector data
-    |     |
-    |     V
-    +---->[tag | ? | ? | ? | ...] new vector data
-
- Since multiple pointers to the same vector can exist within the
- memory of the program this may or may not be the first time
- we called `copy_vector` on a location that contains this old vector
- pointer. In order to tell if we have copied the old vector data previously we
- check the vector information tag (`tag = old_vector_pointer[0]`).
-
- If the forwarding bit is set, then is_forwarding(tag) will return
- false and we know we haven't already copied the data. In order to
- figure out how much data to copy we can inspect the tag's length
- field. The length field indicates the number of 64-bit words the
- array is storing for the user, so we need to copy `length + 1` words
- in total, including the tag. After performing the
- copy we need to leave a forwarding pointer in old data's tag field
- to indicate the new address to subsequent copy_vector calls for this
- vector pointer. Furthermore, we need to store the new vector's pointer
- at the location where where we found the old vector pointer.
-
- If the tag is a forwarding pointer, the `is_forwarding(tag) will return
- true and we need to update the location storing the old vector pointer to
- point to the new data instead).
-
- As a side note any time you are allocating new data you must maintain
- the invariant that the free_ptr points to the next free memory address.
-
-*/
 void copy_vector(int64_t** vector_ptr_loc)
 {
     int64_t* vector = *vector_ptr_loc;

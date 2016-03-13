@@ -15,10 +15,17 @@
   (match defs
     [`((define main : void ,meta . ,stmts) . ,rest)
      (cons `(define main : void ,meta
+
+              ; Initialize RTS
               (assign ,(fresh "unused") 'void
                       (app (toplevel-fn initialize)
                            ,(initial-root-stack-size) ,(initial-heap-size)))
-              ,@stmts)
+
+              ; Original program
+              ,@stmts
+
+              ; Shutdown RTS
+              (assign ,(fresh "unused") 'void (app (toplevel-fn shutdown))))
            rest)]
     [`(,def . ,defs)
      (cons def (initialize-rts-iter defs))]

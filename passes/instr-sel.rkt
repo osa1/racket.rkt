@@ -62,16 +62,9 @@
 (define (instr-sel-stmt stmt)
   (let iter ([stmt stmt])
     (match stmt
-      [`(assign ,var ,expr)
-       (instr-sel-expr var expr)]
 
-      [`(return ,arg)
-       `((movq ,(arg->x86-arg arg) (reg rax)))]
-
-      [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
-       `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
-           ,(append-map iter pgm-t)
-           ,(append-map iter pgm-f)))]
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ; GC-related parts
 
       [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
        (let ([free-ptr-updated (fresh "free_ptr_updated")]
@@ -101,32 +94,75 @@
 
       [`(call-live-roots ,roots (collect ,bytes-needed))
        (let ([rootstack-ptr (fresh "rootstack")])
-         `(; Step 1: Move roots to the root stack
-           ,@(if (not (null? roots))
-               `((movq (global-value rootstack_begin) (var ,rootstack-ptr))
+         `(,@(if (not (null? roots))
+               `(; Move roots to the root stack
+                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
                  ,@(map (lambda (idx root)
                           `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
-                        (range (length roots)) roots))
+                        (range (length roots)) roots)
+
+                 ; Update rootstack_ptr
+                 (addq (int ,(* 8 (length roots))) (global-value rootstack_ptr)))
                `())
 
-           ; Step 2: Set up arguments for `collect`
-           (movq (global-value rootstack_begin) (reg rdi))
-           ,@(if (not (null? roots))
-               `((addq (int ,(* 8 (length roots))) (reg rdi)))
-               `())
-           (movq (int ,bytes-needed) (reg rsi))
+           ; Set up the argument for `collect`
+           (movq (int ,bytes-needed) (reg rdi))
 
-           ; Step 3: Call the collector
+           ; Call the collector
            (callq 2 (toplevel-fn collect))
 
-           ; Step 4: Move new roots back to the variables
            ,@(if (not (null? roots))
-               `((movq (global-value rootstack_begin) (var ,rootstack-ptr))
+               `(; Restore rootstack_ptr
+                 (subq (int ,(* 8 (length roots))) (global-value rootstack_ptr))
+
+                 ; Move new roots back to the variables
+                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
                  ,@(map (lambda (idx root)
                           `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
                                  ,(arg->x86-arg root)))
                         (range (length roots)) roots))
                `())))]
+
+      [`(call-live-roots ,roots ,stmt)
+       (let ([rootstack-ptr (fresh "rootstack")])
+         `(,@(if (not (null? roots))
+               `(; Move roots to the root stack
+                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
+                 ,@(map (lambda (idx root)
+                          `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
+                        (range (length roots)) roots)
+
+                 ; Bump the rootstack ptr
+                 (addq (int ,(* 8 (length roots))) (global-value rootstack_ptr)))
+               `())
+
+           ; Run the main thing
+           ,@(instr-sel-stmt stmt)
+
+           ,@(if (not (null? roots))
+               `(; Restore the rootstack ptr
+                 (subq (int ,(* 8 (length roots))) (global-value rootstack_ptr))
+
+                 ; Move new roots back to the variables
+                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
+                 ,@(map (lambda (idx root)
+                          `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
+                                 ,(arg->x86-arg root)))
+                        (range (length roots)) roots))
+               `())))]
+
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+      [`(assign ,var ,expr)
+       (instr-sel-expr var expr)]
+
+      [`(return ,arg)
+       `((movq ,(arg->x86-arg arg) (reg rax)))]
+
+      [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+       `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
+           ,(append-map iter pgm-t)
+           ,(append-map iter pgm-f)))]
 
       [`(vector-set! ,vec ,idx ,val)
        (let ([offset (+ 8 (* 8 idx))])

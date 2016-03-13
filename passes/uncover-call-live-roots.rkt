@@ -23,6 +23,31 @@
     [`() `()]
     [`((,stmt . ,stmt-lives) . ,stmts)
      (match stmt
+
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+       [`(collect ,_)
+        (let* ([live-roots
+                 (filter-allocateds vs (set->list (set-intersect mentioned-so-far stmt-lives)))])
+          (cons `(call-live-roots ,live-roots ,stmt)
+                (uncover-call-live-roots-iter vs mentioned-so-far stmts)))]
+
+       ; Since the callee can run collect(), we need to push our roots to the
+       ; stack, and pull on function return. This adds huge function call
+       ; overhead, but alternatives I know all need significant effort to
+       ; implement.
+       ;
+       ; One interesting idea that still keeps generated code simple is to do
+       ; some static analysis (k-CFA kind of things) to see if the callee
+       ; allocates.
+       [`(assign ,_ (app . ,_))
+        (let* ([live-roots
+                 (filter-allocateds vs (set->list (set-intersect mentioned-so-far stmt-lives)))])
+          (cons `(call-live-roots ,live-roots ,stmt)
+                (uncover-call-live-roots-iter vs mentioned-so-far stmts)))]
+
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
        [`(assign ,_ ,_)
         (cons stmt (uncover-call-live-roots-iter
                      vs
@@ -31,12 +56,6 @@
 
        [`(return ,v)
         (cons stmt (uncover-call-live-roots-iter vs (set-add mentioned-so-far v) stmts))]
-
-       [`(collect ,_)
-        (let* ([live-roots
-                 (filter-allocateds vs (set->list (set-intersect mentioned-so-far stmt-lives)))])
-        (cons `(call-live-roots ,live-roots ,stmt)
-              (uncover-call-live-roots-iter vs mentioned-so-far stmts)))]
 
        [`(vector-set! ,_ ,_ ,_)
         (cons stmt (uncover-call-live-roots-iter

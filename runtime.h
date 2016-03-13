@@ -27,16 +27,20 @@ uint8_t* free_ptr;
 // to the collector only pointers between the roostack_ptr and
 // rootstack_begin are considered as live roots.
 uint8_t** rootstack_begin;
+uint8_t** rootstack_ptr; // current top of the root stack
 uint8_t** rootstack_end;
 
 // Initialize the memory of the runtime with a fixed rootstack size
 // and initial heap size.
 void initialize(uint64_t rootstack_size, uint64_t heap_size);
 
+// Shutdown the RTS. Free rootstack and heap.
+int shutdown();
+
 // Collect garbage data making room for a requested amount of memory.
 // Use the pointers in the rootstack to determine what values in the
 // heap are still live.
-void collect(uint8_t** rootstack_ptr, int64_t bytes_requested);
+void collect(int64_t bytes_requested);
 
 // Read an integer from stdin.
 int64_t read_int();
