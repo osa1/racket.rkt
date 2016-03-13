@@ -45,11 +45,21 @@
 
   (compiler-tests "fun" typechecker r2-passes "fun" (range 1 13))
 
-  (compiler-tests "r4" typechecker r2-passes "r4" (range 1 20)))
+  (compiler-tests "r4" typechecker r2-passes "r4" (range 1 20))
+
+  (compiler-tests "alloc_fun" typechecker r2-passes "alloc_fun" (range 1 5)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")
 (printf "================================================================================~n")
+(run-all-tests)
+(newline)
+(newline)
+
+(printf "================================================================================~n")
+(printf "= Testing with 8-byte initial heap =============================================~n")
+(printf "================================================================================~n")
+(initial-heap-size 8)
 (run-all-tests)
 (newline)
 (newline)
