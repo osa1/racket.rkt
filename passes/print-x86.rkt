@@ -9,10 +9,8 @@
   (match pgm
     [`(program . ,defs)
      (let ([def-strs (map print-x86_64-def defs)])
-       (string-join def-strs))]
+       (string-join def-strs "\n\n"))]
     [_ (unsupported-form 'print-x86_64 pgm)]))
-
-;; print main-prelude somewhere
 
 (define (print-x86_64-def def)
   (match def
@@ -21,11 +19,10 @@
            [symbol (match tag
                      [`(,f . ,_) f]
                      [_ tag])])
-       (string-append (format ".globl ~s~n" (encode-symbol symbol))
+       (string-append (format "\t.globl ~s~n" (encode-symbol symbol))
                       (format "~s:~n" (encode-symbol symbol))
                       (mk-def-prelude s)
-                      "\n"
-                      (string-join stmt-lines)
+                      (string-join stmt-lines "\n")
                       "\n"
                       (mk-def-conclusion s)))]
 
@@ -43,21 +40,21 @@
 
     ;; Special case for callq: Put * before the argument if it's not a symbol.
     [`(callq (toplevel-fn ,f))
-     (format instr2-format 'callq (encode-symbol f))]
+     (instr2 'callq (encode-symbol f))]
 
     [`(callq ,arg)
-     (format instr2-format 'callq (string-append "*" (print-x86_64-arg arg)))]
+     (instr2 'callq (string-append "*" (print-x86_64-arg arg)))]
 
     [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'movzbq 'xorq) ,arg1 ,arg2)
-     (format instr3-format (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
+     (instr3 (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
 
     [`(,(or 'negq 'pushq 'popq 'je 'jmp 'sete 'setl) ,arg1)
-     (format instr2-format (car stmt) (print-x86_64-arg arg1))]
+     (instr2 (car stmt) (print-x86_64-arg arg1))]
 
     [`(label ,lbl)
-     (string-append "\n" (symbol->string lbl) ":\n")]
+     (string-append "\n" (symbol->string lbl) ":")]
 
-    [`(retq) "\tret\n"]
+    [`(retq) (instr1 (car stmt))]
 
     [_ (unsupported-form 'print-x86_64-stmt stmt)]))
 
@@ -88,20 +85,29 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define main-prelude
-"\t.globl main
-main:\n")
-
-(define main-conclusion "\tretq")
-
 (define (mk-def-prelude stack-size)
-  (if (eq? stack-size 0) "" (format "\tsubq $~a, %rsp\n" stack-size)))
+  (if (eq? stack-size 0)
+    ""
+    (string-append
+      (instr3 'subq
+              (print-x86_64-arg `(int ,stack-size))
+              (print-x86_64-arg '(reg rsp)))
+      "\n")))
 
 (define (mk-def-conclusion stack-size)
-  (let [(ls2 "\tretq\n\n")]
-    (if (eq? stack-size 0)
-      ls2
-      (string-append (format "\taddq $~a, %rsp\n" stack-size) ls2))))
+  (if (eq? stack-size 0)
+    (instr1 'retq)
+    (string-join `(,(instr3 'addq
+                            (print-x86_64-arg `(int ,stack-size))
+                            (print-x86_64-arg `(reg rsp)))
+                   ,(instr1 'retq)) "\n")))
 
-(define instr3-format "\t~a ~a, ~a\n")
-(define instr2-format "\t~a ~a\n")
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define instr1-format "\t~a")
+(define instr2-format "\t~a ~a")
+(define instr3-format "\t~a ~a, ~a")
+
+(define (instr1 instr) (format instr1-format instr))
+(define (instr2 instr arg1) (format instr2-format instr arg1))
+(define (instr3 instr arg1 arg2) (format instr3-format instr arg1 arg2))
