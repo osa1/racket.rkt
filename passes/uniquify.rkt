@@ -5,6 +5,7 @@
 (provide uniquify)
 
 (define (uniquify pgm)
+  (pretty-print pgm)
   (match pgm
     [`(program . ,things)
      (let-values ([(defs expr) (split-last things)])
@@ -24,6 +25,13 @@
   (match (cdr e0)
     [(or (? fixnum?) (? boolean?) `(read))
      e0]
+
+    [`(lambda: ,args : ,ret-ty ,body)
+     ; FIXME: These definitions are copied from above
+     (let* ([rn-maps (map (lambda (arg) (cons (car arg) (fresh "lam-arg"))) args)]
+            [args    (map (lambda (old rn) `(,(cdr rn) : ,(caddr old))) args rn-maps)]
+            [rns     (foldl (lambda (rn h) (hash-set h (car rn) (cdr rn))) rns rn-maps)])
+       `(,(car e0) . (lambda: ,args : ,ret-ty ,(uniquify-expr rns body))))]
 
     [`(,(or '- 'not) ,e1)
      `(,(car e0) . (,(cadr e0) ,(uniquify-expr rns e1)))]

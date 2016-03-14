@@ -7,6 +7,7 @@
 ;; Currently only syntactic sugar is `and`.
 
 (define (desugar pgm)
+  (pretty-print pgm)
   (match pgm
     [`(program . ,things)
      (let-values ([(defs expr) (split-last things)])
@@ -16,6 +17,9 @@
 (define (desugar-expr e0)
   (match (cdr e0)
     [(or (? fixnum?) (? boolean?) (? symbol?)) e0]
+
+    [`(lambda: ,args : ,ret-ty ,body)
+     `(,(car e0) . (lambda: ,args : ,ret-ty ,(desugar-expr body)))]
 
     [`(,(or '- 'not) ,e1)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1)))]

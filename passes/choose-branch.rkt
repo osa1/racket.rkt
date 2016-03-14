@@ -46,6 +46,9 @@
     [(or (? fixnum?) (? boolean?) (? symbol?) `(read))
      e0]
 
+    [`(lambda: ,args : ,ret-ty ,body)
+     `(,(car e0) . (lambda: ,args : ,ret-ty ,(choose-branch-expr body)))]
+
     [`(,(or '- 'not) ,e1)
      `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1)))]
 

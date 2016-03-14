@@ -104,6 +104,15 @@
     [(? boolean?) `(Boolean . ,expr)]
     [(? symbol?) `(,(hash-ref env expr) . ,expr)]
 
+    [`(lambda: ,args : ,ret-ty ,body)
+     (let* ([env (foldl (lambda (arg env) (hash-set env (car arg) (caddr arg))) env args)]
+            [body (typecheck-expr (cons expr context) body env)])
+       ; (printf "type checking lambda\n")
+       (assert-ty context expr ret-ty (car body))
+       (define ret `(,@(map caddr args) -> ,ret-ty))
+       ; (pretty-print ret)
+       `(,ret . (lambda: ,args : ,ret-ty ,body)))]
+
     [`(- ,e1)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)])
        (assert-ty context e1 'Integer (car e1))
