@@ -15,9 +15,7 @@
 (require "passes/uncover-call-live-roots.rkt")
 (require "passes/instr-sel.rkt")
 (require "passes/initialize-rts.rkt")
-; (require "passes/reg-alloc.rkt")
 (require "passes/reg-alloc/color.rkt")
-(require "passes/patch-instructions.rkt")
 (require "passes/elim-movs.rkt")
 (require "passes/lower-conditionals.rkt")
 (require "passes/print-x86.rkt")
@@ -39,10 +37,10 @@
          desugar choose-branch uniquify reveal-functions flatten
 
          ;; C passes
-         expose-allocations annotate-lives uncover-call-live-roots instr-sel initialize-rts
+         initialize-rts expose-allocations annotate-lives uncover-call-live-roots instr-sel
 
          ;; asm passes
-         reg-alloc patch-instructions elim-movs lower-conditionals
+         reg-alloc elim-movs lower-conditionals
 
          print-x86_64)
 
@@ -69,7 +67,6 @@
     ; ("print-pgm" ,(print-pgm "after instr-sel") ,interp-x86)
     ("reg-alloc" ,(reg-alloc "???") ,interp-x86)
     ; ("print-pgm" ,(print-pgm "after reg-alloc") ,interp-x86)
-    ; ("patch-instructions" ,patch-instructions ,interp-x86)
     ; ("print-pgm" ,(print-pgm "after patch-instructions") ,interp-x86)
     ("elim-movs" ,elim-movs ,interp-x86)
     ; ("print-pgm" ,(print-pgm "after elim-movs") ,interp-x86)
