@@ -39,12 +39,12 @@
   ; We do 'cdr' on arg-reg here because the first argument is always a pointer
   ; to the closure.
 
-  (define-values (reg-args stack-args) (split-at-max args (length (cdr arg-regs))))
+  (define-values (reg-args stack-args) (split-at-max args (length arg-regs)))
 
   (append
     (map (lambda (arg reg)
            `(movq ,reg (var ,arg)))
-         reg-args (take (cdr arg-regs) (length reg-args)))
+         reg-args (take arg-regs (length reg-args)))
 
     (map (lambda (idx arg)
            ; Using negative index as indicator

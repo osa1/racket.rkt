@@ -55,7 +55,7 @@
        (hash-set! closure-fns fname toplevel-fn)
 
        `((Vector ,(car e0) ,@(map car frees-lst))
-         . (vector (,(car e0) . (toplevel-fn ,fname)) ,@frees-lst))]
+         . (vector (,(car e0) . (toplevel-closure ,fname)) ,@frees-lst))]
 
       [`(,(or '- 'not) ,e1)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1)))]
@@ -88,8 +88,15 @@
 
   (lambda (def)
     (match def
-      [`(define ,tag : ,ret-ty ,expr)
-       `(define ,tag : ,ret-ty ,(closure-convert-expr expr))]
+      [`(define (,fname . ,args) : ,ret-ty ,expr)
+       ; FIXME: We should probably leave top-level functions alone and handle
+       ; this closure argument in toplevel-closure-wrappers.
+       (define closure-arg (fresh "cls-unused"))
+       `(define (,fname (,closure-arg : (Vector)) ,@args) : ,ret-ty ,(closure-convert-expr expr))]
+
+      [`(define main : void ,expr)
+       `(define main : void ,(closure-convert-expr expr))]
+
       [_ (unsupported-form 'closure-convert-def def)])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

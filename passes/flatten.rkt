@@ -143,6 +143,10 @@
      (let ([fresh (fresh "fn")])
        (values binds (cons `(assign ,fn-bndr ,(car e0) (toplevel-fn ,closure-sym)) pgm) fn-bndr))]
 
+    [`(toplevel-closure ,f)
+     (define cls-bndr (fresh "cls"))
+     (values binds (cons `(assign ,cls-bndr ,(car e0) (toplevel-fn ,f)) pgm) cls-bndr)]
+
     ; [`(app ,f . ,args)
     ;  (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
     ;                [(binds pgm args) (flatten-expr-list binds pgm args)])
