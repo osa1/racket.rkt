@@ -25,8 +25,8 @@
   (define (iter e0)
     (match (cdr e0)
       [(or (? fixnum?) (? boolean?) `(read))
-       ;; FIXME: Compile `read` to a function call here, remove special
-       ;; handling in the rest of the code.
+       ; FIXME: Compile `read` to a function call here, remove special handling
+       ; in the rest of the code.
        e0]
 
       [`(,(or '- 'not) ,e1)
