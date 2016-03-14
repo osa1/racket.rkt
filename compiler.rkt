@@ -14,7 +14,6 @@
 (require "passes/instr-sel.rkt")
 (require "passes/initialize-rts.rkt")
 (require "passes/reg-alloc/color.rkt")
-(require "passes/elim-movs.rkt")
 (require "passes/lower-conditionals.rkt")
 (require "passes/print-x86.rkt")
 
@@ -38,7 +37,7 @@
          initialize-rts expose-allocations annotate-lives uncover-call-live-roots instr-sel
 
          ;; asm passes
-         reg-alloc elim-movs lower-conditionals
+         reg-alloc lower-conditionals
 
          print-x86_64)
 
@@ -67,8 +66,6 @@
     ("reg-alloc" ,(reg-alloc "???") #f)
     ; ("print-pgm" ,(print-pgm "after reg-alloc") #f)
     ; ("print-pgm" ,(print-pgm "after patch-instructions") #f)
-    ("elim-movs" ,elim-movs #f)
-    ; ("print-pgm" ,(print-pgm "after elim-movs") #f)
     ("lower-conditionals" ,lower-conditionals #f)
     ; ("print-pgm" ,(print-pgm "after lower-conditionals") #f)
     ("print-x86" ,print-x86_64 #f)))
