@@ -27,12 +27,13 @@
 
 (define (closure-convert-def toplevel-names closure-fns)
 
-  (define (mk-lets free-lst closure-arg body [idx 1])
+  (define (mk-lets free-lst closure-arg body body-ty [idx 1])
     (match free-lst
       [`() body]
       [`(,free . ,frees)
-       `(let ([,(cdr free) (,(car free) . (vector-ref (Vector . ,closure-arg) ,idx))])
-          ,(mk-lets frees closure-arg body (+ idx 1)))]))
+       `(,body-ty
+          . (let ([,(cdr free) (,(car free) . (vector-ref (Vector . ,closure-arg) ,idx))])
+              ,(mk-lets frees closure-arg body (+ idx 1))))]))
 
   (define (closure-convert-expr e0)
     (match (cdr e0)
@@ -40,22 +41,23 @@
        e0]
 
       [`(lambda: ,args : ,ret-ty ,body)
-       (define args-set  (list->set (map (lambda (arg) (cons (caddr arg) (car arg))) args)))
-       (define bounds    (set-union toplevel-names args-set))
-       (define frees-lst (set->list (set-subtract (fvs body) bounds)))
-       (define fname     (fresh "fn"))
-       (define closure-arg (fresh "closure-arg"))
+       (let ([body (closure-convert-expr body)])
+         (define args-set  (list->set (map (lambda (arg) (cons (caddr arg) (car arg))) args)))
+         (define bounds    (set-union toplevel-names args-set))
+         (define frees-lst (set->list (set-subtract (fvs body) bounds)))
+         (define fname     (fresh "fn"))
+         (define closure-arg (fresh "closure-arg"))
 
-       (define toplevel-fn-body (mk-lets frees-lst closure-arg body))
+         (define toplevel-fn-body (mk-lets frees-lst closure-arg body ret-ty))
 
-       (define toplevel-fn
-         `(define (,fname (,closure-arg : Vector) ,@args) : ,ret-ty
-            ,toplevel-fn-body))
+         (define toplevel-fn
+           `(define (,fname (,closure-arg : Vector) ,@args) : ,ret-ty
+              ,toplevel-fn-body))
 
-       (hash-set! closure-fns fname toplevel-fn)
+         (hash-set! closure-fns fname toplevel-fn)
 
-       `((Vector ,(car e0) ,@(map car frees-lst))
-         . (vector (,(car e0) . (toplevel-closure ,fname)) ,@frees-lst))]
+         `((Vector ,(car e0) ,@(map car frees-lst))
+           . (vector (,(car e0) . (toplevel-closure ,fname)) ,@frees-lst)))]
 
       [`(,(or '- 'not) ,e1)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1)))]
@@ -125,6 +127,8 @@
     [`(vector-set! ,vec ,_ ,e) (set-union (fvs vec) (fvs e))]
 
     [`(vector . ,elems) (foldl set-union (set) (map fvs elems))]
+
+    [`(,(or 'toplevel-fn 'toplevel-closure) ,_) (set)]
 
     [`(,f . ,args) (foldl set-union (set) (map fvs (cons f args)))]
 
