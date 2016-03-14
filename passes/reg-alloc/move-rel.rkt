@@ -22,7 +22,7 @@
 (define (mk-move-rel-iter graph int-graph instr)
   (define (can-relate? arg)
     (match arg
-      [`(,(or 'reg 'stk 'var) ,_) #t]
+      [`(,(or 'reg 'var) ,_) #t]
       [_ #f]))
 
   (define (mk-edge graph arg1 arg2)
