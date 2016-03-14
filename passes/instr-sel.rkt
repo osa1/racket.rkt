@@ -264,7 +264,7 @@
            ; Make sure the stack will stay aligned:
            ,@(if (not (null? stack-args))
                (if (odd? (length stack-args))
-                 `((addq (int 8) (reg rsp)))
+                 `((subq (int 8) (reg rsp)))
                  `())
                `())
 
