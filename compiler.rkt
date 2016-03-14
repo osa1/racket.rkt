@@ -1,8 +1,5 @@
 #lang racket
 
-(require "public/utilities.rkt")
-(require "public/interp.rkt")
-
 ; In the order that they run
 (require "passes/typecheck.rkt")
 (require "passes/desugar.rkt")
@@ -48,30 +45,30 @@
   `(; Reset the fresh name generator counter before each compilation to get
     ; deterministic outputs when running batch compilations.
     ; FIXME: What happens if we use (fresh) in type checker?
-    ("reset-fresh-counter" ,reset-fresh-counter-pass ,interp-scheme)
+    ("reset-fresh-counter" ,reset-fresh-counter-pass #f)
 
-    ("desugar" ,desugar ,interp-scheme)
+    ("desugar" ,desugar #f)
 
     ;; TODO: Think about the best place for this. One of the goals here is to
     ;; avoid generating illegal instructions for code like (if (eq? 1 1) _ _).
-    ("choose-branch" ,choose-branch ,interp-scheme)
+    ("choose-branch" ,choose-branch #f)
 
-    ("uniquify" ,uniquify ,interp-scheme)
-    ("reveal-functions" ,reveal-functions ,interp-scheme)
-    ("flatten" ,flatten ,interp-C)
-    ("initialize-rts" ,initialize-rts ,interp-x86)
-    ("expose-allocations" ,expose-allocations ,interp-C)
-    ("annotate-lives" ,annotate-lives ,interp-C)
-    ("uncover-call-live-roots" ,uncover-call-live-roots ,interp-C)
-    ("instr-sel" ,instr-sel ,interp-x86)
-    ; ("print-pgm" ,(print-pgm "after instr-sel") ,interp-x86)
-    ("reg-alloc" ,(reg-alloc "???") ,interp-x86)
-    ; ("print-pgm" ,(print-pgm "after reg-alloc") ,interp-x86)
-    ; ("print-pgm" ,(print-pgm "after patch-instructions") ,interp-x86)
-    ("elim-movs" ,elim-movs ,interp-x86)
-    ; ("print-pgm" ,(print-pgm "after elim-movs") ,interp-x86)
-    ("lower-conditionals" ,lower-conditionals ,interp-x86)
-    ; ("print-pgm" ,(print-pgm "after lower-conditionals") ,interp-x86)
+    ("uniquify" ,uniquify #f)
+    ("reveal-functions" ,reveal-functions #f)
+    ("flatten" ,flatten #f)
+    ("initialize-rts" ,initialize-rts #f)
+    ("expose-allocations" ,expose-allocations #f)
+    ("annotate-lives" ,annotate-lives #f)
+    ("uncover-call-live-roots" ,uncover-call-live-roots #f)
+    ("instr-sel" ,instr-sel #f)
+    ; ("print-pgm" ,(print-pgm "after instr-sel") #f)
+    ("reg-alloc" ,(reg-alloc "???") #f)
+    ; ("print-pgm" ,(print-pgm "after reg-alloc") #f)
+    ; ("print-pgm" ,(print-pgm "after patch-instructions") #f)
+    ("elim-movs" ,elim-movs #f)
+    ; ("print-pgm" ,(print-pgm "after elim-movs") #f)
+    ("lower-conditionals" ,lower-conditionals #f)
+    ; ("print-pgm" ,(print-pgm "after lower-conditionals") #f)
     ("print-x86" ,print-x86_64 #f)))
 
 ; so much for the composable nanopass approach
