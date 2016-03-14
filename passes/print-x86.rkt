@@ -19,14 +19,37 @@
            [symbol (match tag
                      [`(,f . ,_) f]
                      [_ tag])])
-       (string-append (format "\t.globl ~s~n" (encode-symbol symbol))
-                      (format "~s:~n" (encode-symbol symbol))
-                      (mk-def-prelude s)
-                      (string-join stmt-lines "\n")
-                      "\n"
-                      (mk-def-conclusion s)))]
+       (string-join
+         (filter non-empty-string?
+                 (list (toplevel-closure tag)
+                       (format "\t.globl ~s" (encode-symbol symbol))
+                       (format "~s:" (encode-symbol symbol))
+                       (mk-def-prelude s)
+                       (string-join stmt-lines "\n")
+                       (mk-def-conclusion s)))
+         "\n"))]
 
     [_ (unsupported-form 'print-x86_64-def def)]))
+
+; FIXME: I'm using Integer type here just to generate the tag for a vector with
+; single, non-pointer (function) field.
+(define toplevel-closure-tag (vec-info-field '(Integer)))
+
+; FIXME: Garbage collector copies these values around for no reason. Need to
+; somehow mark these as "immovable"/"not-GCed".
+
+(define (toplevel-closure tag)
+  (match tag
+    [`main ""]
+    [`(,fname . ,_)
+     (define fname-enc-str (encode-str (symbol->string fname)))
+     (define fname-closure-str (string-append fname-enc-str "_closure"))
+     (string-join
+       `(,(format "\t.globl ~a" fname-closure-str)
+         ,(format "~a:" fname-closure-str)
+         ,(instr2 ".quad" (number->string toplevel-closure-tag))
+         ,(instr2 ".quad" (symbol->string (encode-symbol fname))))
+       "\n")]))
 
 (define (print-x86_64-stmt stmt)
   (match stmt
@@ -77,22 +100,24 @@
     ("?" . "ha")
     ("->" . "_arr_")))
 
-(define (encode-symbol sym)
-  (string->symbol
-    (foldl (lambda (enc str)
-             (string-replace str (car enc) (cdr enc)))
-           (symbol->string sym) enc-tbl)))
+(define (encode-symbol sym) (encode-symbol-str (symbol->string sym)))
+
+(define (encode-str str)
+  (foldl (lambda (enc str)
+           (string-replace str (car enc) (cdr enc)))
+         str enc-tbl))
+
+(define (encode-symbol-str str)
+  (string->symbol (encode-str str)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (mk-def-prelude stack-size)
   (if (eq? stack-size 0)
     ""
-    (string-append
-      (instr3 'subq
-              (print-x86_64-arg `(int ,stack-size))
-              (print-x86_64-arg '(reg rsp)))
-      "\n")))
+    (instr3 'subq
+            (print-x86_64-arg `(int ,stack-size))
+            (print-x86_64-arg '(reg rsp)))))
 
 (define (mk-def-conclusion stack-size)
   (if (eq? stack-size 0)
