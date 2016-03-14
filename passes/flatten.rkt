@@ -7,16 +7,16 @@
 
 (provide flatten)
 
-;; NOTE: Flatten doesn't completely flatten the program. Namely, it returns
-;; programs with if-expressions, which have two program branches.
+; NOTE: Flatten doesn't completely flatten the program. Namely, it returns
+; programs with if-expressions, which have two program branches.
 
-;; NOTE: Flatten annotates each assign and if with its type. So the form is
-;; now:
-;;
-;;   (assign var var-type expr)
-;;   (if cond ret-ty expr expr)
+; NOTE: Flatten annotates each assign and if with its type. So the form is
+; now:
+;
+;   (assign var var-type expr)
+;   (if cond ret-ty expr expr)
 
-;; NOTE: The variables in meta-data field of the program now has types.
+; NOTE: The variables in meta-data field of the program now has types.
 
 (define (flatten pgm)
   (match pgm
@@ -102,9 +102,9 @@
          (values binds (cons `(assign ,fresh ,(car e0) (vector-ref ,e1 ,idx)) pgm) fresh)))]
 
     [`(vector-set! ,vec ,idx ,e)
-     ;; Q: Why not make this a statement?
-     ;; A: Because functional programming (everything is an expression) with
-     ;;    side-effects. It sucks.
+     ; Q: Why not make this a statement?
+     ; A: Because functional programming (everything is an expression) with
+     ;    side-effects. It sucks.
      (let*-values ([(binds pgm vec) (flatten-expr binds pgm vec)]
                    [(binds pgm e) (flatten-expr binds pgm e)])
        (let [(fresh (fresh "void"))]
@@ -115,39 +115,39 @@
        (let [(fresh (fresh "tmp-vec"))]
          (values binds (cons `(assign ,fresh ,(car e0) (vector ,@es)) pgm) fresh)))]
 
-    ;; We directly apply top-level functions without indirect jumps.
+    ; We directly apply top-level functions without indirect jumps.
     [`(app (,_ . (toplevel-fn ,f)) . ,args)
      (let-values ([(binds pgm args) (flatten-expr-list binds pgm args)])
        (let ([fresh (fresh "funret")])
          (values binds (cons `(assign ,fresh ,(car e0) (app (toplevel-fn ,f) ,@args)) pgm) fresh)))]
 
-    ;; Slow application
+    ; Slow application
     [`(app ,f . ,args)
      (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
                    [(binds pgm args) (flatten-expr-list binds pgm args)])
        (let ([fresh (fresh "funret")])
          (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
 
-    ;; References to functions are already values
+    ; References to functions are already values
     [`(toplevel-fn ,f)
      (let ([fresh (fresh "fn")])
        (values binds (cons `(assign ,fresh ,(car e0) (toplevel-fn ,f)) pgm) fresh))]
 
-    ;; [`(app ,f . ,args)
-    ;;  (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
-    ;;                [(binds pgm args) (flatten-expr-list binds pgm args)])
-    ;;    (let [(fresh (fresh "funret"))]
-    ;;      (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
+    ; [`(app ,f . ,args)
+    ;  (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
+    ;                [(binds pgm args) (flatten-expr-list binds pgm args)])
+    ;    (let [(fresh (fresh "funret"))]
+    ;      (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
 
     [_ (unsupported-form 'flatten-expr (cdr e0))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Remove statements in form (assign x y) where y is a variable.
-;; Does this by renaming x with y in the statements that follow this statement.
-;; Does not effect semantics - for simplification purposes only.
-;; NOTE: Statements should be in order - e.g. don't pass the list returned by
-;; flatten-expr, it needs to be reversed!
+; Remove statements in form (assign x y) where y is a variable.
+; Does this by renaming x with y in the statements that follow this statement.
+; Does not effect semantics - for simplification purposes only.
+; NOTE: Statements should be in order - e.g. don't pass the list returned by
+; flatten-expr, it needs to be reversed!
 (define (remove-var-asgns stmts)
   (match stmts
     [(list) '()]
@@ -157,8 +157,8 @@
        (remove-var-asgns (rename-stmts x y t))
        (cons `(assign ,x ,x-ty ,y) (remove-var-asgns t)))]
 
-    ;; FIXME: This is not quite right: Last statement of if branches are always
-    ;; assignments to a variable. Disabling this for now.
+    ; FIXME: This is not quite right: Last statement of if branches are always
+    ; assignments to a variable. Disabling this for now.
     ; [(cons `(if ,e ,pgm-t ,pgm-f) t)
     ;  (cons `(if ,e ,(remove-var-asgns pgm-t) ,(remove-var-asgns pgm-f))
     ;        (remove-var-asgns t))]
@@ -166,7 +166,7 @@
     [(cons s t)
      (cons s (remove-var-asgns t))]))
 
-;; Substitute y for x in stmts
+; Substitute y for x in stmts
 (define (rename-stmts x y stmts)
   (match stmts
     [(list) '()]
