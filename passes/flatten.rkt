@@ -20,15 +20,8 @@
 
 (define (flatten pgm)
   (match pgm
-    [`(program . ,things)
-      (let-values ([(defs expr) (split-last things)])
-        (let* ([pgm-main (flatten-body
-                           `(Integer . (app ((Integer -> void) . (toplevel-fn print_int))
-                                            ,expr)))]
-               [main-vs (collect-binds pgm-main)]
-               [defs (map flatten-def defs)])
-          `(program ,@defs (define main : void ,main-vs ,@pgm-main))))]
-
+    [`(program . ,defs)
+     `(program ,@(map flatten-def defs))]
     [_ (unsupported-form 'flatten pgm)]))
 
 (define (flatten-body expr)
@@ -43,6 +36,11 @@
                               (map (lambda (arg) (cons (car arg) (caddr arg))) args))
                             (collect-binds pgm))])
        `(define (,fname . ,args) : ,ret-ty ,vs ,@pgm))]
+
+    [`(define ,name : ,ret-ty ,body)
+     #:when (symbol? name)
+     (let ([pgm (flatten-body body)])
+       `(define ,name : ,ret-ty ,(collect-binds pgm) ,@pgm))]
 
     [_ (unsupported-form 'flatten-def def)]))
 

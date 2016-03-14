@@ -5,11 +5,9 @@
 (provide uniquify)
 
 (define (uniquify pgm)
-  (pretty-print pgm)
   (match pgm
-    [`(program . ,things)
-     (let-values ([(defs expr) (split-last things)])
-       `(program ,@(map uniquify-def defs) ,(uniquify-expr (hash) expr)))]
+    [`(program . ,defs)
+     `(program ,@(map uniquify-def defs))]
     [_ (unsupported-form 'uniquify pgm)]))
 
 (define (uniquify-def def)
@@ -19,6 +17,8 @@
             [args (map (lambda (old rn) `(,(cdr rn) : ,(caddr old))) args rns)]
             [expr (uniquify-expr (make-immutable-hash rns) expr)])
        `(define (,fname ,@args) : ,ret-ty ,expr))]
+    [`(define ,name : ,ret-ty ,expr)
+     `(define ,name : ,ret-ty ,(uniquify-expr (make-immutable-hash) expr))]
     [_ (unsupported-form 'uniquify-def def)]))
 
 (define (uniquify-expr rns e0)

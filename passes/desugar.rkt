@@ -4,14 +4,18 @@
 
 (provide desugar)
 
-;; Currently only syntactic sugar is `and`.
+; - Desugar 'and'.
+; - Generate a 'main' define form from the expression in the program.
 
 (define (desugar pgm)
-  (pretty-print pgm)
   (match pgm
     [`(program . ,things)
      (let-values ([(defs expr) (split-last things)])
-       `(program ,@(map (lift-def desugar-expr) defs) ,(desugar-expr expr)))]
+       (let ([defs (map (lift-def desugar-expr) defs)]
+             [expr (desugar-expr expr)])
+         `(program ,@defs
+                   (define main : void
+                     (void . (((Integer -> void) . print-int) ,expr))))))]
     [_ (unsupported-form 'desugar pgm)]))
 
 (define (desugar-expr e0)

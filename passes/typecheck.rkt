@@ -27,9 +27,14 @@
 
 (define (mk-toplevel-ty-env defs)
   (make-immutable-hash
-    (map (lambda (def)
-           (cons (extract-toplevel-name def) (extract-toplevel-ty def)))
-         defs)))
+    (append
+      (map (lambda (def)
+             (cons (extract-toplevel-name def) (extract-toplevel-ty def)))
+           defs)
+      rts-funs)))
+
+(define rts-funs
+  `((print-int . (Integer -> void))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Extracting stuff from stuff
@@ -38,12 +43,17 @@
   (match def
     [`(define (,name . ,_) : ,_ ,_)
      name]
+    [`(define ,name : ,_ ,_)
+     #:when (symbol? name)
+     name]
     [_ (unsupported-form 'extract-toplevel-name def)]))
 
 (define (extract-toplevel-ty def)
   (match def
     [`(define (,_ . ,args) : ,ret-ty ,_)
      `(,@(map extract-arg-ty args) -> ,ret-ty)]
+    [`(define ,(? symbol?) : ,ret-ty ,_)
+     ret-ty]
     [_ (unsupported-form 'extract-toplevel-ty def)]))
 
 (define (extract-arg-ty arg)
