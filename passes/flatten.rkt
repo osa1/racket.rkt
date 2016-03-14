@@ -116,22 +116,32 @@
          (values binds (cons `(assign ,fresh ,(car e0) (vector ,@es)) pgm) fresh)))]
 
     ; We directly apply top-level functions without indirect jumps.
-    [`(app (,_ . (toplevel-fn ,f)) . ,args)
-     (let-values ([(binds pgm args) (flatten-expr-list binds pgm args)])
-       (let ([fresh (fresh "funret")])
-         (values binds (cons `(assign ,fresh ,(car e0) (app (toplevel-fn ,f) ,@args)) pgm) fresh)))]
+    ; [`(app (,_ . (toplevel-fn ,f)) . ,args)
+    ;  (let-values ([(binds pgm args) (flatten-expr-list binds pgm args)])
+    ;    (let ([fresh (fresh "funret")])
+    ;      (values binds (cons `(assign ,fresh ,(car e0) (app (toplevel-fn ,f) ,@args)) pgm) fresh)))]
 
     ; Slow application
     [`(app ,f . ,args)
+     (define fn-type (car f))
      (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
                    [(binds pgm args) (flatten-expr-list binds pgm args)])
-       (let ([fresh (fresh "funret")])
-         (values binds (cons `(assign ,fresh ,(car e0) (app ,f ,@args)) pgm) fresh)))]
+       (define closure-fn (fresh "closure-fn"))
+       (define funret (fresh "funret"))
 
-    ; References to functions are already values
+       (define select-fn `(assign ,closure-fn ,fn-type (vector-ref ,f 0)))
+       (define apply-fn `(assign ,funret ,(car e0) (app ,closure-fn ,@(cons f args))))
+
+       ; Adding in reversed order
+       (values binds (cons apply-fn (cons select-fn pgm)) funret))]
+
+    ; References to functions are already values, but we need to return
+    ; closures of functions.
     [`(toplevel-fn ,f)
+     (define fn-bndr (fresh "fn"))
+     (define closure-sym (string->symbol (string-append (symbol->string f) "_closure")))
      (let ([fresh (fresh "fn")])
-       (values binds (cons `(assign ,fresh ,(car e0) (toplevel-fn ,f)) pgm) fresh))]
+       (values binds (cons `(assign ,fn-bndr ,(car e0) (toplevel-fn ,closure-sym)) pgm) fn-bndr))]
 
     ; [`(app ,f . ,args)
     ;  (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]

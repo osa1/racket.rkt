@@ -53,7 +53,7 @@ void initialize(uint64_t rootstack_size, uint64_t heap_size)
     // printf("initializing runtime with rootstack size %" PRIi64 ", heap size %" PRIi64 "\n",
     //        rootstack_size, heap_size);
 
-  // 1. Check to make sure that our assumptions about the world are correct.
+    // 1. Check to make sure that our assumptions about the world are correct.
 #ifndef NDEBUG
     if (sizeof(int64_t) != sizeof(int64_t*))
     {
@@ -206,7 +206,7 @@ void print_pointers(void* free_ptr)
 
 void collect(int64_t bytes_requested)
 {
-  // 1. Check our assumptions about the world
+     // 1. Check our assumptions about the world
 #ifndef NDEBUG
     if (!initialized)
     {
@@ -402,20 +402,24 @@ void copy_vector(int64_t** vector_ptr_loc)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int64_t read_int() {
-  int64_t i;
-  scanf("%" PRIi64, &i);
-  return i;
+int64_t read_int(int64_t closure)
+{
+    (void)closure;
+    int64_t i;
+    scanf("%" PRIi64, &i);
+    return i;
 }
 
-int print_int(int64_t x)
+int print_int(int64_t closure, int64_t x)
 {
+    (void)closure;
     printf("%" PRIi64, x);
     return 0;
 }
 
-int print_bool(int64_t x)
+int print_bool(int64_t closure, int64_t x)
 {
+    (void)closure;
     if (x)
     {
         printf("#t");

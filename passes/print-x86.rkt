@@ -9,7 +9,7 @@
   (match pgm
     [`(program . ,defs)
      (let ([def-strs (map print-x86_64-def defs)])
-       (string-join def-strs "\n\n"))]
+       (string-join (append def-strs (list shims)) "\n\n"))]
     [_ (unsupported-form 'print-x86_64 pgm)]))
 
 (define (print-x86_64-def def)
@@ -136,3 +136,15 @@
 (define (instr1 instr) (format instr1-format instr))
 (define (instr2 instr arg1) (format instr2-format instr arg1))
 (define (instr3 instr arg1 arg2) (format instr3-format instr arg1 arg2))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define shims
+  (string-join
+    `("print_int_closure:"
+      ,(instr2 ".quad" (number->string toplevel-closure-tag))
+      ,(instr2 ".quad" "print_int")
+      "read_int_closure:"
+      ,(instr2 ".quad" (number->string toplevel-closure-tag))
+      ,(instr2 ".quad" "read_int"))
+    "\n"))

@@ -33,12 +33,16 @@
     [_ (unsupported-form 'instr-sel-def def)]))
 
 (define (move-arg-regs args)
-  (define-values (reg-args stack-args) (split-at-max args (length arg-reg-syms)))
+
+  ; We do 'cdr' on arg-reg here because the first argument is always a pointer
+  ; to the closure.
+
+  (define-values (reg-args stack-args) (split-at-max args (length (cdr arg-regs))))
 
   (append
     (map (lambda (arg reg)
-           `(movq (reg ,reg) (var ,arg)))
-         reg-args (take arg-reg-syms (length reg-args)))
+           `(movq ,reg (var ,arg)))
+         reg-args (take (cdr arg-regs) (length reg-args)))
 
     (map (lambda (idx arg)
            ; Using negative index as indicator
@@ -257,7 +261,8 @@
 
            ; Move register args
            ,@(map (lambda (arg reg)
-                    `(movq ,(arg->x86-arg arg) ,reg)) reg-args (take arg-regs (length reg-args)))
+                    `(movq ,(arg->x86-arg arg) ,reg))
+                  reg-args (take arg-regs (length reg-args)))
 
            ; Move stack args.
            ; I don't like pushq/popq, but that's all I could think of at the moment.

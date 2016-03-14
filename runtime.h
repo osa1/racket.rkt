@@ -43,12 +43,12 @@ int shutdown();
 void collect(int64_t bytes_requested);
 
 // Read an integer from stdin.
-int64_t read_int();
+int64_t read_int(int64_t _closure);
 
 // Print an integer to stdout.
-int print_int(int64_t x);
+int print_int(int64_t _closure, int64_t x);
 
 // Print a boolean to stdout.
-int print_bool(int64_t x);
+int print_bool(int64_t _closure, int64_t x);
 
 #endif
