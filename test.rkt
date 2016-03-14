@@ -47,7 +47,9 @@
 
   (compiler-tests "r4" typechecker r2-passes "r4" (range 1 20))
 
-  (compiler-tests "alloc_fun" typechecker r2-passes "alloc_fun" (range 1 5)))
+  (compiler-tests "alloc_fun" typechecker r2-passes "alloc_fun" (range 1 5))
+
+  (compiler-tests "big-arity" typechecker r2-passes "big_arity" (range 1 3)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")
