@@ -14,6 +14,7 @@
   (match def
     [`(define ,tag : ,ret-ty ,meta . ,pgm)
      `(define ,tag : ,ret-ty ,meta ,@(append-map expose-allocations-stmt pgm))]
+    [`(define-closure-wrapper . ,_) def]
     [_ (unsupported-form 'expose-allocations-def def)]))
 
 (define (expose-allocations-stmt stmt)

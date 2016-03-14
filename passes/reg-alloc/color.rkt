@@ -528,6 +528,8 @@
          (let ([def `(define ,tag : ,ret-ty ,last-mem-loc ,@coalesced-instrs)])
            (values def mapping)))]
 
+      [`(define-closure-wrapper . ,_) (values def #f)]
+
       [_ (unsupported-form 'reg-alloc-def def)]))
 
   (reg-alloc-iter def))

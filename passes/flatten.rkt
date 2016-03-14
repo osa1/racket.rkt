@@ -42,6 +42,8 @@
      (let ([pgm (flatten-body body)])
        `(define ,name : ,ret-ty ,(collect-binds pgm) ,@pgm))]
 
+    [`(define-closure-wrapper . ,_) def]
+
     [_ (unsupported-form 'flatten-def def)]))
 
 (define (flatten-expr-list binds pgm exprs)

@@ -11,18 +11,28 @@
      (define closure-fns (make-hash))
      (let* ([toplevel-names (list->set (map extract-toplevel-name defs))]
             [defs (map (closure-convert-def toplevel-names closure-fns) defs)])
-       ; `(program ,@(append (hash-map mk-closure closure-fns) defs)))]
-       `(program ,@(hash-values closure-fns) ,@defs))]
+       `(program ,@(hash-values closure-fns) ,@(append-map mk-closure-wrapper defs) ,@defs))]
     [_ (unsupported-form 'closure-convert pgm)]))
 
-(define (mk-lets free-lst closure-arg body [idx 1])
-  (match free-lst
-    [`() body]
-    [`(,free . ,frees)
-     `(let ([,(cdr free) (,(car free) . (vector-ref (Vector . ,closure-arg) ,idx))])
-        ,(mk-lets frees closure-arg body (+ idx 1)))]))
+; Define a closure from a top-level function. The closure lives in the
+; top-level, so no allocation is needed when calling toplevel functions.
+; FIXME: GC still copies these things around though.
+(define (mk-closure-wrapper def)
+  (match def
+    [`(define (,fname . ,_) : ,_ ,_)
+     `((define-closure-wrapper
+         ,(string->symbol (string-append (symbol->string fname) "_closure"))
+         ,fname))]
+    [_ `()]))
 
 (define (closure-convert-def toplevel-names closure-fns)
+
+  (define (mk-lets free-lst closure-arg body [idx 1])
+    (match free-lst
+      [`() body]
+      [`(,free . ,frees)
+       `(let ([,(cdr free) (,(car free) . (vector-ref (Vector . ,closure-arg) ,idx))])
+          ,(mk-lets frees closure-arg body (+ idx 1)))]))
 
   (define (closure-convert-expr e0)
     (match (cdr e0)
@@ -81,11 +91,6 @@
       [`(define ,tag : ,ret-ty ,expr)
        `(define ,tag : ,ret-ty ,(closure-convert-expr expr))]
       [_ (unsupported-form 'closure-convert-def def)])))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (mk-closure fname body)
-  (list))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

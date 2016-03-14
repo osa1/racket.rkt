@@ -21,13 +21,15 @@
                      [_ tag])])
        (string-join
          (filter non-empty-string?
-                 (list (toplevel-closure tag)
-                       (format "\t.globl ~s" (encode-symbol symbol))
+                 (list (format "\t.globl ~s" (encode-symbol symbol))
                        (format "~s:" (encode-symbol symbol))
                        (mk-def-prelude s)
                        (string-join stmt-lines "\n")
                        (mk-def-conclusion s)))
          "\n"))]
+
+    [`(define-closure-wrapper ,closure-name ,fname)
+     (toplevel-closure closure-name fname)]
 
     [_ (unsupported-form 'print-x86_64-def def)]))
 
@@ -38,18 +40,14 @@
 ; FIXME: Garbage collector copies these values around for no reason. Need to
 ; somehow mark these as "immovable"/"not-GCed".
 
-(define (toplevel-closure tag)
-  (match tag
-    [`main ""]
-    [`(,fname . ,_)
-     (define fname-enc-str (encode-str (symbol->string fname)))
-     (define fname-closure-str (string-append fname-enc-str "_closure"))
-     (string-join
-       `(,(format "\t.globl ~a" fname-closure-str)
-         ,(format "~a:" fname-closure-str)
-         ,(instr2 ".quad" (number->string toplevel-closure-tag))
-         ,(instr2 ".quad" (symbol->string (encode-symbol fname))))
-       "\n")]))
+(define (toplevel-closure closure-name fname)
+  (define closure-name-enc (symbol->string (encode-symbol closure-name)))
+  (string-join
+    `(,(format "\t.globl ~a" closure-name-enc)
+      ,(format "~a:" closure-name-enc)
+      ,(instr2 ".quad" (number->string toplevel-closure-tag))
+      ,(instr2 ".quad" (symbol->string (encode-symbol fname))))
+    "\n"))
 
 (define (print-x86_64-stmt stmt)
   (match stmt

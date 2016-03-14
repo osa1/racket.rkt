@@ -103,6 +103,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Find these guys a safe place
 
+(define (toplevel-def? def)
+  (match def
+    [`(define ,_ : ,_ . ,_)
+     #t]
+    [_ #f]))
+
 (define (arg-imm? arg)
   (match arg
     [`(int ,_) #t]

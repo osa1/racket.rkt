@@ -17,6 +17,9 @@
      (define stack-aligned (align-stack stack-locs-used instrs))
      `(define ,tag : ,ret-ty (,stack-aligned)
         ,@(assign-home-instrs mapping stack-aligned instrs))]
+
+    [`(define-closure-wrapper . ,_) def]
+
     [_ (unsupported-form 'assign-homes def)]))
 
 (define (align-stack stack-locs-used instrs)

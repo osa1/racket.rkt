@@ -30,6 +30,8 @@
                        (append-map instr-sel-stmt stmts)))])
        `(define (,fname ,@args) : ,ret-ty ,@instrs))]
 
+    [`(define-closure-wrapper . ,_) def]
+
     [_ (unsupported-form 'instr-sel-def def)]))
 
 (define (move-arg-regs args)

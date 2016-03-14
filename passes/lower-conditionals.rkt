@@ -16,6 +16,7 @@
   (match def
     [`(define ,tag : ,ret-ty ,meta . ,instrs)
      `(define ,tag : ,ret-ty ,meta ,@(append-map lower-conditionals-instr instrs))]
+    [`(define-closure-wrapper . ,_) def]
     [_ (unsupported-form 'lower-conditionals-def def)]))
 
 (define (lower-conditionals-instr instr)

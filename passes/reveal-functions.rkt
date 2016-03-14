@@ -8,7 +8,7 @@
 (define (reveal-functions pgm)
   (match pgm
     [`(program . ,defs)
-     (let ([toplevel-ty-env (mk-toplevel-ty-env defs)])
+     (let ([toplevel-ty-env (mk-toplevel-ty-env (filter toplevel-def? defs))])
        `(program ,@(map (reveal-funs-def toplevel-ty-env) defs)))]
     [_ (unsupported-form 'reveal-functions pgm)]))
 
@@ -17,6 +17,7 @@
     (match def
       [`(define ,tag : ,ret-ty ,body)
        `(define ,tag : ,ret-ty ,((reveal-funs-expr toplevel-ty-env) body))]
+      [`(define-closure-wrapper . ,_) def]
       [_ (unsupported-form 'reveal-funs-def def)])))
 
 (define (reveal-funs-expr toplevel-ty-env)

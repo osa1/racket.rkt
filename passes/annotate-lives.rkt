@@ -18,6 +18,7 @@
     [`(define ,tag : ,ret-ty ,meta . ,stmts)
      (let-values ([(_ stmts) (annotate-lives-iter stmts)])
        `(define ,tag : ,ret-ty ,meta ,@stmts))]
+    [`(define-closure-wrapper . ,_) def]
     [_ (unsupported-form 'annotate-lives-def def)]))
 
 (define (annotate-lives-iter stmts)
