@@ -2,7 +2,8 @@
 
 (require "utils.rkt")
 
-(provide typecheck typechecker typecheck-ignore mk-toplevel-ty-env is-fun-ty?)
+(provide typecheck typechecker typecheck-ignore
+         mk-toplevel-ty-env is-fun-ty? extract-toplevel-name)
 
 ;; This is used for ignoring type-checking step. The problem with type-checking
 ;; is that it's only defined in front-end language. When we want to run

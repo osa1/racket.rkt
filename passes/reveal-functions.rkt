@@ -38,6 +38,8 @@
          ['nop e0]
          [_ `(,(car e0) . (toplevel-fn ,(cdr e0)))])]
 
+      [`(toplevel-fn ,_) e0]
+
       [`(let ([,var ,e1]) ,body)
        `(,(car e0) . (let ([,var ,(iter e1)]) ,(iter body)))]
 

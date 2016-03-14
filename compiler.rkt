@@ -5,6 +5,7 @@
 (require "passes/desugar.rkt")
 (require "passes/choose-branch.rkt")
 (require "passes/uniquify.rkt")
+(require "passes/closure-convert.rkt")
 (require "passes/reveal-functions.rkt")
 (require "passes/flatten.rkt")
 (require "passes/expose-allocations.rkt")
@@ -54,12 +55,13 @@
     ("choose-branch" ,choose-branch #f)
 
     ("uniquify" ,uniquify #f)
+    ("closure-convert" ,closure-convert #f)
     ("reveal-functions" ,reveal-functions #f)
     ("flatten" ,flatten #f)
     ("initialize-rts" ,initialize-rts #f)
     ("expose-allocations" ,expose-allocations #f)
-    ("annotate-lives" ,annotate-lives #f)
-    ("uncover-call-live-roots" ,uncover-call-live-roots #f)
+    ("annotate-lives" ,annotate-lives #f)                   ; <- uses expr-vs
+    ("uncover-call-live-roots" ,uncover-call-live-roots #f) ; <- defines and uses expr-vs
     ("instr-sel" ,instr-sel #f)
     ; ("print-pgm" ,(print-pgm "after instr-sel") #f)
     ("reg-alloc" ,(reg-alloc "???") #f)
