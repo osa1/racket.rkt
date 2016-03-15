@@ -45,7 +45,7 @@
         (let* ([live-roots
                  (filter-allocateds vs (set->list (set-intersect mentioned-so-far stmt-lives)))])
           (cons `(call-live-roots ,live-roots ,stmt)
-                (uncover-call-live-roots-iter vs mentioned-so-far stmts)))]
+                (uncover-call-live-roots-iter vs (set-union mentioned-so-far (stmt-vs stmt)) stmts)))]
 
        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

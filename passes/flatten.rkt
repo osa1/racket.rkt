@@ -123,9 +123,20 @@
 
     ; Slow application
     [`(app ,f . ,args)
-     (define fn-type (car f))
+
+     ; FIXME: This part is a bit hacky. Toplevel functions have function types,
+     ; lambdas have vector. Toplevel-functions are flattened to their closures,
+     ; but the type we have here is still a function type and not a vector. So
+     ; we handle function types and vectors.
+     (define fn-type
+       (match (car f)
+         [`(,_ ... -> ,_) (car f)]
+         [`(Vector . ,elems) (car elems)]
+         [_ (error 'flatten "Weird function type: ~a" f)]))
+
      (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]
                    [(binds pgm args) (flatten-expr-list binds pgm args)])
+
        (define closure-fn (fresh "closure-fn"))
        (define funret (fresh "funret"))
 
@@ -135,17 +146,26 @@
        ; Adding in reversed order
        (values binds (cons apply-fn (cons select-fn pgm)) funret))]
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     ; References to functions are already values, but we need to return
-    ; closures of functions.
+    ; closures of functions. Note that these vectors don't live in the
+    ; fromspace, so GC needs some special code to avoid GCing these. Currently
+    ; we just check the pointers, and don't GC if they're not pointers to the
+    ; fromspace.
+
     [`(toplevel-fn ,f)
      (define fn-bndr (fresh "fn"))
      (define closure-sym (string->symbol (string-append (symbol->string f) "_closure")))
      (let ([fresh (fresh "fn")])
-       (values binds (cons `(assign ,fn-bndr ,(car e0) (toplevel-fn ,closure-sym)) pgm) fn-bndr))]
+       (values binds (cons `(assign ,fn-bndr (Vector ,(car e0))
+                                    (toplevel-fn ,closure-sym)) pgm) fn-bndr))]
 
     [`(toplevel-closure ,f)
      (define cls-bndr (fresh "cls"))
-     (values binds (cons `(assign ,cls-bndr ,(car e0) (toplevel-fn ,f)) pgm) cls-bndr)]
+     (values binds (cons `(assign ,cls-bndr (Vector ,(car e0)) (toplevel-fn ,f)) pgm) cls-bndr)]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     ; [`(app ,f . ,args)
     ;  (let*-values ([(binds pgm f) (flatten-expr binds pgm f)]

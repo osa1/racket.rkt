@@ -228,15 +228,18 @@ void collect(int64_t bytes_requested)
         exit(EXIT_FAILURE);
     }
 
-    for(int i = 0; rootstack_begin + i < rootstack_ptr; i += 8)
-    {
-        uint8_t* a_root = rootstack_begin[i];
-        if (!(fromspace_begin <= a_root && a_root <= fromspace_end - 8))
-        {
-            printf("rootstack contains non fromspace pointer\n");
-            exit(EXIT_FAILURE);
-        }
-    }
+    // This is fine! Rootstack can contain top-level closure pointers. We
+    // should just ignore those pointers.
+    //
+    // for(int i = 0; rootstack_begin + i < rootstack_ptr; i += 8)
+    // {
+    //     uint8_t* a_root = rootstack_begin[i];
+    //     if (!(fromspace_begin <= a_root && a_root <= fromspace_end - 8))
+    //     {
+    //         printf("rootstack contains non fromspace pointer\n");
+    //         exit(EXIT_FAILURE);
+    //     }
+    // }
 
     if (bytes_requested < 0)
     {
@@ -318,6 +321,11 @@ void collect(int64_t bytes_requested)
 // There is a stub and explaination for copy_vector below.
 static void copy_vector(int64_t** vector_ptr_loc);
 
+int in_fromspace(void* ptr)
+{
+    return (ptr >= (void*)fromspace_begin && ptr < (void*)fromspace_end);
+}
+
 void cheney()
 {
     free_ptr = tospace_begin;
@@ -328,7 +336,8 @@ void cheney()
 
         while ((void*)work_ptr != (void*)rootstack_ptr)
         {
-            copy_vector(work_ptr);
+            if (in_fromspace((void*)(*work_ptr)))
+                copy_vector(work_ptr);
             work_ptr++;
         }
     }
@@ -349,7 +358,9 @@ void cheney()
                 {
                     // found a pointer
                     int64_t** ptr = (int64_t**)(work_ptr + 1 + i);
-                    copy_vector(ptr);
+
+                    if (in_fromspace((void*)(*ptr)))
+                        copy_vector(ptr);
                 }
             }
 
