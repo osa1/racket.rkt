@@ -51,7 +51,7 @@
 
   (compiler-tests "big-arity" typechecker r2-passes "big_arity" (range 1 3))
 
-  (compiler-tests "lambda" typechecker r2-passes "lambda" (range 1 3)))
+  (compiler-tests "lambda" typechecker r2-passes "lambda" (range 1 6)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")
