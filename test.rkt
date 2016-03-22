@@ -1,6 +1,5 @@
 #lang racket
 
-(require "public/interp.rkt")
 (require "public/utilities.rkt")
 
 (require "compiler.rkt")
