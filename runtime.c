@@ -17,20 +17,12 @@ static uint8_t* tospace_end;
 // checked in order to ensure that initialization has occurred.
 static int initialized = 0;
 
-
-/*
-  Object Tag (64 bits)
-  #b|- 7 bit unused -|- 50 bit field [50, 0] -| 6 bits length -| 1 bit isForwarding Pointer
-  * If the least-significant bit is zero, the tag is really a forwarding pointer.
-  * Otherwise, it's an object. In that case, the next
-    6 bits give the length of the object (max of 50 64-bit words).
-    The next 50 bits say where there are pointers.
-    A '1' is a pointer, a '0' is not a pointer.
-*/
-static const int TAG_IS_NOT_FORWARD_MASK = 0b1;
-static const int TAG_LENGTH_MASK = 0b1111110;
-static const int64_t TAG_PTR_BITFIELD_MASK = 0x3ffffffffffff; // mask 50 bits
-static const int TAG_PTR_BITFIELD_RSHIFT = 7;
+// See the comments in heap-obj-info-field Racket function for the layout
+static const int     TAG_IS_NOT_FORWARD_MASK    = 0b1;
+static const int     TAG_LENGTH_RSHIFT          = 3;
+static const int     TAG_LENGTH_MASK            = 0b111111; // mask 6 bits
+static const int     TAG_PTR_BITFIELD_RSHIFT    = 9;
+static const int64_t TAG_PTR_BITFIELD_MASK      = 0x3ffffffffffff; // mask 50 bits
 
 // Check to see if a tag is actually a forwarding pointer.
 static inline int is_forwarding(int64_t tag) {
@@ -39,7 +31,7 @@ static inline int is_forwarding(int64_t tag) {
 
 // Get the length field out of a tag.
 static inline int get_length(int64_t tag){
-  return (tag & TAG_LENGTH_MASK) >> 1;
+  return (tag >> TAG_LENGTH_RSHIFT) & TAG_LENGTH_MASK;
 }
 
 // Get the "is pointer bitfield" out of a tag.
