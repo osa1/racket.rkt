@@ -22,21 +22,22 @@
 
 (require (only-in "passes/utils.rkt" reset-fresh-counter-pass))
 
-(provide r1-passes r2-passes r3-passes r4-passes
+(provide r1-passes r2-passes r3-passes r4-passes r5-passes r6-passes r7-passes
+
          ; export individual passes for testing purposes
          ; (see test.rkt)
 
-         ;; type checking
+         ; type checking
          typechecker
          typecheck typecheck-ignore
 
-         ;; scheme passes
+         ; scheme passes
          desugar choose-branch uniquify reveal-functions flatten
 
-         ;; C passes
+         ; C passes
          initialize-rts expose-allocations annotate-lives uncover-call-live-roots instr-sel
 
-         ;; asm passes
+         ; asm passes
          reg-alloc lower-conditionals
 
          print-x86_64)
@@ -74,3 +75,9 @@
 (define r2-passes r1-passes)
 (define r3-passes r1-passes)
 (define r4-passes r1-passes)
+(define r5-passes r1-passes)
+(define r6-passes r1-passes)
+
+; r7 is different - it's dynamically typed
+(define r7-passes
+  `())

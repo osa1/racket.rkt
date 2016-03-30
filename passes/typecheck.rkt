@@ -115,6 +115,26 @@
     [(? boolean?) `(Boolean . ,expr)]
     [(? symbol?) `(,(hash-ref env expr) . ,expr)]
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Dynamic typing stuff
+
+    ; Inject a type to Any
+    [`(inject ,e1 ,ty)
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)])
+       (assert-ty (cons expr context) e1 ty (car e1))
+       `(Any . (inject ,e1, ty)))]
+
+    ; Project an Any to the given type - can fail at runtime
+    [`(project ,e1 ,ty)
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)])
+       (assert-ty (cons expr context) e1 'Any (car e1))
+       `(,ty . (project ,e1 ,ty)))]
+
+    [`(,(or 'boolean? 'integer? 'vector? 'procedure?) ,e1)
+     `(Boolean . (,(car expr) ,(typecheck-expr e1)))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     [`(lambda: ,args : ,ret-ty ,body)
      (let* ([env (foldl (lambda (arg env) (hash-set env (car arg) (caddr arg))) env args)]
             [body (typecheck-expr (cons expr context) body env)])
