@@ -48,8 +48,11 @@
     [`(lambda: ,args : ,ret-ty ,body)
      `(,(car e0) . (lambda: ,args : ,ret-ty ,(choose-branch-expr body)))]
 
-    [`(,(or '- 'not) ,e1)
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1)))]
+
+    [`(,(or 'project 'inject) ,e1 ,ty)
+     `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1) ,ty))]
 
     [`(,(or '+) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1) ,(choose-branch-expr e2)))]

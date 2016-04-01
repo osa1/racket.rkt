@@ -63,10 +63,17 @@
      (let [(fresh (fresh "tmp"))]
        (values binds (cons `(assign ,fresh 'Integer (app (toplevel-fn read_int))) pgm) fresh))]
 
-    [`(,(or '- 'not) ,e1)
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let [(fresh (fresh "tmp"))]
          (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1)) pgm) fresh)))]
+
+    [`(,(or 'inject 'project) ,e1 ,ty)
+     (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
+       (unless (equal? (car e0) ty)
+         (error 'flatten-expr "inject/project has wrong unexpected type ~a ~a~n" (car e0) ty))
+       (let ([fresh (fresh "tmp")])
+         (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1 ,ty)) pgm) fresh)))]
 
     [`(,(or '+ 'eq?) ,e1 ,e2)
      (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]

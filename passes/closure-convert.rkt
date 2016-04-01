@@ -59,8 +59,11 @@
          `((Vector ,(car e0) ,@(map car frees-lst))
            . (vector (,(car e0) . (toplevel-closure ,fname)) ,@frees-lst)))]
 
-      [`(,(or '- 'not) ,e1)
+      [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1)))]
+
+      [`(,(or 'inject 'project) ,e1 ,ty)
+       `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1) ,ty))]
 
       [`(,(or '+ 'eq?) ,e1 ,e2)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1) ,(closure-convert-expr e2)))]

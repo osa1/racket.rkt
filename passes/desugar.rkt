@@ -25,11 +25,14 @@
     [`(lambda: ,args : ,ret-ty ,body)
      `(,(car e0) . (lambda: ,args : ,ret-ty ,(desugar-expr body)))]
 
-    [`(,(or '- 'not) ,e1)
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1)))]
 
     [`(,(or '+ 'eq?) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1) ,(desugar-expr e2)))]
+
+    [`(,(or 'inject 'project) ,e1 ,ty)
+     `(,(car e0) . (,(cadr e0) ,(desugar-expr e1) ,ty))]
 
     [`(and ,e1 ,e2)
      (let [(e1-ds (desugar-expr e1))
