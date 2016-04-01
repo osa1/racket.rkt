@@ -193,7 +193,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (encode-type type)
+(define (encode-type-bits type)
 
   ; So far we have two base types: Integer and Boolean.
   ; Two type constructors: Vector and (->).
@@ -210,18 +210,20 @@
   ; Function arguments follow. If type is a Function, after arguments the
   ; return type comes.
 
-  (bit-list-to-byte-list
-    (match type
-      ['Integer `(0 0)]
-      ['Boolean `(1 0)]
-      [`(Vector . ,fields)
-       (append `(0 1)
-               (to-bit-list (length fields) 6)
-               (append-map encode-type fields))]
-      [`(,tys ... -> ,ret-ty)
-       (append `(1 1)
-               (to-bit-list (length tys) 6)
-               (append-map encode-type (append tys (list ret-ty))))])))
+  (match type
+    ['Integer `(0 0)]
+    ['Boolean `(1 0)]
+    [`(Vector . ,fields)
+     (append `(0 1)
+             (to-bit-list (length fields) 6)
+             (append-map encode-type-bits fields))]
+    [`(,tys ... -> ,ret-ty)
+     (append `(1 1)
+             (to-bit-list (length tys) 6)
+             (append-map encode-type-bits (append tys (list ret-ty))))]))
+
+(define (encode-type type)
+  (bit-list-to-byte-list (encode-type-bits type)))
 
 ; NOTE: Least significant bit comes first in the returned list!
 (define (to-bit-list int len)
