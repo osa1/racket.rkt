@@ -70,8 +70,6 @@
 
     [`(,(or 'inject 'project) ,e1 ,ty)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
-       (unless (equal? (car e0) ty)
-         (error 'flatten-expr "inject/project has wrong unexpected type ~a ~a~n" (car e0) ty))
        (let ([fresh (fresh "tmp")])
          (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1 ,ty)) pgm) fresh)))]
 
