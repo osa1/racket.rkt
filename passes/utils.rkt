@@ -193,6 +193,70 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (encode-type type)
+
+  ; So far we have two base types: Integer and Boolean.
+  ; Two type constructors: Vector and (->).
+  ;
+  ; We pack things tightly for space efficiency. Least significant two bits:
+  ;
+  ;   00 -> Integer
+  ;   01 -> Boolean
+  ;   10 -> Vector
+  ;   11 -> Function
+  ;
+  ; If the type is Vector then next 6 bits give the length. If it's Function
+  ; that next 6 bits give the arity. Then bytes that encode Vector fields or
+  ; Function arguments follow. If type is a Function, after arguments the
+  ; return type comes.
+
+  (bit-list-to-byte-list
+    (match type
+      ['Integer `(0 0)]
+      ['Boolean `(1 0)]
+      [`(Vector . ,fields)
+       (append `(0 1)
+               (to-bit-list (length fields) 6)
+               (append-map encode-type fields))]
+      [`(,tys ... -> ,ret-ty)
+       (append `(1 1)
+               (to-bit-list (length tys) 6)
+               (append-map encode-type (append tys (list ret-ty))))])))
+
+; NOTE: Least significant bit comes first in the returned list!
+(define (to-bit-list int len)
+  (when (>= int (expt 2 len))
+    (error 'to-bit-list "Can't encode ~a in ~a bits" int len))
+
+  (when (< int 0)
+    (error 'to-bit-list "Can't encode negative number: ~a" int))
+
+  (if (eq? int 0)
+    (map (lambda (_) 0) (range len))
+    (cons
+      (if (eq? (modulo int 2) 0) 0 1)
+      (to-bit-list (arithmetic-shift int (- 1)) (- len 1)))))
+
+; NOTE: Least significant bit should come first in the list! i.e. bits are reversed.
+; Does not re-order bytes.
+(define (bit-list-to-byte-list bit-list)
+
+  (define (iter bytes byte current-bit-idx bits)
+    (match bits
+      [`() (reverse (cons byte bytes))]
+      [`(,bit . ,bits)
+       (cond [(eq? current-bit-idx 8)
+              (iter (cons byte bytes) 0 0 (cons bit bits))]
+             [(eq? bit 1)
+              (iter bytes (bitwise-ior byte (arithmetic-shift 1 current-bit-idx))
+                    (+ current-bit-idx 1) bits)]
+             [#t
+              (iter bytes byte (+ current-bit-idx 1) bits)])]))
+
+  (iter '() 0 0 bit-list))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; Gensym is the worst thing ever. It's not deterministic, which means if
 ; gensym-generated symbols are used as map keys etc. they make iteration order
 ; non-deterministic and debugging impossible.
