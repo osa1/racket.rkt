@@ -73,6 +73,11 @@
 
   (iter (cdr lst) (car lst) (fn (car lst))))
 
+(define (replicate x n)
+  (if (eq? n 0)
+    '()
+    (cons x (replicate x (- n 1)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (lift-def fn)
@@ -222,6 +227,7 @@
              (to-bit-list (length tys) 6)
              (append-map encode-type-bits (append tys (list ret-ty))))]))
 
+; Returns a list of bytes.
 (define (encode-type type)
   (bit-list-to-byte-list (encode-type-bits type)))
 
@@ -234,7 +240,7 @@
     (error 'to-bit-list "Can't encode negative number: ~a" int))
 
   (if (eq? int 0)
-    (map (lambda (_) 0) (range len))
+    (replicate 0 len)
     (cons
       (if (eq? (modulo int 2) 0) 0 1)
       (to-bit-list (arithmetic-shift int (- 1)) (- len 1)))))
@@ -256,6 +262,20 @@
               (iter bytes byte (+ current-bit-idx 1) bits)])]))
 
   (iter '() 0 0 bit-list))
+
+(define (byte-list-to-quadword-list byte-list)
+
+  (define (iter quads quad current-byte-idx bytes)
+    (match bytes
+      [`() (reverse (cons quad quads))]
+      [`(,byte . ,bytes)
+       (cond [(eq? current-byte-idx 8)
+              (iter (cons quad quads) 0 0 (cons byte bytes))]
+             [#t
+              (iter quads (bitwise-ior quad (arithmetic-shift byte (* 8 current-byte-idx)))
+                    (+ current-byte-idx 1) bytes)])]))
+
+  (iter '() 0 0 byte-list))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

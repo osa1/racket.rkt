@@ -34,6 +34,24 @@
                 (range (length elems))
                 elems)))]
 
+    [`(assign ,x Any (inject ,arg ,ty))
+     ; How many vector slots we need depends on the size of the encoding
+     (define ty-encoding (encode-type ty))
+     (define size (length ty-encoding))
+     (define quadwords (byte-list-to-quadword-list ty-encoding))
+     `((if (collection-needed? ,size)
+         ((collect ,size))
+         ())
+
+       (assign ,x (allocate ,(replicate 'Integer (length quadwords))))
+
+       ,@(map (lambda (q-idx qword) `(vector-set! ,x ,q-idx ,qword))
+              (range (length quadwords)) quadwords))]
+
+    ; Just to make sure
+    [`(assign ,_ ,not-any (inject ,_ ,_))
+     (error 'expose-allocations-stmt "inject returns Any: ~a~n" stmt)]
+
     [`(assign ,x ,_ ,arg) `((assign ,x ,arg))]
 
     [`(if ,cond ,pgm-t ,pgm-f) `((if ,cond ,(append-map expose-allocations-stmt pgm-t)

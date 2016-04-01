@@ -110,3 +110,18 @@
 (check-equal? (encode-type '(Boolean Boolean Boolean -> Boolean))
               '(15 85)
               "Encoding of type is wrong")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; byte-list-to-quadword-list
+
+(check-equal? (byte-list-to-quadword-list '(255))
+              '(255)
+              "Encoding of type is wrong")
+
+(check-equal? (byte-list-to-quadword-list '(255 255))
+              (list (+ 255 (* 255 256)))
+              "Encoding of type is wrong")
+
+(check-equal? (byte-list-to-quadword-list '(0 255))
+              (list (* 255 256))
+              "Encoding of type is wrong")
