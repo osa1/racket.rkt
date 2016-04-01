@@ -161,34 +161,22 @@
     [`(Vector . ,_) #t]
     [_ #f]))
 
-; Generating info fields for heap objects
-(define (heap-obj-info-field obj-type field-types)
+; Generating info fields for vectors
+(define (vec-info-field field-types)
 
   ; Format:
   ;
   ;  Most significant bit                       Least significant bit
   ;  V                                                              V
   ; +----------------------------------------------------------------+ 64-bit
-  ; |       ppppppppppppppppppppppppppppppppppppppppppppppppppllllllf| <- old
-  ; |     ppppppppppppppppppppppppppppppppppppppppppppppppppllllllttf| <- current
+  ; |       ppppppppppppppppppppppppppppppppppppppppppppppppppllllllf|
   ; +----------------------------------------------------------------+
   ;
   ; f: Forwarding bit - 1 means not forwarding,
   ;                     0 means this whole thing is actually a pointer
-  ;
-  ; t: 2-bits, type of this object
-  ;      00 -> integer
-  ;      01 -> boolean
-  ;      10 -> vector
-  ;      11 -> procedure
-  ;
-  ; The rest is only valid if the type is a vector.
-  ;
   ; l: 6-bits, length
-  ;
   ; p: 50-bits, pointer mask
-  ;
-  ; empty space: 5-bits, unused
+  ; empty space: 7-bits, unused
 
   (define ptr-idxs
     (append-map (lambda (idx field-type)
@@ -197,20 +185,9 @@
 
   ; TODO: We need to do some range checking here.
 
-  (define type-bits
-    (arithmetic-shift
-      (match obj-type
-        ['Integer    0]
-        ['Boolean    1]
-        ['Vector     2]
-        [`(,_ -> ,_) 3]
-        [_ (unsupported-form 'heap-obj-info-field obj-type)])
-      1))
-
-  ; FIXME: Length can't be more than 50
-  (define length-bits (arithmetic-shift (length field-types) 3))
-  (define bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 9))
-  (define obj-tag (bitwise-ior bitfield length-bits type-bits 1))
+  (define length-bits (arithmetic-shift (length field-types) 1))
+  (define bitfield (arithmetic-shift (bitfield-from-bit-idxs ptr-idxs) 7))
+  (define obj-tag (bitwise-ior length-bits bitfield 1))
 
   obj-tag)
 

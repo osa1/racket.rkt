@@ -205,7 +205,7 @@
     [`(allocate ,obj-types)
      ; We need to allocate 8 bytes (for header) + 1 dword for each object
      (let* ([alloc-size (+ 8 (* 8 (length obj-types)))]
-            [obj-tag (heap-obj-info-field 'Vector obj-types)]
+            [obj-tag (vec-info-field obj-types)]
             [vec-arg (arg->x86-arg bind-to)])
        `(; Step 0: Read the free_ptr
          (movq (global-value free_ptr) ,vec-arg)

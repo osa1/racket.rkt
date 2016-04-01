@@ -35,7 +35,7 @@
 
 ; FIXME: I'm using Integer type here just to generate the tag for a vector with
 ; single, non-pointer (function) field.
-(define toplevel-closure-tag (heap-obj-info-field 'Vector '(Integer)))
+(define toplevel-closure-tag (vec-info-field '(Integer)))
 
 ; FIXME: Garbage collector copies these values around for no reason. Need to
 ; somehow mark these as "immovable"/"not-GCed".
