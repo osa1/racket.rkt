@@ -82,3 +82,31 @@
 (check-equal? (encode-type '(Vector Boolean Boolean))
               '(10 5)
               "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Integer -> Integer))
+              '(7 0)
+              "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Integer Integer -> Integer))
+              '(11 0)
+              "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Integer Integer Integer -> Integer))
+              '(15 0)
+              "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Boolean Integer Integer -> Integer))
+              '(15 1)
+              "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Boolean Boolean Integer -> Integer))
+              '(15 5)
+              "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Boolean Boolean Boolean -> Integer))
+              '(15 21)
+              "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Boolean Boolean Boolean -> Boolean))
+              '(15 85)
+              "Encoding of type is wrong")
