@@ -6,6 +6,8 @@ execs =
 
 all: runtime.o $(execs)
 
+.PHONY: unit-tests
+
 pngs:
 	for dotfile in $$(ls tests | grep .dot$$); do \
 		dot -Tpng tests/$$dotfile > "$${dotfile%.dot}.png"; \
@@ -14,7 +16,10 @@ pngs:
 		dot -Tpng $$dotfile > "$${dotfile%.dot}.png"; \
 	done;
 
-test: test1 | pngs
+test: unit-tests test1 | pngs
+
+unit-tests:
+	racket unit-tests/main.rkt
 
 test1: runtime.o
 	racket test.rkt
