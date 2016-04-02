@@ -433,6 +433,15 @@ int print_bool(int64_t closure, int64_t x)
 
 uint64_t project(int64_t* any_val, uint8_t* ty_ser)
 {
+#ifndef NDEBUG
+    if (is_forwarding(*any_val))
+    {
+        printf("project(): Vector argument is an indirection: %p\n", any_val);
+        fflush(stdout);
+        exit(EXIT_FAILURE);
+    }
+#endif
+
     // length of top-level serialization
     uint8_t ser_len = *ty_ser;
     // length of serialization in the vec
