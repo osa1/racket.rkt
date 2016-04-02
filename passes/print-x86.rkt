@@ -22,6 +22,9 @@
         (define bytes (cddr p))
         `(,(format "# ~a" type)
           ,(format "~s:" (encode-symbol sym))
+          ; We record length of the serialization to be able to have a fast
+          ; path in project() runtime function.
+          ,(instr2 ".byte" (number->string (length bytes)))
           ,@(map (lambda (byte) (instr2 ".byte" (number->string byte))) bytes)))
       (hash->list table))
     "\n"))

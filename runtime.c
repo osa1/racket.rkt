@@ -7,44 +7,33 @@
 
 #include "runtime.h"
 
-// Often misunderstood static global variables in C are not
-// accessible to code outside of the module.
-// No one besides the collector ever needs to know tospace exists.
 static uint8_t* tospace_begin;
 static uint8_t* tospace_end;
-
-// initialized it set during initialization of the heap, and can be
-// checked in order to ensure that initialization has occurred.
 static int initialized = 0;
 
-
-/*
-  Object Tag (64 bits)
-  #b|- 7 bit unused -|- 50 bit field [50, 0] -| 6 bits length -| 1 bit isForwarding Pointer
-  * If the least-significant bit is zero, the tag is really a forwarding pointer.
-  * Otherwise, it's an object. In that case, the next
-    6 bits give the length of the object (max of 50 64-bit words).
-    The next 50 bits say where there are pointers.
-    A '1' is a pointer, a '0' is not a pointer.
-*/
+// Object Tag (64 bits)
+// See the object tag layout in passes/utils.rkt
 static const int TAG_IS_NOT_FORWARD_MASK = 0b1;
 static const int TAG_LENGTH_MASK = 0b1111110;
 static const int64_t TAG_PTR_BITFIELD_MASK = 0x3ffffffffffff; // mask 50 bits
 static const int TAG_PTR_BITFIELD_RSHIFT = 7;
 
 // Check to see if a tag is actually a forwarding pointer.
-static inline int is_forwarding(int64_t tag) {
-  return !(tag & TAG_IS_NOT_FORWARD_MASK);
+static inline int is_forwarding(int64_t tag)
+{
+    return !(tag & TAG_IS_NOT_FORWARD_MASK);
 }
 
 // Get the length field out of a tag.
-static inline int get_length(int64_t tag){
-  return (tag & TAG_LENGTH_MASK) >> 1;
+static inline int get_length(int64_t tag)
+{
+    return (tag & TAG_LENGTH_MASK) >> 1;
 }
 
 // Get the "is pointer bitfield" out of a tag.
-static inline int64_t get_bitfield(int64_t tag){
-  return (tag >> TAG_PTR_BITFIELD_RSHIFT) & TAG_PTR_BITFIELD_MASK;
+static inline int64_t get_bitfield(int64_t tag)
+{
+    return (tag >> TAG_PTR_BITFIELD_RSHIFT) & TAG_PTR_BITFIELD_MASK;
 }
 
 // initialize the state of the collector so that allocations can occur
@@ -444,9 +433,28 @@ int print_bool(int64_t closure, int64_t x)
 
 uint64_t project(int64_t* any_val, uint8_t* ty_ser)
 {
-    printf("project ====\n");
-    print_vector(any_val);
-    printf("%p\n", ty_ser);
-    printf("============\n");
-    return 0;
+    // length of top-level serialization
+    uint8_t ser_len = *ty_ser;
+    // length of serialization in the vec
+    uint8_t ser_vec_len = (uint8_t)(*(any_val + 1));
+
+    if (ser_len != ser_vec_len)
+    {
+        // TODO: fail with a helpful error message
+        printf("project(): Types are not equal.\n");
+        fflush(stdout);
+        exit(EXIT_FAILURE);
+    }
+
+    if (memcmp((void*)(any_val + 1), (void*)(ty_ser + 1), (size_t)ser_len) != 1)
+    {
+        // TODO: fail with a helpful error message
+        printf("project(): Types are not equal.\n");
+        fflush(stdout);
+        exit(EXIT_FAILURE);
+    }
+
+    // Type of Any is the type we expect, just read the field.
+    int any_vec_len = get_length(*any_val);
+    return *(any_val + any_vec_len);
 }

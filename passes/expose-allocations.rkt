@@ -37,18 +37,32 @@
     [`(assign ,x Any (inject ,arg ,ty))
      ; How many vector slots we need depends on the size of the encoding
      (define ty-encoding (encode-type ty))
-     (define size (length ty-encoding))
+     ; Extra one word for the tag, another one word for the number of bytes in
+     ; the serialization
+     (define size (+ 16 (length ty-encoding)))
      (define quadwords (byte-list-to-quadword-list ty-encoding))
+
+     (when (> (length ty-encoding) 255)
+       (error 'expose-allocations-stmt
+              "Serialization of type (~a) is bigger than max size supported (255)~n"
+              (length ty-encoding)))
+
      `((if (collection-needed? ,size)
          ((collect ,size))
          ())
 
-       (assign ,x (allocate ,(append (replicate 'Integer (length quadwords)) `(,ty))))
+       ; First Integer is for the length (in bytes), for the fast path of
+       ; project() runtime function
+       (assign ,x (allocate ,(cons 'Integer
+                                   (append (replicate 'Integer (length quadwords))
+                                           `(,ty)))))
+
+       (vector-set! ,x 0 ,(length ty-encoding))
 
        ,@(map (lambda (q-idx qword) `(vector-set! ,x ,q-idx ,qword))
-              (range (length quadwords)) quadwords)
+              (range 1 (+ (length quadwords) 1)) quadwords)
 
-       (vector-set! ,x ,(length quadwords) ,arg))]
+       (vector-set! ,x ,(+ (length quadwords) 1) ,arg))]
 
     ; Just to make sure
     [`(assign ,_ ,not-any (inject ,_ ,_))
