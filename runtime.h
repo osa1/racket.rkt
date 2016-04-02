@@ -51,4 +51,7 @@ int print_int(int64_t _closure, int64_t x);
 // Print a boolean to stdout.
 int print_bool(int64_t _closure, int64_t x);
 
+uint64_t project(int64_t* any_val /* an Any value */,
+                 uint8_t* ty_ser  /* pointer to the serialization of projected type */);
+
 #endif

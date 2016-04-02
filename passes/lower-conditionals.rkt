@@ -8,8 +8,8 @@
 
 (define (lower-conditionals pgm)
   (match pgm
-    [`(program . ,defs)
-     `(program ,@(map lower-conditionals-def defs))]
+    [`(program ,meta . ,defs)
+     `(program ,meta ,@(map lower-conditionals-def defs))]
     [_ (unsupported-form 'lower-conditionals pgm)]))
 
 (define (lower-conditionals-def def)

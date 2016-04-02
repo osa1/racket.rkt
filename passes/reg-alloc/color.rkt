@@ -407,13 +407,13 @@
 (define (reg-alloc pgm-name)
   (lambda (pgm [regs-to-use all-reg-syms])
     (match pgm
-      [`(program . ,defs)
+      [`(program ,meta . ,defs)
        (let ([defs (map (lambda (def)
                           (let-values ([(def mapping) (reg-alloc-def pgm-name def regs-to-use)])
                             ; (debug-printf "register mapping:~n")
                             ; (debug-pretty-print mapping)
                             (assign-homes def mapping))) defs)])
-         `(program ,@defs))]
+         `(program ,meta ,@defs))]
        ; (for ([def defs])
        ;   (reg-alloc-def pgm-name def))
        ; `(program ,@defs)]

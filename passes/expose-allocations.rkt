@@ -43,10 +43,13 @@
          ((collect ,size))
          ())
 
-       (assign ,x (allocate ,(replicate 'Integer (length quadwords))))
+       ; +1 for the actual value
+       (assign ,x (allocate ,(replicate 'Integer (+ (length quadwords) 1))))
 
        ,@(map (lambda (q-idx qword) `(vector-set! ,x ,q-idx ,qword))
-              (range (length quadwords)) quadwords))]
+              (range (length quadwords)) quadwords)
+
+       (vector-set! ,x ,(length quadwords) ,arg))]
 
     ; Just to make sure
     [`(assign ,_ ,not-any (inject ,_ ,_))

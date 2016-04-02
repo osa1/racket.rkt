@@ -10,29 +10,50 @@
 (define (instr-sel pgm)
   (match pgm
     [`(program . ,defs)
-     ; (printf "stmts: ~s~n" stmts)
-     ; FIXME: We're creating fresh variables for allocation-related statements.
-     `(program ,@(map instr-sel-def defs))]
+     (define toplevels (init-toplevels))
+     `(program (,toplevels) ,@(map (instr-sel-def toplevels) defs))]
     [_ (unsupported-form 'instr-sel pgm)]))
 
-(define (instr-sel-def def)
-  (match def
-    [`(define main : void . ,stmts)
-     (let ([instrs (save-callee-saves (append-map instr-sel-stmt stmts))])
-       `(define main : void ,@instrs))]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    [`(define (,fname . ,args) : ,ret-ty . ,stmts)
-     (let ([instrs
-             ; TODO: Save callee-saves first or args? Understand how this works
-             ; here and document.
-             (save-callee-saves
-               (append (move-arg-regs (map car args))
-                       (append-map instr-sel-stmt stmts)))])
-       `(define (,fname ,@args) : ,ret-ty ,@instrs))]
+; We maintain a map `type -> (symbol, serialization of the type)` to avoid
+; re-serialization of same types again and again and to be able to call
+; inject() runtime function without doing allocations of messing with vararg
+; passing.
 
-    [`(define-closure-wrapper . ,_) def]
+(define (init-toplevels) (make-hash))
 
-    [_ (unsupported-form 'instr-sel-def def)]))
+(define (add-toplevel-type toplevels type)
+  (define map-ent (hash-ref toplevels type #f))
+  (if map-ent
+    (car map-ent)
+    (let ([bytes (encode-type type)]
+          [sym (fresh "type")])
+      (begin
+        (hash-set! toplevels type (cons sym bytes))
+        sym))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (instr-sel-def toplevels)
+  (lambda (def)
+    (match def
+      [`(define main : void . ,stmts)
+       (let ([instrs (save-callee-saves (append-map (instr-sel-stmt toplevels) stmts))])
+         `(define main : void ,@instrs))]
+
+      [`(define (,fname . ,args) : ,ret-ty . ,stmts)
+       (let ([instrs
+               ; TODO: Save callee-saves first or args? Understand how this works
+               ; here and document.
+               (save-callee-saves
+                 (append (move-arg-regs (map car args))
+                         (append-map (instr-sel-stmt toplevels) stmts)))])
+         `(define (,fname ,@args) : ,ret-ty ,@instrs))]
+
+      [`(define-closure-wrapper . ,_) def]
+
+      [_ (unsupported-form 'instr-sel-def def)])))
 
 (define (move-arg-regs args)
 
@@ -65,118 +86,119 @@
           (map (lambda (r) `(movq ,(car r) ,(cdr r))) temps)))
 
 ; TEMP: I don't want to do big refactorings, adding a mutable argument for now.
-(define (instr-sel-stmt stmt)
-  (let iter ([stmt stmt])
-    (match stmt
+(define (instr-sel-stmt toplevels)
+  (lambda (stmt)
+    (let iter ([stmt stmt])
+      (match stmt
 
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      ; GC-related parts
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ; GC-related parts
 
-      [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
-       (let ([free-ptr-updated (fresh "free_ptr_updated")]
-             [fromspace-end (fresh "fromspace_end")])
-         ; Here's how instructions used here work:
-         ;
-         ;    cmpq: is setting the comparison flags.
-         ;    setl: "set byte if less". result will be 1 if free-ptr-updated is
-         ;          less than fromspace_end.
-         `((movq (global-value free_ptr) (var ,free-ptr-updated))
-           (addq (int ,bytes-needed) (var ,free-ptr-updated))
-           (movq (global-value fromspace_end) (var ,fromspace-end))
-           (cmpq (var ,free-ptr-updated) (var ,fromspace-end))
+        [`(if (collection-needed? ,bytes-needed) ,pgm-t ,pgm-f)
+         (let ([free-ptr-updated (fresh "free_ptr_updated")]
+               [fromspace-end (fresh "fromspace_end")])
+           ; Here's how instructions used here work:
+           ;
+           ;    cmpq: is setting the comparison flags.
+           ;    setl: "set byte if less". result will be 1 if free-ptr-updated is
+           ;          less than fromspace_end.
+           `((movq (global-value free_ptr) (var ,free-ptr-updated))
+             (addq (int ,bytes-needed) (var ,free-ptr-updated))
+             (movq (global-value fromspace_end) (var ,fromspace-end))
+             (cmpq (var ,free-ptr-updated) (var ,fromspace-end))
 
-           ; NOTE the setl instead of sete! We need to check if free-ptr-updated
-           ; is bigger than fromspace_end!
-           (setl (byte-reg al))
+             ; NOTE the setl instead of sete! We need to check if free-ptr-updated
+             ; is bigger than fromspace_end!
+             (setl (byte-reg al))
 
-           ; reusing free-ptr-updated here for the eq? test
-           (movzbq (byte-reg al) (var ,free-ptr-updated))
-           ; do we really need eq? test here? generated code will suffer a little
-           (if (eq? (int 0) (var ,free-ptr-updated))
-             ; rax == 0 means free-ptr-updated is smaller than fromspace_end, so
-             ; no allocatins needed
-             ,(append-map iter pgm-f)
-             ,(append-map iter pgm-t))))]
+             ; reusing free-ptr-updated here for the eq? test
+             (movzbq (byte-reg al) (var ,free-ptr-updated))
+             ; do we really need eq? test here? generated code will suffer a little
+             (if (eq? (int 0) (var ,free-ptr-updated))
+               ; rax == 0 means free-ptr-updated is smaller than fromspace_end, so
+               ; no allocatins needed
+               ,(append-map iter pgm-f)
+               ,(append-map iter pgm-t))))]
 
-      [`(call-live-roots ,roots (collect ,bytes-needed))
-       (let ([rootstack-ptr (fresh "rootstack")])
-         `(,@(if (not (null? roots))
-               `(; Move roots to the root stack
-                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
-                 ,@(map (lambda (idx root)
-                          `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
-                        (range (length roots)) roots)
+        [`(call-live-roots ,roots (collect ,bytes-needed))
+         (let ([rootstack-ptr (fresh "rootstack")])
+           `(,@(if (not (null? roots))
+                 `(; Move roots to the root stack
+                   (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
+                   ,@(map (lambda (idx root)
+                            `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
+                          (range (length roots)) roots)
 
-                 ; Update rootstack_ptr
-                 (addq (int ,(* 8 (length roots))) (global-value rootstack_ptr)))
-               `())
+                   ; Update rootstack_ptr
+                   (addq (int ,(* 8 (length roots))) (global-value rootstack_ptr)))
+                 `())
 
-           ; Set up the argument for `collect`
-           (movq (int ,bytes-needed) (reg rdi))
+             ; Set up the argument for `collect`
+             (movq (int ,bytes-needed) (reg rdi))
 
-           ; Call the collector
-           (callq 2 (toplevel-fn collect))
+             ; Call the collector
+             (callq 2 (toplevel-fn collect))
 
-           ,@(if (not (null? roots))
-               `(; Restore rootstack_ptr
-                 (subq (int ,(* 8 (length roots))) (global-value rootstack_ptr))
+             ,@(if (not (null? roots))
+                 `(; Restore rootstack_ptr
+                   (subq (int ,(* 8 (length roots))) (global-value rootstack_ptr))
 
-                 ; Move new roots back to the variables
-                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
-                 ,@(map (lambda (idx root)
-                          `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
-                                 ,(arg->x86-arg root)))
-                        (range (length roots)) roots))
-               `())))]
+                   ; Move new roots back to the variables
+                   (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
+                   ,@(map (lambda (idx root)
+                            `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
+                                   ,(arg->x86-arg root)))
+                          (range (length roots)) roots))
+                 `())))]
 
-      [`(call-live-roots ,roots ,stmt)
-       (let ([rootstack-ptr (fresh "rootstack")])
-         `(,@(if (not (null? roots))
-               `(; Move roots to the root stack
-                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
-                 ,@(map (lambda (idx root)
-                          `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
-                        (range (length roots)) roots)
+        [`(call-live-roots ,roots ,stmt)
+         (let ([rootstack-ptr (fresh "rootstack")])
+           `(,@(if (not (null? roots))
+                 `(; Move roots to the root stack
+                   (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
+                   ,@(map (lambda (idx root)
+                            `(movq ,(arg->x86-arg root) (offset (var ,rootstack-ptr) ,(* 8 idx))))
+                          (range (length roots)) roots)
 
-                 ; Bump the rootstack ptr
-                 (addq (int ,(* 8 (length roots))) (global-value rootstack_ptr)))
-               `())
+                   ; Bump the rootstack ptr
+                   (addq (int ,(* 8 (length roots))) (global-value rootstack_ptr)))
+                 `())
 
-           ; Run the main thing
-           ,@(instr-sel-stmt stmt)
+             ; Run the main thing
+             ,@((instr-sel-stmt toplevels) stmt)
 
-           ,@(if (not (null? roots))
-               `(; Restore the rootstack ptr
-                 (subq (int ,(* 8 (length roots))) (global-value rootstack_ptr))
+             ,@(if (not (null? roots))
+                 `(; Restore the rootstack ptr
+                   (subq (int ,(* 8 (length roots))) (global-value rootstack_ptr))
 
-                 ; Move new roots back to the variables
-                 (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
-                 ,@(map (lambda (idx root)
-                          `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
-                                 ,(arg->x86-arg root)))
-                        (range (length roots)) roots))
-               `())))]
+                   ; Move new roots back to the variables
+                   (movq (global-value rootstack_ptr) (var ,rootstack-ptr))
+                   ,@(map (lambda (idx root)
+                            `(movq (offset (var ,rootstack-ptr) ,(* 8 idx))
+                                   ,(arg->x86-arg root)))
+                          (range (length roots)) roots))
+                 `())))]
 
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-      [`(assign ,var ,expr)
-       (instr-sel-expr var expr)]
+        [`(assign ,var ,expr)
+         (instr-sel-expr toplevels var expr)]
 
-      [`(return ,arg)
-       `((movq ,(arg->x86-arg arg) (reg rax)))]
+        [`(return ,arg)
+         `((movq ,(arg->x86-arg arg) (reg rax)))]
 
-      [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
-       `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
-           ,(append-map iter pgm-t)
-           ,(append-map iter pgm-f)))]
+        [`(if (eq? ,arg1 ,arg2) ,pgm-t ,pgm-f)
+         `((if (eq? ,(arg->x86-arg arg1) ,(arg->x86-arg arg2))
+             ,(append-map iter pgm-t)
+             ,(append-map iter pgm-f)))]
 
-      [`(vector-set! ,vec ,idx ,val)
-       (let ([offset (+ 8 (* 8 idx))])
-         `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
+        [`(vector-set! ,vec ,idx ,val)
+         (let ([offset (+ 8 (* 8 idx))])
+           `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
 
-      [_ (unsupported-form 'instr-sel-stmt stmt)])))
+        [_ (unsupported-form 'instr-sel-stmt stmt)]))))
 
-(define (instr-sel-expr bind-to expr)
+(define (instr-sel-expr toplevels bind-to expr)
   (match expr
     [(or (? fixnum?) (? symbol?) (? boolean?))
      `(,(instr-sel-arg bind-to expr))]
@@ -223,6 +245,18 @@
 
     [`(toplevel-fn ,_)
      `((leaq ,(arg->x86-arg expr) ,(arg->x86-arg bind-to)))]
+
+    [`(inject . ,_)
+     (error 'instr-sel-expr "inject should have been eliminated in expose-allocations: ~a~n" expr)]
+
+    [`(project ,arg1 ,ty)
+     ; Write encoding of ty to a labelled address, pass pointer to that address
+     ; to the project() runtime function.
+     (define ty-label (add-toplevel-type toplevels ty))
+     `((movq ,(arg->x86-arg arg1) (reg rdi))
+       (leaq (global-value ,ty-label) (reg rsi))
+       (callq 2 (toplevel-fn project))
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
 
     [`(app ,f . ,args)
      ; Since all arguments are word-sized this is easy. Otherwise we'd need

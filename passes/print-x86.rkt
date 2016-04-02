@@ -7,10 +7,24 @@
 
 (define (print-x86_64 pgm)
   (match pgm
-    [`(program . ,defs)
-     (let ([def-strs (map print-x86_64-def defs)])
-       (string-join (append def-strs (list shims)) "\n\n"))]
+    [`(program (,meta) . ,defs)
+     (let ([def-strs (map print-x86_64-def defs)]
+           [type-strs (print-type-sers meta)])
+       (string-join (cons type-strs (append def-strs (list shims))) "\n\n"))]
     [_ (unsupported-form 'print-x86_64 pgm)]))
+
+(define (print-type-sers table)
+  (string-join
+    (append-map
+      (lambda (p)
+        (define type (car p))
+        (define sym (cadr p))
+        (define bytes (cddr p))
+        `(,(format "# ~a" type)
+          ,(format "~s:" (encode-symbol sym))
+          ,@(map (lambda (byte) (instr2 ".byte" (number->string byte))) bytes)))
+      (hash->list table))
+    "\n"))
 
 (define (print-x86_64-def def)
   (match def

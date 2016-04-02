@@ -441,3 +441,12 @@ int print_bool(int64_t closure, int64_t x)
     }
     return 0;
 }
+
+uint64_t project(int64_t* any_val, uint8_t* ty_ser)
+{
+    printf("project ====\n");
+    print_vector(any_val);
+    printf("%p\n", ty_ser);
+    printf("============\n");
+    return 0;
+}
