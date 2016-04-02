@@ -106,7 +106,8 @@
     [`(toplevel-fn ,_) (set)]
 
     [`(,(or '+ 'eq? 'vector-ref) ,v1 ,v2) (add-live (set) v1 v2)]
-    [`(,(or '- 'not 'allocate 'collection-needed?) ,v1) (add-live (set) v1)]
+    [`(,(or '- 'not 'allocate 'collection-needed? 'procedure? 'vector? 'boolean? 'integer?) ,v1)
+     (add-live (set) v1)]
     [`(project ,v1 ,_) (add-live (set) v1)]
     [`(vector-set! ,vec ,_ ,val) (add-live (set) vec val)]
     [`(read) (set)]

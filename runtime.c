@@ -458,3 +458,27 @@ uint64_t project(int64_t* any_val, uint8_t* ty_ser)
     int any_vec_len = get_length(*any_val);
     return *(any_val + any_vec_len);
 }
+
+int is_integer(uint64_t* any_val)
+{
+    uint64_t s = *(any_val + 2);
+    return ((s & 0x0000000000000003) == 0);
+}
+
+int is_boolean(uint64_t* any_val)
+{
+    uint64_t s = *(any_val + 2);
+    return ((s & 0x0000000000000003) == 1);
+}
+
+int is_vector(uint64_t* any_val)
+{
+    uint64_t s = *(any_val + 2);
+    return ((s & 0x0000000000000003) == 2);
+}
+
+int is_procedure(uint64_t* any_val)
+{
+    uint64_t s = *(any_val + 2);
+    return ((s & 0x0000000000000003) == 3);
+}

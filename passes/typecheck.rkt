@@ -131,7 +131,7 @@
        `(,ty . (project ,e1 ,ty)))]
 
     [`(,(or 'boolean? 'integer? 'vector? 'procedure?) ,e1)
-     `(Boolean . (,(car expr) ,(typecheck-expr e1)))]
+     `(Boolean . (,(car expr) ,(typecheck-expr (cons expr context) e1 env)))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

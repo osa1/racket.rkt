@@ -244,6 +244,29 @@
     [`(toplevel-fn ,_)
      `((leaq ,(arg->x86-arg expr) ,(arg->x86-arg bind-to)))]
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; inject/project and type
+
+    [`(integer? ,arg)
+     `((movq ,(arg->x86-arg arg) (reg rdi))
+       (callq 1 (toplevel-fn is_integer))
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
+
+    [`(boolean? ,arg)
+     `((movq ,(arg->x86-arg arg) (reg rdi))
+       (callq 1 (toplevel-fn is_boolean))
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
+
+    [`(vector? ,arg)
+     `((movq ,(arg->x86-arg arg) (reg rdi))
+       (callq 1 (toplevel-fn is_vector))
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
+
+    [`(procedure? ,arg)
+     `((movq ,(arg->x86-arg arg) (reg rdi))
+       (callq 1 (toplevel-fn is_procedure))
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
+
     [`(inject . ,_)
      (error 'instr-sel-expr "inject should have been eliminated in expose-allocations: ~a~n" expr)]
 
@@ -255,6 +278,8 @@
        (leaq (global-value ,ty-label) (reg rsi))
        (callq 2 (toplevel-fn project))
        (movq (reg rax) ,(arg->x86-arg bind-to)))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [`(app ,f . ,args)
      ; Since all arguments are word-sized this is easy. Otherwise we'd need
