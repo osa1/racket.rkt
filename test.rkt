@@ -54,7 +54,7 @@
 
   (compiler-tests "r5" typechecker r2-passes "r5" (range 1 13))
 
-  (compiler-tests "inject-project" typechecker r2-passes "inject-project" (range 1 7)))
+  (compiler-tests "inject-project" typechecker r2-passes "inject-project" (range 1 8)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")

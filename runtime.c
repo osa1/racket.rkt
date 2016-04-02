@@ -446,7 +446,7 @@ uint64_t project(int64_t* any_val, uint8_t* ty_ser)
         exit(EXIT_FAILURE);
     }
 
-    if (memcmp((void*)(any_val + 1), (void*)(ty_ser + 1), (size_t)ser_len) != 1)
+    if (memcmp((void*)(any_val + 2), (void*)(ty_ser + 1), (size_t)ser_len) != 0)
     {
         // TODO: fail with a helpful error message
         printf("project(): Types are not equal.\n");
@@ -462,23 +462,23 @@ uint64_t project(int64_t* any_val, uint8_t* ty_ser)
 int is_integer(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000003) == 0);
+    return ((s & 0x0000000000000007) == 0);
 }
 
 int is_boolean(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000003) == 1);
+    return ((s & 0x0000000000000007) == 1);
 }
 
 int is_vector(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000003) == 2);
+    return ((s & 0x0000000000000007) == 2);
 }
 
 int is_procedure(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000003) == 3);
+    return ((s & 0x0000000000000007) == 3);
 }

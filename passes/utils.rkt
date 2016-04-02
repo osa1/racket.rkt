@@ -203,29 +203,32 @@
   ; So far we have two base types: Integer and Boolean.
   ; Two type constructors: Vector and (->).
   ;
-  ; We pack things tightly for space efficiency. Least significant two bits:
+  ; We pack things tightly for space efficiency. Least significant three bits:
   ;
-  ;   00 -> Integer
-  ;   01 -> Boolean
-  ;   10 -> Vector
-  ;   11 -> Function
+  ;   000 -> Integer
+  ;   001 -> Boolean
+  ;   010 -> Vector
+  ;   011 -> Function
+  ;   100 -> Any
   ;
-  ; If the type is Vector then next 6 bits give the length. If it's Function
+  ; If the type is Vector then next 5 bits give the length. If it's Function
   ; that next 6 bits give the arity. Then bytes that encode Vector fields or
   ; Function arguments follow. If type is a Function, after arguments the
   ; return type comes.
 
   (match type
-    ['Integer `(0 0)]
-    ['Boolean `(1 0)]
+    ['Integer `(0 0 0)]
+    ['Boolean `(1 0 0)]
+    ['Any     `(0 0 1)]
     [`(Vector . ,fields)
-     (append `(0 1)
-             (to-bit-list (length fields) 6)
+     (append `(0 1 0)
+             (to-bit-list (length fields) 5)
              (append-map encode-type-bits fields))]
     [`(,tys ... -> ,ret-ty)
-     (append `(1 1)
-             (to-bit-list (length tys) 6)
-             (append-map encode-type-bits (append tys (list ret-ty))))]))
+     (append `(1 1 0)
+             (to-bit-list (length tys) 5)
+             (append-map encode-type-bits (append tys (list ret-ty))))]
+    [_ (unsupported-form 'encode-type-bits type)]))
 
 ; Returns a list of bytes.
 (define (encode-type type)

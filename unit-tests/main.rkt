@@ -50,7 +50,7 @@
 ; encode-type-bits
 
 (check-equal? (encode-type-bits '(Vector Integer Boolean))
-              '(0 1 0 1 0 0 0 0   0 0 1 0)
+              '(0 1 0 0 1 0 0 0   0 0 0 1 0 0)
               "Encoding of type is wrong")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -60,55 +60,59 @@
 (check-equal? (encode-type 'Boolean) '(1) "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Vector Integer))
-              '(6 0)
+              '(#b00001010 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Vector Integer Integer))
-              '(10 0)
+              '(#b00010010 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Vector Boolean Integer))
-              '(10 1)
+              '(#b00010010 #b00000001)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Vector Integer Boolean))
-              '(10 4)
+              '(#b00010010 #b00001000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Vector Boolean Boolean))
-              '(10 5)
+              '(#b00010010 #b00001001)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Vector Boolean Boolean))
-              '(10 5)
+              '(#b00010010 #b00001001)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Integer -> Integer))
-              '(7 0)
+              '(#b00001011 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Integer Integer -> Integer))
-              '(11 0)
+              '(#b00010011 #b00000000 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Integer Integer Integer -> Integer))
-              '(15 0)
+              '(#b00011011 #b00000000 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Boolean Integer Integer -> Integer))
-              '(15 1)
+              '(#b00011011 #b00000001 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Boolean Boolean Integer -> Integer))
-              '(15 5)
+              '(#b00011011 #b00001001 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Boolean Boolean Boolean -> Integer))
-              '(15 21)
+              '(#b00011011 #b01001001 #b00000000)
               "Encoding of type is wrong")
 
 (check-equal? (encode-type '(Boolean Boolean Boolean -> Boolean))
-              '(15 85)
+              '(#b00011011 #b01001001 #b00000010)
+              "Encoding of type is wrong")
+
+(check-equal? (encode-type '(Any -> Any))
+              '(#b00001011 #b00100100)
               "Encoding of type is wrong")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
