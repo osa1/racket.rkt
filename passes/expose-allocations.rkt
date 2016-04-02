@@ -43,8 +43,7 @@
          ((collect ,size))
          ())
 
-       ; +1 for the actual value
-       (assign ,x (allocate ,(replicate 'Integer (+ (length quadwords) 1))))
+       (assign ,x (allocate ,(append (replicate 'Integer (length quadwords)) `(,ty))))
 
        ,@(map (lambda (q-idx qword) `(vector-set! ,x ,q-idx ,qword))
               (range (length quadwords)) quadwords)
