@@ -212,7 +212,7 @@
   ;   100 -> Any
   ;
   ; If the type is Vector then next 5 bits give the length. If it's Function
-  ; that next 6 bits give the arity. Then bytes that encode Vector fields or
+  ; that next 5 bits give the arity. Then bytes that encode Vector fields or
   ; Function arguments follow. If type is a Function, after arguments the
   ; return type comes.
 
