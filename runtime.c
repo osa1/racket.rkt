@@ -403,6 +403,9 @@ void copy_vector(int64_t** vector_ptr_loc)
     // OMG, first argument is DEST. So unlike AT&T syntax.
     memcpy(free_ptr, vector, len);
 
+    // place the indirection
+    **vector_ptr_loc = (int64_t)free_ptr;
+    // update the root
     *vector_ptr_loc = (int64_t*)free_ptr;
     // printf("vector copied: ");
     // print_vector(*vector_ptr_loc);
