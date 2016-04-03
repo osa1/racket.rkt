@@ -38,9 +38,11 @@
      ; How many vector slots we need depends on the size of the encoding
      (define ty-encoding (encode-type ty))
      (define quadwords (byte-list-to-quadword-list ty-encoding))
-     ; Extra one word for the tag, another one word for the number of bytes in
-     ; the serialization
-     (define size (+ 16 (* 8 (length quadwords))))
+     ; Three extra words:
+     ; - For the vector tag
+     ; - For the number of bytes in the serialization
+     ; - For the actual injected value
+     (define size (+ 24 (* 8 (length quadwords))))
 
      (when (> (length ty-encoding) 255)
        (error 'expose-allocations-stmt
