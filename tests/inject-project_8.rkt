@@ -1,7 +1,4 @@
-(define (cons [h : Integer] [t : Any]) : (Vector Integer Any)
-  (vector h t))
+(define (cons [h : Any]) : (Vector Any)
+  (vector h))
 
-(define (nil) : Any
-  (inject (vector) (Vector)))
-
-(vector-ref (cons 42 (nil)) 0)
+(project (vector-ref (cons (inject 42 Integer)) 0) Integer)
