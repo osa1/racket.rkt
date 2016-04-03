@@ -3,7 +3,9 @@
 (require "utils.rkt")
 
 (provide typecheck typechecker typecheck-ignore
-         mk-toplevel-ty-env is-fun-ty? extract-toplevel-name)
+         mk-toplevel-ty-env is-fun-ty?
+         extract-toplevel-name extract-toplevel-args
+         extract-arg-name extract-arg-ty)
 
 ;; This is used for ignoring type-checking step. The problem with type-checking
 ;; is that it's only defined in front-end language. When we want to run
@@ -49,6 +51,12 @@
      name]
     [_ (unsupported-form 'extract-toplevel-name def)]))
 
+(define (extract-toplevel-args def)
+  (match def
+    [`(define (,_ . ,args) : ,_ . ,_) args]
+    [`(define ,_ : ,_ . ,_) `()]
+    [_ (unsupported-form 'extract-toplevel-args def)]))
+
 (define (extract-toplevel-ty def)
   (match def
     [`(define (,_ . ,args) : ,ret-ty ,_)
@@ -60,6 +68,11 @@
 (define (extract-arg-ty arg)
   (match arg
     [`(,_ : ,arg-ty) arg-ty]
+    [_ (unsupported-form 'extract-arg-ty arg)]))
+
+(define (extract-arg-name arg)
+  (match arg
+    [`(,arg-name : ,_) arg-name]
     [_ (unsupported-form 'extract-arg-ty arg)]))
 
 (define (split-fun-ty ty)

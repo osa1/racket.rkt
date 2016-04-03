@@ -1,5 +1,6 @@
 #lang racket
 
+(require (only-in "typecheck.rkt" extract-arg-name extract-arg-ty))
 (require "utils.rkt")
 
 (provide uncover-call-live-roots expr-vs)
@@ -15,8 +16,41 @@
 (define (uncover-roots-def def)
   (match def
     [`(define ,tag : ,ret-ty ,vs . ,stmts)
-     `(define ,tag : ,ret-ty ,@(uncover-call-live-roots-iter vs (set) stmts))]
+
+     ; We need to initialize mentioned-so-far with the function arguments.
+     ; Example:
+     ;
+     ;   (define (fun [arg])
+     ;     ..
+     ;     (collect)
+     ;     (movq arg ...)
+     ;     ...)
+     ;
+     ; Since we only move variables that are 1) live 2) allocated in the
+     ; function at the collect() call site to the root stack, if we don't make
+     ; 'arg' mentioned, we end up moving the heap object to the tospace without
+     ; updating 'arg'.
+     ;
+     ; However, if the arg is not used at all in the function body, no need to
+     ; add it to the set.
+
+     (define def-allocated-args
+       (match tag
+         [`(,_ . ,args)
+          (list->set
+            (filter-allocateds (make-hash (map (lambda (arg) (cons (extract-arg-name arg)
+                                                                   (extract-arg-ty arg)))
+                                               args))
+                               (map extract-arg-name args)))]
+         [_ (set)]))
+
+     (define mentioned-vs
+       (set-intersect def-allocated-args (stmts-vs stmts)))
+
+     `(define ,tag : ,ret-ty ,@(uncover-call-live-roots-iter vs mentioned-vs stmts))]
+
     [`(define-closure-wrapper . ,_) def]
+
     [_ (unsupported-form 'uncover-roots-def def)]))
 
 (define (uncover-call-live-roots-iter vs mentioned-so-far stmts)
@@ -80,6 +114,9 @@
 
        [_ (unsupported-form 'uncover-call-live-roots-iter stmt)])]))
 
+(define (stmts-vs stmts)
+  (foldl (lambda (stmt vs) (set-union vs (stmt-vs stmt))) (set) stmts))
+
 (define (stmt-vs stmt)
   (match stmt
     ; We handle statements with annotations too. This is because we use this
@@ -123,5 +160,6 @@
   (filter (lambda (v)
             (match (hash-ref var-tys v)
               [`(Vector . ,_) #t]
+              ['Any #t]
               [_ #f]))
           vs))
