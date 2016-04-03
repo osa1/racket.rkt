@@ -400,6 +400,8 @@ void copy_vector(int64_t** vector_ptr_loc)
     }
 #endif
 
+    assert(is_forwarding((int64_t)free_ptr));
+
     // OMG, first argument is DEST. So unlike AT&T syntax.
     memcpy(free_ptr, vector, len);
 
@@ -451,6 +453,13 @@ uint64_t project(int64_t* any_val, uint8_t* ty_ser)
     if (is_forwarding(*any_val))
     {
         printf("project(): Vector argument is an indirection: %p\n", any_val);
+        fflush(stdout);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!((void*)any_val >= (void*)fromspace_begin && (void*)any_val < (void*)fromspace_end))
+    {
+        printf("project(): Vector argument is not in correct heap: %p\n", any_val);
         fflush(stdout);
         exit(EXIT_FAILURE);
     }
