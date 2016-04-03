@@ -371,6 +371,10 @@ void cheney()
     tmp = tospace_end;
     tospace_end = fromspace_end;
     fromspace_end = tmp;
+
+#ifndef NDEBUG
+    memset((void*)fromspace_begin, 0, (size_t)(fromspace_end - fromspace_begin));
+#endif
 }
 
 void copy_vector(int64_t** vector_ptr_loc)
