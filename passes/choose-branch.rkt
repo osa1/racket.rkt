@@ -69,6 +69,8 @@
     [`(vector ,elem-tys . ,elems)
      `(,(car e0) . (vector ,elem-tys ,@(map choose-branch-expr elems)))]
 
+    [`(vector) e0]
+
     [`(,f . ,args)
      `(,(car e0) . (,(choose-branch-expr f) ,@(map choose-branch-expr args)))]
 
