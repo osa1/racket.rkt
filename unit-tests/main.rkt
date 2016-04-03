@@ -59,6 +59,10 @@
 (check-equal? (encode-type 'Integer) '(0) "Encoding of type is wrong")
 (check-equal? (encode-type 'Boolean) '(1) "Encoding of type is wrong")
 
+(check-equal? (encode-type '(Vector))
+              '(#b00000010)
+              "Encoding of type is wrong")
+
 (check-equal? (encode-type '(Vector Integer))
               '(#b00001010 #b00000000)
               "Encoding of type is wrong")
