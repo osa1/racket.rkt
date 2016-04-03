@@ -37,10 +37,10 @@
     [`(assign ,x Any (inject ,arg ,ty))
      ; How many vector slots we need depends on the size of the encoding
      (define ty-encoding (encode-type ty))
+     (define quadwords (byte-list-to-quadword-list ty-encoding))
      ; Extra one word for the tag, another one word for the number of bytes in
      ; the serialization
-     (define size (+ 16 (length ty-encoding)))
-     (define quadwords (byte-list-to-quadword-list ty-encoding))
+     (define size (+ 16 (* 8 (length quadwords))))
 
      (when (> (length ty-encoding) 255)
        (error 'expose-allocations-stmt
