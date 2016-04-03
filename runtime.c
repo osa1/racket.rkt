@@ -389,6 +389,17 @@ void copy_vector(int64_t** vector_ptr_loc)
     int fields = get_length(info);
     int len = 8 + (8 * fields);
 
+#ifndef NDEBUG
+    if (free_ptr + len > tospace_end)
+    {
+        printf("not enough space left in tospace to copy the vector!\n");
+        printf("free_ptr: %p\n", free_ptr);
+        printf("vector len: %d\n", len);
+        printf("tospace_end: %p\n", tospace_end);
+        exit(1);
+    }
+#endif
+
     // OMG, first argument is DEST. So unlike AT&T syntax.
     memcpy(free_ptr, vector, len);
 
