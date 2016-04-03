@@ -18,6 +18,9 @@ static const int TAG_LENGTH_MASK = 0b1111110;
 static const int64_t TAG_PTR_BITFIELD_MASK = 0x3ffffffffffff; // mask 50 bits
 static const int TAG_PTR_BITFIELD_RSHIFT = 7;
 
+int in_tospace(void* ptr);
+int in_fromspace(void* ptr);
+
 // Check to see if a tag is actually a forwarding pointer.
 static inline int is_forwarding(int64_t tag)
 {
@@ -126,11 +129,9 @@ void print_vector(int64_t* vector)
     {
         printf("<vector: forwarding to: %p>\n", (void*)info);
 
-        if ((void*)info >= (void*)tospace_begin &&
-                (void*)info < (void*)tospace_end)
+        if (in_tospace((void*)info))
             printf("(%p is in tospace)\n", (void*)info);
-        else if ((void*)info >= (void*)fromspace_begin &&
-                (void*)info < (void*)fromspace_end)
+        else if (in_fromspace((void*)info))
             printf("(%p is in fromspace)\n", (void*)info);
         else
             printf("(%p is not in fromspace or tospace)\n", (void*)info);
@@ -147,11 +148,9 @@ void print_vector(int64_t* vector)
         int64_t bitfield = get_bitfield(info);
 
         printf("<vector (%p, ", (void*) vector);
-        if ((void*)vector >= (void*)tospace_begin &&
-                (void*)vector < (void*)tospace_end)
+        if (in_tospace((void*)vector))
             printf("in tospace):");
-        else if ((void*)vector >= (void*)fromspace_begin &&
-                (void*)vector < (void*)fromspace_end)
+        else if (in_fromspace((void*)vector))
             printf("in fromspace):");
         else
             printf("\?\?\?):");
@@ -159,7 +158,9 @@ void print_vector(int64_t* vector)
         for (int i = 0; i < fields; i++)
         {
             if ((bitfield & (1 << i)) != 0)
-                printf(" ptr(%p)", (void*)(*(vector + 1 + i)));
+                printf(" ptr(%p, %s)",
+                       (void*)(*(vector + 1 + i)),
+                       in_fromspace((void*)(*(vector + 1 + i))) ? "in fromspace" : "in tospace");
             else
                 printf(" %" PRIi64, *(vector + 1 + i));
         }
@@ -315,6 +316,11 @@ int in_fromspace(void* ptr)
     return (ptr >= (void*)fromspace_begin && ptr < (void*)fromspace_end);
 }
 
+int in_tospace(void* ptr)
+{
+    return (ptr >= (void*)tospace_begin && ptr < (void*)tospace_end);
+}
+
 void cheney()
 {
     free_ptr = tospace_begin;
@@ -382,6 +388,7 @@ void copy_vector(int64_t** vector_ptr_loc)
 
     if (is_forwarding(info))
     {
+        // update the root
         *vector_ptr_loc = (int64_t*)info;
         return;
     }
@@ -409,8 +416,6 @@ void copy_vector(int64_t** vector_ptr_loc)
     **vector_ptr_loc = (int64_t)free_ptr;
     // update the root
     *vector_ptr_loc = (int64_t*)free_ptr;
-    // printf("vector copied: ");
-    // print_vector(*vector_ptr_loc);
 
     free_ptr += len;
 }
