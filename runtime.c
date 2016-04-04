@@ -461,7 +461,8 @@ uint64_t project(int64_t* any_val, uint8_t* ty_ser)
 #ifndef NDEBUG
     if (is_forwarding(*any_val))
     {
-        printf("project(): Vector argument is an indirection: %p\n", any_val);
+        printf("project(): Vector argument (%p) is an indirection to %" PRIi64 "\n",
+               any_val, *any_val);
         fflush(stdout);
         exit(EXIT_FAILURE);
     }
