@@ -161,5 +161,6 @@
             (match (hash-ref var-tys v)
               [`(Vector . ,_) #t]
               ['Any #t]
+              [`(,_ ... -> ,_) #t]
               [_ #f]))
           vs))
