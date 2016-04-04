@@ -164,6 +164,8 @@
 (define (is-ptr-obj? obj-type)
   (match obj-type
     [`(Vector . ,_) #t]
+    ['Any #t]
+    [`(,_ ... -> ,_) #t]
     [_ #f]))
 
 ; Generating info fields for vectors

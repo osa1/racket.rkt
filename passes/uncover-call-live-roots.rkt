@@ -157,10 +157,4 @@
          lives args))
 
 (define (filter-allocateds var-tys vs)
-  (filter (lambda (v)
-            (match (hash-ref var-tys v)
-              [`(Vector . ,_) #t]
-              ['Any #t]
-              [`(,_ ... -> ,_) #t]
-              [_ #f]))
-          vs))
+  (filter (lambda (v) (is-ptr-obj? (hash-ref var-tys v))) vs))
