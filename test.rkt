@@ -31,8 +31,10 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Vectors
 
+  (compiler-tests "vector-nested" typechecker r2-passes "vector-nested" (range 0 1))
+
   ; (debug-level 4)
-  (compiler-tests "vec" typechecker r2-passes "vector" (range 0 10))
+  (compiler-tests "vector" typechecker r2-passes "vector" (range 0 10))
 
   ; It takes forever after vector-ref-crazy_20
   ; FIXME: Benchmark this. Could it be gcc's fault?
