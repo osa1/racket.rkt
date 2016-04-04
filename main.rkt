@@ -10,6 +10,7 @@
     (unless (file-exists? file)
       (error 'main "File does not exist: ~a" file)))
 
+  (initial-heap-size 8)
   (debug-level 4)
   (use-regs #t)
 

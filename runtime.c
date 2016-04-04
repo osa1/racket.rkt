@@ -373,7 +373,7 @@ void cheney()
     fromspace_end = tmp;
 
 #ifndef NDEBUG
-    memset((void*)fromspace_begin, 0, (size_t)(fromspace_end - fromspace_begin));
+    memset((void*)tospace_begin, 0, (size_t)(tospace_end - tospace_begin));
 #endif
 }
 
