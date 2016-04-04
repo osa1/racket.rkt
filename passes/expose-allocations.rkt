@@ -55,9 +55,7 @@
 
        ; First Integer is for the length (in bytes), for the fast path of
        ; project() runtime function
-       (assign ,x (allocate ,(cons 'Integer
-                                   (append (replicate 'Integer (length quadwords))
-                                           `(,ty)))))
+       (assign ,x (allocate (Integer ,@(replicate 'Integer (length quadwords)) ,ty)))
 
        (vector-set! ,x 0 ,(length ty-encoding))
 
