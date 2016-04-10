@@ -475,6 +475,13 @@ uint64_t project(int64_t* any_val, uint8_t* ty_ser)
     }
 #endif
 
+    // special case for (project any (Vectorof Any))
+    if (*(ty_ser + 1) == 0b00000111 && (((uint8_t) *(any_val + 2)) & 0b111) == 0b00000010)
+    {
+        int any_vec_len = get_length(*any_val);
+        return *(any_val + any_vec_len);
+    }
+
     // length of top-level serialization
     uint8_t ser_len = *ty_ser;
     // length of serialization in the vec

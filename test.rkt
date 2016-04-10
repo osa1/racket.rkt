@@ -27,38 +27,21 @@
   (compiler-tests "conditionals-1" typechecker r1-passes "cond" (range 1 5))
   (compiler-tests "conditionals-2" typechecker r1-passes "ty" (range 1 6))
   (compiler-tests "r2" typechecker r2-passes "r2" (range 1 24))
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;; Vectors
-
   (compiler-tests "vector-nested" typechecker r2-passes "vector-nested" (range 0 1))
-
-  ; (debug-level 4)
   (compiler-tests "vector" typechecker r2-passes "vector" (range 0 10))
-
-  ; It takes forever after vector-ref-crazy_20
-  ; FIXME: Benchmark this. Could it be gcc's fault?
   (compiler-tests "vec-ref-crazy" typechecker r2-passes "vector-ref-crazy" (range 1 15))
-
   (compiler-tests "vector-other" typechecker r2-passes "vector-other" (range 1 2))
-
   (compiler-tests "r3" typechecker r2-passes "r3" (range 1 16))
-
   (compiler-tests "fun" typechecker r2-passes "fun" (range 1 13))
-
   (compiler-tests "r4" typechecker r2-passes "r4" (range 1 20))
-
   (compiler-tests "alloc_fun" typechecker r2-passes "alloc_fun" (range 1 5))
-
   (compiler-tests "big-arity" typechecker r2-passes "big_arity" (range 1 3))
-
   (compiler-tests "lambda" typechecker r2-passes "lambda" (range 1 6))
-
   (compiler-tests "r5" typechecker r2-passes "r5" (range 1 13))
-
   (compiler-tests "relations" typechecker r2-passes "relations" (range 1 8))
-
-  (compiler-tests "inject-project" typechecker r2-passes "inject-project" (range 1 16)))
+  (compiler-tests "inject-project" typechecker r2-passes "inject-project" (range 1 16))
+  (compiler-tests "unsafe" typechecker r6-passes "unsafe" (range 1 3))
+  (compiler-tests "dynamic" #f r7-passes "dynamic" (range 1 5)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")

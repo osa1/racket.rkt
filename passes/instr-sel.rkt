@@ -268,6 +268,15 @@
     [`(vector-ref ,vec ,idx)
      `((movq (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx))) ,(arg->x86-arg bind-to)))]
 
+    [`(vector-ref-dynamic ,e1 ,e2)
+     (define e1-arg (arg->x86-arg e1))
+     (define e2-arg (arg->x86-arg e2))
+     (define bind-to-arg (arg->x86-arg bind-to))
+     `((addq (int 1) ,e2-arg)
+       (imulq (int 8) ,e2-arg)
+       (addq ,e2-arg ,e1-arg)
+       (movq (offset ,e1-arg 0) ,bind-to-arg))]
+
     [`(vector-set! ,vec ,idx ,val)
      ;; Note that we ignore bind-to here!
      `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx)))))]
@@ -413,7 +422,7 @@
                 (collect-vars-instrs pgm-t)
                 (collect-vars-instrs pgm-f))]
 
-    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'imulq 'movq 'leaq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
      (set-union (collect-vars-arg arg1) (collect-vars-arg arg2))]
 
     [`(,(or 'negq 'pushq 'popq) ,arg)

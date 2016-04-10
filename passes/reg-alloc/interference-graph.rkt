@@ -46,7 +46,7 @@
 
 (define (build-int-graph instr lives graph)
   (match instr
-    [`(,(or 'addq 'subq 'xorq 'andq) ,s ,d)
+    [`(,(or 'addq 'subq 'imulq 'xorq 'andq) ,s ,d)
      (for ([live lives])
        (unless (equal? live d)
          (add-int graph d live)))]

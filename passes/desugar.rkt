@@ -50,7 +50,7 @@
     [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1)))]
 
-    [`(,(or '+ 'eq? '< '<= '> '>=) ,e1 ,e2)
+    [`(,(or '+ 'eq? '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1) ,(desugar-expr e2)))]
 
     [`(,(or 'inject 'project) ,e1 ,ty)

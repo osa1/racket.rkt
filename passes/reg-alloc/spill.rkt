@@ -83,7 +83,7 @@
 
          [#t `(,instr)])]
 
-      [`(,(or 'addq 'subq 'cmpq 'xorq 'andq) ,s ,d)
+      [`(,(or 'addq 'subq 'imulq 'cmpq 'xorq 'andq) ,s ,d)
        (cond
          [(and (equal? s var) (equal? d var))
           (define temp-var (mk-temp-var))

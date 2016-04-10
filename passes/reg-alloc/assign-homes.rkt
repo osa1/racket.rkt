@@ -61,7 +61,7 @@
         ,(assign-home-instrs asgns stack-size pgm-t)
         ,(assign-home-instrs asgns stack-size pgm-f))]
 
-    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'imulq 'movq 'leaq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
      `(,(car instr) ,(assign-home-arg asgns stack-size arg1)
                     ,(assign-home-arg asgns stack-size arg2))]
 

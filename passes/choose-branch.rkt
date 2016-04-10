@@ -66,7 +66,7 @@
     [`(,(or 'project 'inject) ,e1 ,ty)
      `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1) ,ty))]
 
-    [`(,(or '+ '< '<=) ,e1 ,e2)
+    [`(,(or '+ 'eq? '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1) ,(choose-branch-expr e2)))]
 
     [`(let ([,var ,e1]) ,body)

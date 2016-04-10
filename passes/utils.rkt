@@ -212,6 +212,7 @@
   ;   010 -> Vector
   ;   011 -> Function
   ;   100 -> Any
+  ;   111 -> Vectorof Any
   ;
   ; If the type is Vector then next 5 bits give the length. If it's Function
   ; that next 5 bits give the arity. Then bytes that encode Vector fields or
@@ -222,6 +223,7 @@
     ['Integer `(0 0 0)]
     ['Boolean `(1 0 0)]
     ['Any     `(0 0 1)]
+    ['(Vectorof Any) `(1 1 1)]
     [`(Vector . ,fields)
      (append `(0 1 0)
              (to-bit-list (length fields) 5)

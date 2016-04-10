@@ -19,11 +19,11 @@
 (define (typecheck pgm)
   (match pgm
     [`(program . ,things)
-     (let-values ([(defines expr) (split-last things)])
-       (let* ([initial-env (mk-toplevel-ty-env defines)]
-              [defines (map (lambda (def) (typecheck-toplevel initial-env def)) defines)])
+     (let-values ([(defs expr) (split-last things)])
+       (let* ([initial-env (mk-toplevel-ty-env defs)]
+              [defs (map (lambda (def) (typecheck-toplevel initial-env def)) defs)])
          (let ([expr (typecheck-expr '() expr initial-env)])
-           `(program ,@defines ,expr))))]
+           `(program ,@defs ,expr))))]
     [_ (unsupported-form 'typecheck pgm)]))
 
 (define typechecker typecheck)
@@ -131,11 +131,18 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Dynamic typing stuff
 
+    [`(inject ,e1 (Vectorof Any))
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)])
+       (match (car e1)
+         [`(Vector Any ...)
+          `(Any . (inject ,e1 (Vectorof Any)))]
+         [ty (ty-err context expr 'Vector ty)]))]
+
     ; Inject a type to Any
     [`(inject ,e1 ,ty)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)])
        (assert-ty (cons expr context) e1 ty (car e1))
-       `(Any . (inject ,e1, ty)))]
+       `(Any . (inject ,e1 ,ty)))]
 
     ; Project an Any to the given type - can fail at runtime
     [`(project ,e1 ,ty)
@@ -225,7 +232,19 @@
                    "Invalid vector index: ~s vector size: ~s expression: ~s~n"
                    idx (length elems) expr))
           `(,(list-ref elems idx) . (vector-ref ,vec ,idx))]
+         [`(Vectorof Any)
+          `(Any . (vector-ref ,vec ,idx))]
          [_ (ty-err context expr 'Vector (car vec))]))]
+
+    ; Like vector-ref, but takes a dynamic Integer expression as index.
+    [`(vector-ref-dynamic ,e1 ,e2)
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)]
+           [e2 (typecheck-expr (cons expr context) e2 env)])
+       (assert-ty context e2 'Integer (car e2))
+       (match (car e1)
+         [`(Vectorof Any)
+          `(Any . (vector-ref-dynamic ,e1 ,e2))]
+         [_ (ty-err context expr '(Vectorof Any) (car e1))]))]
 
     [`(vector-set! ,vec ,idx ,e)
      (unless (fixnum? idx)

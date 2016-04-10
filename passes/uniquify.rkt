@@ -39,7 +39,7 @@
     [`(,(or 'inject 'project) ,e1 ,ty)
      `(,(car e0) . (,(cadr e0) ,(uniquify-expr rns e1) ,ty))]
 
-    [`(,(or '+ 'eq? '< '<= '> '>=) ,e1 ,e2)
+    [`(,(or '+ 'eq? '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(uniquify-expr rns e1) ,(uniquify-expr rns e2)))]
 
     [`(if ,e1 ,e2 ,e3)

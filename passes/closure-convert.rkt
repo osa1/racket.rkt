@@ -65,7 +65,7 @@
       [`(,(or 'inject 'project) ,e1 ,ty)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1) ,ty))]
 
-      [`(,(or '+ 'eq? '< '<= '> '>=) ,e1 ,e2)
+      [`(,(or '+ 'eq? '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1) ,(closure-convert-expr e2)))]
 
       [`(if ,e1 ,e2 ,e3)
@@ -116,9 +116,12 @@
     [`(lambda: ,args : ,ret-ty ,body)
      (foldl (lambda (arg s) (set-remove s (car arg))) (fvs body) args)]
 
+    [`(,(or 'inject 'project) ,e1 ,_) (fvs e1)]
+
     [`(,(or '- 'not) ,e1) (fvs e1)]
 
-    [`(,(or '+ 'eq?) ,e1 ,e2) (set-union (fvs e1) (fvs e2))]
+    [`(,(or '+ 'eq? '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
+     (set-union (fvs e1) (fvs e2))]
 
     [`(if ,e1 ,e2 ,e3) (set-union (fvs e1) (fvs e2) (fvs e3))]
 
