@@ -1,6 +1,7 @@
 #lang racket
 
 ; In the order that they run
+(require "passes/compile-r7.rkt")
 (require "passes/typecheck.rkt")
 (require "passes/desugar.rkt")
 (require "passes/choose-branch.rkt")
@@ -26,6 +27,9 @@
 
          ; export individual passes for testing purposes
          ; (see test.rkt)
+
+         ; compiling the dynamically typed language to the statically typed one
+         compile-r7
 
          ; type checking
          typechecker
@@ -80,4 +84,6 @@
 
 ; r7 is different - it's dynamically typed
 (define r7-passes
-  `())
+  `(("compile-r7" ,compile-r7 #f)
+    ("typecheck" ,typecheck #f)
+    ,@r6-passes))
