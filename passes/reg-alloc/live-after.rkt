@@ -61,7 +61,7 @@
 (define (gen-live-afters-instr instr lives)
   ; (printf "gen-live-afters-instr ~a ~a~n" lives instr)
   (match instr
-    [`(,(or 'addq 'subq 'cmpq 'xorq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
      (values instr (add-live lives arg1 arg2))]
 
     [`(pushq ,arg1)
@@ -69,6 +69,9 @@
 
     [`(popq ,arg1)
      (values instr (remove-live lives arg1))]
+
+    [`(lahf)
+     (values instr (remove-live lives `(reg rax)))]
 
     [`(,(or 'sete 'setl) (byte-reg al))
      (values instr (remove-live lives `(reg rax)))]

@@ -222,6 +222,37 @@
      `(,(instr-sel-arg bind-to arg1)
        (addq ,(arg->x86-arg arg2) ,(arg->x86-arg bind-to)))]
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Integer comparisons
+
+    ; lahf: AH <- EFLAGS(SF:ZF:0:AF:0:PF:1:CF)
+    ;
+    ; SF=1 means the result of subtraction was negative, i.e. arg2 is greater,
+    ; so the test has succeeded.
+    ;
+    ; ZF=1 means the result of subtraction was zero, i.e. argrs are equal.
+    ;
+    ; SF is 8th bit of %ah, 16th bit of %ax, %eax and %rax, after a 'lahf'.
+    ; ZF is 7th bit of %ah, 15th bit of %ax, %eax and %rax, after a 'lahf'.
+    ;
+    ; NOTE: Assuming everything except 0 is considered 'true'.
+
+    [`(< ,arg1 ,arg2)
+     `((cmpq ,(arg->x86-arg arg2) ,(arg->x86-arg arg1))
+       (lahf)
+       (movq (int #b1000000000000000) ,(arg->x86-arg bind-to))
+       ; 'and' operand sizes need to be of same size
+       (andq (reg rax) ,(arg->x86-arg bind-to)))]
+
+    [`(<= ,arg1 ,arg2)
+     `((cmpq ,(arg->x86-arg arg2) ,(arg->x86-arg arg1))
+       (lahf)
+       (movq (int #b1100000000000000) ,(arg->x86-arg bind-to))
+       ; 'and' operand sizes need to be of same size
+       (andq (reg rax) ,(arg->x86-arg bind-to)))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     [`(allocate ,obj-types)
      ; We need to allocate 8 bytes (for header) + 1 dword for each object
      (let* ([alloc-size (+ 8 (* 8 (length obj-types)))]
@@ -382,7 +413,7 @@
                 (collect-vars-instrs pgm-t)
                 (collect-vars-instrs pgm-f))]
 
-    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
      (set-union (collect-vars-arg arg1) (collect-vars-arg arg2))]
 
     [`(,(or 'negq 'pushq 'popq) ,arg)
@@ -391,6 +422,8 @@
     [`(callq ,_ ,arg) (collect-vars-arg arg)]
 
     [`(retq) (set)]
+
+    [`(lahf) (set)]
 
     [`(,(or 'sete 'setl) (byte-reg al)) (set)]
 

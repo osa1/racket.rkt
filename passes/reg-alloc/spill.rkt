@@ -83,7 +83,7 @@
 
          [#t `(,instr)])]
 
-      [`(,(or 'addq 'subq 'cmpq 'xorq) ,s ,d)
+      [`(,(or 'addq 'subq 'cmpq 'xorq 'andq) ,s ,d)
        (cond
          [(and (equal? s var) (equal? d var))
           (define temp-var (mk-temp-var))
@@ -153,6 +153,8 @@
          `(,instr))]
 
       [`(retq) `(,instr)]
+
+      [`(lahf) `(,instr)]
 
       [`(,(or 'sete 'setl) (byte-reg al))
        `(,instr)]

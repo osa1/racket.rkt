@@ -6,6 +6,17 @@
 
 ; - Desugar 'and'.
 ; - Generate a 'main' define form from the expression in the program.
+;
+; NOTE: We can't desugar '>' and '>=' to '<' and '<=', as that would change the
+; evaluation order of things. Example:
+;
+;   (>= (read) (read)) ~> (<= (read) (read))
+;   stdin: 1 2
+;
+; Previously the result was 0, now it's 1.
+;
+; The place to do this is 'flatten' as that step has control over evaluation
+; order.
 
 (define (desugar pgm)
   (match pgm
@@ -20,6 +31,17 @@
 
 (define (desugar-expr e0)
   (match (cdr e0)
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Important cases
+
+    [`(and ,e1 ,e2)
+     (let ([e1-ds (desugar-expr e1)]
+           [e2-ds (desugar-expr e2)])
+       `(,(car e0) . (if (Boolean . (eq? ,e1-ds (Boolean . #t))) ,e2-ds (Boolean . #f))))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     [(or (? fixnum?) (? boolean?) (? symbol?)) e0]
 
     [`(lambda: ,args : ,ret-ty ,body)
@@ -28,16 +50,11 @@
     [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1)))]
 
-    [`(,(or '+ 'eq?) ,e1 ,e2)
+    [`(,(or '+ 'eq? '< '<= '> '>=) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1) ,(desugar-expr e2)))]
 
     [`(,(or 'inject 'project) ,e1 ,ty)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1) ,ty))]
-
-    [`(and ,e1 ,e2)
-     (let [(e1-ds (desugar-expr e1))
-           (e2-ds (desugar-expr e2))]
-       `((car e0) . (if (Boolean . (eq? ,e1-ds (Boolean . #t))) ,e2-ds (Boolean . #f))))]
 
     [`(if ,e1 ,e2 ,e3)
      `(,(car e0) . (if ,(desugar-expr e1) ,(desugar-expr e2) ,(desugar-expr e3)))]

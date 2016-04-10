@@ -65,7 +65,7 @@
       [`(,(or 'inject 'project) ,e1 ,ty)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1) ,ty))]
 
-      [`(,(or '+ 'eq?) ,e1 ,e2)
+      [`(,(or '+ 'eq? '< '<= '> '>=) ,e1 ,e2)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1) ,(closure-convert-expr e2)))]
 
       [`(if ,e1 ,e2 ,e3)

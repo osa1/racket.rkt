@@ -61,7 +61,7 @@
         ,(assign-home-instrs asgns stack-size pgm-t)
         ,(assign-home-instrs asgns stack-size pgm-f))]
 
-    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
      `(,(car instr) ,(assign-home-arg asgns stack-size arg1)
                     ,(assign-home-arg asgns stack-size arg2))]
 
@@ -73,6 +73,8 @@
      `(callq ,(assign-home-arg asgns stack-size arg))]
 
     [`(retq) instr]
+
+    [`(lahf) instr]
 
     [`(,(or 'sete 'setl) (byte-reg al)) instr]
 
@@ -127,6 +129,8 @@
         #t]
 
        [`(retq) (has-callq? instrs)]
+
+       [`(lahf) (has-callq? instrs)]
 
        [`(,(or 'sete 'setl) (byte-reg al)) (has-callq? instrs)]
 

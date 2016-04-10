@@ -46,7 +46,7 @@
 
 (define (build-int-graph instr lives graph)
   (match instr
-    [`(,(or 'addq 'subq 'xorq) ,s ,d)
+    [`(,(or 'addq 'subq 'xorq 'andq) ,s ,d)
      (for ([live lives])
        (unless (equal? live d)
          (add-int graph d live)))]
@@ -76,6 +76,11 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [`(retq) (void)]
+
+    [`(lahf)
+     (for ([live lives])
+       (unless (equal? live `(reg rax))
+         (add-int graph `(reg rax) live)))]
 
     [`(callq ,_ ,s)
      ; Variables need to stay alive across a function call interfere with the

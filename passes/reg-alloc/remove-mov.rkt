@@ -34,7 +34,7 @@
          `() ; Remove the mov
          `((movq ,(replace-arg arg1) ,(replace-arg arg2))))]
 
-      [`(,(or 'addq 'subq 'leaq 'cmpq 'xorq) ,arg1 ,arg2)
+      [`(,(or 'addq 'subq 'leaq 'cmpq 'xorq 'andq) ,arg1 ,arg2)
        `((,(car instr) ,(replace-arg arg1) ,(replace-arg arg2)))]
 
       [`(,(or 'negq 'pushq 'popq) ,arg)
@@ -44,6 +44,8 @@
        `((callq ,n ,(replace-arg arg)))]
 
     [`(retq) `(,instr)]
+
+    [`(lahf) `(,instr)]
 
     [`(,(or 'sete 'setl) (byte-reg al)) `(,instr)]
 

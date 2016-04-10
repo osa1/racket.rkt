@@ -13,6 +13,15 @@
      `(program ,@(map (lift-def choose-branch-expr) defs))]
     [_ (unsupported-form 'choose-branch pgm)]))
 
+(define (eval-rel racket-rel orig-rel e1 e2)
+  (match-let ([`(,e1-ty . ,e1) (choose-branch-expr e1)]
+              [`(,e2-ty . ,e2) (choose-branch-expr e2)])
+    (cond [(and (or (fixnum? e1) (boolean? e1))
+                (or (fixnum? e2) (boolean? e2)))
+           `(Boolean . ,(racket-rel e1 e2))]
+
+          [else `(Boolean . (,orig-rel (,e1-ty . ,e1) (,e2-ty . ,e2)))])))
+
 ;; TODO: We can be much more aggressive here, by doing a simple form of
 ;; compile-time evaluation.
 (define (choose-branch-expr e0)
@@ -28,16 +37,19 @@
        [e1 `(,(car e0) . (if ,e1 ,(choose-branch-expr e2) ,(choose-branch-expr e3)))])]
 
     [`(eq? ,e1 ,e2)
-     (match-let ([`(,e1-ty . ,e1) (choose-branch-expr e1)]
-                 [`(,e2-ty . ,e2) (choose-branch-expr e2)])
-       (cond [(and (or (fixnum? e1) (boolean? e1))
-                   (or (fixnum? e2) (boolean? e2)))
-              `(Boolean . ,(equal? e1 e2))]
+     (eval-rel equal? 'eq? e1 e2)]
 
-             [(and (symbol? e1) (symbol? e2) (equal? e1 e2))
-              `(Boolean . #t)]
+    [`(< ,e1 ,e2)
+     (eval-rel < '< e1 e2)]
 
-             [else `(,(car e0) . (eq? (,e1-ty . ,e1) (,e2-ty . ,e2)))]))]
+    [`(> ,e1 ,e2)
+     (eval-rel > '> e1 e2)]
+
+    [`(<= ,e1 ,e2)
+     (eval-rel <= '<= e1 e2)]
+
+    [`(>= ,e1 ,e2)
+     (eval-rel >= '>= e1 e2)]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ;; Simple cases
@@ -54,7 +66,7 @@
     [`(,(or 'project 'inject) ,e1 ,ty)
      `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1) ,ty))]
 
-    [`(,(or '+) ,e1 ,e2)
+    [`(,(or '+ '< '<=) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(choose-branch-expr e1) ,(choose-branch-expr e2)))]
 
     [`(let ([,var ,e1]) ,body)

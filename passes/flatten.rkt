@@ -73,7 +73,18 @@
        (let ([fresh (fresh "tmp")])
          (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1 ,ty)) pgm) fresh)))]
 
-    [`(,(or '+ 'eq?) ,e1 ,e2)
+    [`(,(or '> '>=) ,e1 ,e2)
+     (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
+                   [(binds pgm e2) (flatten-expr binds pgm e2)])
+       (let [(fresh (fresh "tmp"))]
+         (values binds (cons `(assign ,fresh ,(car e0)
+                                      (,(if (eq? (cadr e0) '>) '< '<=) ,e2 ,e1))
+                             pgm) fresh)))]
+
+    [`(>= ,e1 ,e2)
+     (flatten-expr binds pgm `(,(car e0) . (<= ,e2 ,e1)))]
+
+    [`(,(or '+ 'eq? '< '<=) ,e1 ,e2)
      (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
                    [(binds pgm e2) (flatten-expr binds pgm e2)])
        (let [(fresh (fresh "tmp"))]
@@ -99,7 +110,11 @@
                      [(_ pgm-f ret-f) (flatten-expr binds '() e3)])
          (let* [(pgm-t (reverse (cons `(assign ,fresh ,(car e0) ,ret-t) pgm-t)))
                 (pgm-f (reverse (cons `(assign ,fresh ,(car e0) ,ret-f) pgm-f)))]
-           (values binds (cons `(if (eq? ,e1 #t) ,pgm-t ,pgm-f) pgm) fresh))))]
+           ; It's important that we compare e1 against #f here, because we
+           ; considered 0 as #f and everything else as #t. This helps when we
+           ; generate code for relations using status flags and masks: Any
+           ; number of one bits in the result means true.
+           (values binds (cons `(if (eq? ,e1 #f) ,pgm-f ,pgm-t) pgm) fresh))))]
 
     [`(vector-ref ,e1 ,idx)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])

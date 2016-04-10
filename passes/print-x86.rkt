@@ -85,7 +85,7 @@
     [`(callq ,arg)
      (instr2 'callq (string-append "*" (print-x86_64-arg arg)))]
 
-    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'movzbq 'xorq) ,arg1 ,arg2)
+    [`(,(or 'addq 'subq 'movq 'leaq 'cmpq 'movzbq 'xorq 'andq) ,arg1 ,arg2)
      (instr3 (car stmt) (print-x86_64-arg arg1) (print-x86_64-arg arg2))]
 
     [`(,(or 'negq 'pushq 'popq 'je 'jmp 'sete 'setl) ,arg1)
@@ -94,7 +94,7 @@
     [`(label ,lbl)
      (string-append (symbol->string lbl) ":")]
 
-    [`(retq) (instr1 (car stmt))]
+    [`(,(or 'retq 'lahf)) (instr1 (car stmt))]
 
     [_ (unsupported-form 'print-x86_64-stmt stmt)]))
 
