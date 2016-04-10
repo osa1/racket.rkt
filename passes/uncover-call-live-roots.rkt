@@ -81,6 +81,13 @@
           (cons `(call-live-roots ,live-roots ,stmt)
                 (uncover-call-live-roots-iter vs (set-union mentioned-so-far (stmt-vs stmt)) stmts)))]
 
+       ; app-noalloc is just app after this step
+       [`(assign ,bndr (app-noalloc . ,rest))
+        (let ([stmt `(assign ,bndr (app . ,rest))])
+          (cons
+            stmt
+            (uncover-call-live-roots-iter vs (set-union mentioned-so-far (stmt-vs stmt)) stmts)))]
+
        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
        [`(assign ,_ ,_)
@@ -139,7 +146,7 @@
   (match expr
     ;; TODO: I'm a bit confused about this. Do we really need a special case
     ;; here?
-    [`(app ,v . ,vs) (foldl (lambda (v s) (add-live s v)) (set) (cons v vs))]
+    [`(,(or 'app 'app-noalloc) ,v . ,vs) (foldl (lambda (v s) (add-live s v)) (set) (cons v vs))]
     [`(toplevel-fn ,_) (set)]
 
     [`(,(or '+ 'eq? 'vector-ref) ,v1 ,v2) (add-live (set) v1 v2)]
