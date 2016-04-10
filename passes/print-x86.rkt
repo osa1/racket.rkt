@@ -10,7 +10,9 @@
     [`(program (,meta) . ,defs)
      (let ([def-strs (map print-x86_64-def defs)]
            [type-strs (print-type-sers meta)])
-       (string-join (cons type-strs (append def-strs (list shims))) "\n\n"))]
+       (if (equal? type-strs "")
+         (string-join (append def-strs (list shims)) "\n\n")
+         (string-join (cons type-strs (append def-strs (list shims))) "\n\n")))]
     [_ (unsupported-form 'print-x86_64 pgm)]))
 
 (define (print-type-sers table)
