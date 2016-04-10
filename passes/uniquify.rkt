@@ -62,6 +62,11 @@
     [`(vector-set! ,vec ,idx ,e)
      `(,(car e0) . (vector-set! ,(uniquify-expr rns vec) ,idx ,(uniquify-expr rns e)))]
 
+    [`(vector-set!-dynamic ,vec ,idx ,e)
+     `(,(car e0) . (vector-set!-dynamic ,(uniquify-expr rns vec)
+                                        ,(uniquify-expr rns idx)
+                                        ,(uniquify-expr rns e)))]
+
     [`(vector . ,elems)
      `(,(car e0) . (vector ,@(map (lambda (elem) (uniquify-expr rns elem)) elems)))]
 

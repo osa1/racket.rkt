@@ -236,7 +236,8 @@
           `(Any . (vector-ref ,vec ,idx))]
          [_ (ty-err context expr 'Vector (car vec))]))]
 
-    ; Like vector-ref, but takes a dynamic Integer expression as index.
+    ; Like vector-ref, but takes a dynamic Integer expression as index. Also,
+    ; only works on Vectorof Any.
     [`(vector-ref-dynamic ,e1 ,e2)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)]
            [e2 (typecheck-expr (cons expr context) e2 env)])
@@ -260,6 +261,19 @@
             (assert-ty context (cdr e) (list-ref elems idx) (car e))
             `(void . (vector-set! ,vec ,idx ,e)))]
          [_ (ty-err context expr 'Vector (car vec))]))]
+
+    ; Like vector-set!, but takes a dynamic Integer expression as index. Also,
+    ; only works on Vectorof Any.
+    [`(vector-set!-dynamic ,vec ,idx ,e)
+     (let ([vec (typecheck-expr (cons expr context) vec env)]
+           [idx (typecheck-expr (cons expr context) idx env)]
+           [e   (typecheck-expr (cons expr context) e   env)])
+       (assert-ty context idx 'Integer (car idx))
+       (assert-ty context e   'Any     (car e))
+       (match (car vec)
+         [`(Vectorof Any)
+          `(Any . (vector-set!-dynamic ,vec ,idx ,e))]
+         [_ (ty-err context expr '(Vectorof Any) (car vec))]))]
 
     [`(,fn . ,args)
      (let ([fn (typecheck-expr context fn env)])

@@ -130,6 +130,13 @@
        (let [(fresh (fresh "void"))]
          (values binds (cons `(assign ,fresh void (vector-set! ,vec ,idx ,e)) pgm) fresh)))]
 
+    [`(vector-set!-dynamic ,vec ,idx ,e)
+     (let*-values ([(binds pgm vec) (flatten-expr binds pgm vec)]
+                   [(binds pgm idx) (flatten-expr binds pgm idx)]
+                   [(binds pgm e)   (flatten-expr binds pgm e)])
+       (let [(fresh (fresh "void"))]
+         (values binds (cons `(assign ,fresh void (vector-set!-dynamic ,vec ,idx ,e)) pgm) fresh)))]
+
     [`(vector . ,elems)
      (let-values ([(binds pgm es) (flatten-expr-list binds pgm elems)])
        (let [(fresh (fresh "tmp-vec"))]
@@ -261,6 +268,9 @@
 
     [`(vector-set! ,vec ,idx ,e)
      `(vector-set! ,(rename-arg x y vec) ,idx ,(rename-arg x y e))]
+
+    [`(vector-set! ,vec ,idx ,e)
+     `(vector-set! ,(rename-arg x y vec) ,(rename-arg x y idx) ,(rename-arg x y e))]
 
     [_ (unsupported-form 'rename-expr expr)]))
 

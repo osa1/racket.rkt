@@ -54,6 +54,9 @@
       [`(vector-set! ,vec ,idx ,e)
        `(,(car e0) . (vector-set! ,(iter vec) ,idx ,(iter e)))]
 
+      [`(vector-set!-dynamic ,vec ,idx ,e)
+       `(,(car e0) . (vector-set!-dynamic ,(iter vec) ,(iter idx) ,(iter e)))]
+
       [`(vector . ,elems)
        `(,(car e0) . (vector ,@(map iter elems)))]
 

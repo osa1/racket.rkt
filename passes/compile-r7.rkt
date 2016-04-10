@@ -113,7 +113,7 @@
      `(vector-set!-dynamic
         ,(get-vector (compile-expr ts e1))
         ,(get-integer (compile-expr ts e2))
-        ,(compile-expr ts e2))]
+        ,(compile-expr ts e3))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Function and applications

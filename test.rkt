@@ -41,7 +41,7 @@
   (compiler-tests "relations" typechecker r2-passes "relations" (range 1 8))
   (compiler-tests "inject-project" typechecker r2-passes "inject-project" (range 1 16))
   (compiler-tests "unsafe" typechecker r6-passes "unsafe" (range 1 3))
-  (compiler-tests "dynamic" #f r7-passes "dynamic" (range 1 5)))
+  (compiler-tests "dynamic" #f r7-passes "dynamic" (range 1 6)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")

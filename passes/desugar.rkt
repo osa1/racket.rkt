@@ -70,6 +70,9 @@
     [`(vector-set! ,vec ,idx ,e)
      `(,(car e0) . (vector-set! ,(desugar-expr vec) ,idx ,(desugar-expr e)))]
 
+    [`(vector-set!-dynamic ,vec ,idx ,e)
+     `(,(car e0) . (vector-set!-dynamic ,(desugar-expr vec) ,(desugar-expr idx) ,(desugar-expr e)))]
+
     [`(vector . ,elems)
      `(,(car e0) . (vector ,@(map desugar-expr elems)))]
 

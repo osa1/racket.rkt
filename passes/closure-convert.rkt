@@ -83,6 +83,11 @@
       [`(vector-set! ,vec ,idx ,e)
        `(,(car e0) . (vector-set! ,(closure-convert-expr vec) ,idx ,(closure-convert-expr e)))]
 
+      [`(vector-set!-dynamic ,vec ,idx ,e)
+       `(,(car e0) . (vector-set!-dynamic ,(closure-convert-expr vec)
+                                          ,(closure-convert-expr idx)
+                                          ,(closure-convert-expr e)))]
+
       [`(vector . ,elems)
        `(,(car e0) . (vector ,@(map closure-convert-expr elems)))]
 
@@ -131,6 +136,8 @@
     [`(vector-ref ,e1 ,_) (fvs e1)]
 
     [`(vector-set! ,vec ,_ ,e) (set-union (fvs vec) (fvs e))]
+
+    [`(vector-set!-dynamic ,vec ,idx ,e) (set-union (fvs vec) (fvs idx) (fvs e))]
 
     [`(vector . ,elems) (foldl set-union (set) (map fvs elems))]
 

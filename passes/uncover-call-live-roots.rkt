@@ -99,7 +99,7 @@
        [`(return ,v)
         (cons stmt (uncover-call-live-roots-iter vs (set-add mentioned-so-far v) stmts))]
 
-       [`(vector-set! ,_ ,_ ,_)
+       [`(,(or 'vector-set! 'vector-set!-dynamic) ,_ ,_ ,_)
         (cons stmt (uncover-call-live-roots-iter
                      vs
                      (set-union mentioned-so-far (stmt-vs stmt))
@@ -138,6 +138,7 @@
     [`(return ,var) (set var)]
     [`(collect ,_) (set)]
     [`(vector-set! ,var ,_ ,val) (add-live (set) var val)]
+    [`(vector-set!-dynamic ,var ,idx ,val) (add-live (set) var idx val)]
     [`(if ,c ,pgm-t ,pgm-f)
      (foldl set-union (set) (append (map stmt-vs pgm-t) (map stmt-vs pgm-f) (list (expr-vs c))))]
     [_ (unsupported-form 'stmt-vs stmt)]))
@@ -154,6 +155,7 @@
      (add-live (set) v1)]
     [`(project ,v1 ,_) (add-live (set) v1)]
     [`(vector-set! ,vec ,_ ,val) (add-live (set) vec val)]
+    [`(vector-set!-dynamic ,vec ,idx ,val) (add-live (set) vec idx val)]
     [`(read) (set)]
     [(? symbol?) (set expr)]
     [(or (? fixnum?) (? boolean?)) (set)]

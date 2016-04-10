@@ -45,6 +45,11 @@
           (let ([lives (set-union (set-add lives var) (expr-vs val))])
             (values lives (cons (cons stmt lives) stmts))))]
 
+       [`(vector-set!-dynamic ,var ,idx ,val)
+        (let-values ([(lives stmts) (annotate-lives-iter stmts)])
+          (let ([lives (set-union (set-add lives var) (expr-vs idx) (expr-vs val))])
+            (values lives (cons (cons stmt lives) stmts))))]
+
        [`(if ,c ,pgm-t ,pgm-f)
         (let-values ([(lives stmts) (annotate-lives-iter stmts)]
                      [(pgm-t-lives pgm-t) (annotate-lives-iter pgm-t)]

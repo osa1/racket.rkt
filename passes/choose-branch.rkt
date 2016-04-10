@@ -78,6 +78,11 @@
     [`(vector-set! ,vec ,idx ,e)
      `(,(car e0) . (vector-set! ,(choose-branch-expr vec) ,idx ,(choose-branch-expr e)))]
 
+    [`(vector-set!-dynamic ,vec ,idx ,e)
+     `(,(car e0) . (vector-set!-dynamic ,(choose-branch-expr vec)
+                                        ,(choose-branch-expr idx)
+                                        ,(choose-branch-expr e)))]
+
     [`(vector ,elem-tys . ,elems)
      `(,(car e0) . (vector ,elem-tys ,@(map choose-branch-expr elems)))]
 

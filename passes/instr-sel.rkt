@@ -194,6 +194,15 @@
          (let ([offset (+ 8 (* 8 idx))])
            `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,offset))))]
 
+        [`(vector-set!-dynamic ,vec ,idx ,val)
+         (define vec-arg (arg->x86-arg vec))
+         (define idx-arg (arg->x86-arg idx))
+         (define val-arg (arg->x86-arg val))
+         `((addq (int 1) ,idx-arg)
+           (imulq (int 8) ,idx-arg)
+           (addq ,idx-arg ,vec-arg)
+           (movq ,val-arg (offset ,vec-arg 0)))]
+
         [_ (unsupported-form 'instr-sel-stmt stmt)]))))
 
 (define (instr-sel-expr toplevels bind-to expr)
@@ -280,6 +289,15 @@
     [`(vector-set! ,vec ,idx ,val)
      ;; Note that we ignore bind-to here!
      `((movq ,(arg->x86-arg val) (offset ,(arg->x86-arg vec) ,(+ 8 (* 8 idx)))))]
+
+    [`(vector-set!-dynamic ,vec ,idx ,val)
+     (define vec-arg (arg->x86-arg vec))
+     (define idx-arg (arg->x86-arg idx))
+     (define val-arg (arg->x86-arg val))
+     `((addq (int 1) ,idx-arg)
+       (imulq (int 8) ,idx-arg)
+       (addq ,idx-arg ,vec-arg)
+       (movq ,val-arg (offset ,vec-arg 0)))]
 
     [`(toplevel-fn ,_)
      `((leaq ,(arg->x86-arg expr) ,(arg->x86-arg bind-to)))]
