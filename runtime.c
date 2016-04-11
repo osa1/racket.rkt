@@ -508,6 +508,45 @@ uint64_t project(int64_t* any_val, uint8_t* ty_ser)
     return *(any_val + any_vec_len);
 }
 
+uint64_t eq_dynamic(uint64_t* ptr1, uint64_t* ptr2)
+{
+    uint64_t ptr1_tag = *ptr1;
+    uint64_t ptr2_tag = *ptr2;
+
+    if (ptr1_tag != ptr2_tag)
+        return 0;
+
+    int ptr1_len = get_length(ptr1_tag);
+    int ptr2_len = get_length(ptr2_tag);
+
+    if (ptr1_len != ptr2_len)
+        return 0;
+
+    int64_t ptr1_bitfield = get_bitfield(ptr1_tag);
+    int64_t ptr2_bitfield = get_bitfield(ptr2_tag);
+
+    if (ptr1_bitfield != ptr2_bitfield)
+        return 0;
+
+    for (int i = 0; i < ptr1_len; i++)
+    {
+        if ((ptr1_bitfield & (1 << i)) != 0)
+        {
+            uint64_t* ptr1_field = *(uint64_t**)(ptr1 + 1 + i);
+            uint64_t* ptr2_field = *(uint64_t**)(ptr2 + 1 + i);
+            if (eq_dynamic(ptr1_field, ptr2_field) != 1)
+                return 0;
+        }
+        else
+        {
+            if (*(ptr1 + 1 + i) != *(ptr2 + 1 + i))
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
 int is_integer(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);

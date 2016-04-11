@@ -194,7 +194,16 @@
      (let ([e1 (typecheck-expr (cons expr context) e1 env)]
            [e2 (typecheck-expr (cons expr context) e2 env)])
        (assert-ty context e2 (car e1) (car e2))
-       `(Boolean . (eq? ,e1 ,e2)))]
+
+       ; FIXME: This is not the right place to do this.
+       ; We have two kinds of eq? checks now, once is plain old eq? which
+       ; compares for value/ptr equality. Other one is a RTS function that can
+       ; handle vectors, dynamically typed objects. Depending on the type here
+       ; we choose which one to use.
+
+       (if (is-ptr-obj? (car e1))
+         `(Boolean . (eq?-dynamic ,e1 ,e2))
+         `(Boolean . (eq? ,e1 ,e2))))]
 
     [`(not ,e1)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)])

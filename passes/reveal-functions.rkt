@@ -32,7 +32,7 @@
       [`(,(or 'inject 'project) ,e1 ,ty)
        `(,(car e0) . (,(cadr e0) ,(iter e1) ,ty))]
 
-      [`(,(or '+ 'eq? '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
+      [`(,(or '+ 'eq? 'eq?-dynamic '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
        `(,(car e0) . (,(cadr e0) ,(iter e1) ,(iter e2)))]
 
       [(? symbol?)

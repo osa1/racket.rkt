@@ -227,6 +227,12 @@
          (sete (byte-reg al))
          (movzbq (byte-reg al) ,(arg->x86-arg bind-to))))]
 
+    [`(eq?-dynamic ,arg1 ,arg2)
+     `((movq ,(arg->x86-arg arg1) (reg rdi))
+       (movq ,(arg->x86-arg arg2) (reg rsi))
+       (callq 2 (toplevel-fn eq_dynamic))
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
+
     [`(+ ,arg1 ,arg2)
      `(,(instr-sel-arg bind-to arg1)
        (addq ,(arg->x86-arg arg2) ,(arg->x86-arg bind-to)))]
