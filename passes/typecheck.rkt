@@ -151,7 +151,9 @@
        `(,ty . (project ,e1 ,ty)))]
 
     [`(,(or 'boolean? 'integer? 'vector? 'procedure?) ,e1)
-     `(Boolean . (,(car expr) ,(typecheck-expr (cons expr context) e1 env)))]
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)])
+       (assert-ty context e1 'Any (car e1))
+       `(Boolean . (,(car expr) ,e1)))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

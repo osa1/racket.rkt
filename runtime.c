@@ -550,23 +550,23 @@ uint64_t eq_dynamic(uint64_t* ptr1, uint64_t* ptr2)
 int is_integer(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000007) == 0);
+    return ((s & 0b111) == 0);
 }
 
 int is_boolean(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000007) == 1);
+    return ((s & 0b111) == 1);
 }
 
 int is_vector(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000007) == 2);
+    return ((s & 0b111) == 2 || (s & 0b111) == 7);
 }
 
 int is_procedure(uint64_t* any_val)
 {
     uint64_t s = *(any_val + 2);
-    return ((s & 0x0000000000000007) == 3);
+    return ((s & 0b111) == 3);
 }

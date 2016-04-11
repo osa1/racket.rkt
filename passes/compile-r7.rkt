@@ -116,6 +116,12 @@
         ,(compile-expr ts e3))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Type predicates
+
+    [`(,(or 'integer? 'boolean? 'vector? 'procedure?) ,e1)
+     (mk-boolean `(,(car expr) ,(compile-expr ts e1)))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Function and applications
 
     [`(lambda ,args ,body)
