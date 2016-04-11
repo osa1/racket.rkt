@@ -164,6 +164,7 @@
 (define (is-ptr-obj? obj-type)
   (match obj-type
     [`(Vector . ,_) #t]
+    [`Vector #t]
     [`(Vectorof Any) #t]
     ['Any #t]
     [`(,_ ... -> ,_) #t]
