@@ -79,9 +79,9 @@
     [`(not ,e1)
      (mk-boolean `(not ,(get-boolean (compile-expr ts e1))))]
 
-    [`(,(or '> '>= '< '<=) ,e1 ,e2)
-     (mk-boolean `(,(car expr) ,(get-integer (compile-expr ts e1))
-                               ,(get-integer (compile-expr ts e2))))]
+    [`(,(or '> '>= '< '<= 'eq?) ,e1 ,e2)
+     (mk-boolean `(,(car expr) ,(compile-expr ts e1)
+                               ,(compile-expr ts e2)))]
 
     [`(,(or 'and 'or) ,e1 ,e2)
      (mk-boolean `(,(car expr) ,(get-boolean (compile-expr ts e1))

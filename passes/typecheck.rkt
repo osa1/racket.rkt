@@ -190,6 +190,12 @@
        (assert-ty context e2 'Integer (car e2))
        `(Boolean . (,(car expr) ,e1 ,e2)))]
 
+    [`(eq? ,e1 ,e2)
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)]
+           [e2 (typecheck-expr (cons expr context) e2 env)])
+       (assert-ty context e2 (car e1) (car e2))
+       `(Boolean . (eq? ,e1 ,e2)))]
+
     [`(not ,e1)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)])
        (assert-ty context e1 'Boolean (car e1))
