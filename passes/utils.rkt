@@ -164,9 +164,12 @@
 (define (is-ptr-obj? obj-type)
   (match obj-type
     [`(Vector . ,_) #t]
+    [`(Vectorof Any) #t]
     ['Any #t]
     [`(,_ ... -> ,_) #t]
-    [_ #f]))
+    ['Integer #f]
+    ['Boolean #f]
+    [_ (unsupported-form 'is-ptr-obj? obj-type)]))
 
 ; Generating info fields for vectors
 (define (vec-info-field field-types)
