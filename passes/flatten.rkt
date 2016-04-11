@@ -61,7 +61,7 @@
 
     [`(read)
      (let [(fresh (fresh "tmp"))]
-       (values binds (cons `(assign ,fresh 'Integer (app-noalloc (toplevel-fn read_int))) pgm) fresh))]
+       (values binds (cons `(assign ,fresh Integer (app-noalloc (toplevel-fn read_int))) pgm) fresh))]
 
     [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
