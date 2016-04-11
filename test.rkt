@@ -39,7 +39,7 @@
   (compiler-tests "lambda" typechecker r2-passes "lambda" (range 1 6))
   (compiler-tests "r5" typechecker r2-passes "r5" (range 1 13))
   (compiler-tests "relations" typechecker r2-passes "relations" (range 1 8))
-  (compiler-tests "inject-project" typechecker r2-passes "inject-project" (range 1 17))
+  (compiler-tests "inject-project" typechecker r2-passes "inject-project" (range 1 19))
   (compiler-tests "unsafe" typechecker r6-passes "unsafe" (range 1 3))
   (compiler-tests "dynamic" #f r7-passes "dynamic" (range 1 12)))
 
