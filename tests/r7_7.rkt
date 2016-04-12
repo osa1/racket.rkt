@@ -1,0 +1,12 @@
+
+(define (vector-foo vec)
+  (let ([veca (vector-set! vec 0 42)])
+    vec))
+(define (vector-foo-too vec)
+  (let ([veca (vector-set! vec 1 42)])
+    vec))
+(define (vector-foo-three vec)
+  (let ([veca (vector-set! vec 2 42)])
+    vec))
+(let ([x (vector-foo (vector-foo-too (vector-foo-three (vector 0 0 0))))])
+  (vector-ref x 0))
