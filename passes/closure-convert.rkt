@@ -59,7 +59,7 @@
          `((Vector ,(car e0) ,@(map car frees-lst))
            . (vector (,(car e0) . (toplevel-closure ,fname)) ,@frees-lst)))]
 
-      [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
+      [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1)
        `(,(car e0) . (,(cadr e0) ,(closure-convert-expr e1)))]
 
       [`(,(or 'inject 'project) ,e1 ,ty)
@@ -114,16 +114,16 @@
 ; NOTE: Need to remove top-level stuff from the result.
 (define (fvs e0)
   (match (cdr e0)
-    [(or (? fixnum?) (? boolean?) `(read)) (set)]
+    [(or (? fixnum?) (? boolean?) `(read) `(void)) (set)]
 
     [(? symbol?) (set e0)]
 
     [`(lambda: ,args : ,ret-ty ,body)
      (foldl (lambda (arg s) (set-remove s (car arg))) (fvs body) args)]
 
-    [`(,(or 'inject 'project) ,e1 ,_) (fvs e1)]
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1) (fvs e1)]
 
-    [`(,(or '- 'not) ,e1) (fvs e1)]
+    [`(,(or 'inject 'project) ,e1 ,_) (fvs e1)]
 
     [`(,(or '+ 'eq? 'eq?-dynamic '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
      (set-union (fvs e1) (fvs e2))]

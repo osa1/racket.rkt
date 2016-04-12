@@ -152,7 +152,8 @@
 
     [`(,(or '+ 'eq? 'eq?-dynamic '< '<= 'vector-ref 'vector-ref-dynamic) ,v1 ,v2)
      (add-live (set) v1 v2)]
-    [`(,(or '- 'not 'allocate 'collection-needed? 'procedure? 'vector? 'boolean? 'integer?) ,v1)
+    [`(,(or '- 'not 'allocate 'collection-needed? 'procedure? 'vector? 'boolean? 'integer?
+            'project-boolean) ,v1)
      (add-live (set) v1)]
     [`(project ,v1 ,_) (add-live (set) v1)]
     [`(vector-set! ,vec ,_ ,val) (add-live (set) vec val)]

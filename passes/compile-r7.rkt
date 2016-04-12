@@ -5,6 +5,29 @@
 (provide compile-r7)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; NOTE [Special case for (project any Boolean)]
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;
+; Racket treats every variable other than #f as #t. In the dynamically typed
+; language, when we have
+;
+;   (if x t f)
+;
+; We generate
+;
+;   (if (project x Boolean) t f) (omitting wrappers around t, f, the whole expr)
+;
+; Now, we want this to work as expected in runtime, without giving away type
+; safety in the typed language with explicit Any values. E.g. this should still
+; fail in the typed language (in runtime, of course):
+;
+;   (if (project (inject 1 Integer) Boolean) t f)
+;
+; So we can't change runtime function project(). Instead, we need a new project
+; function that takes casre of extra coercions to coerce basically everything
+; to a boolean. The form is called `project-boolean` and the corresponding
+; runtime function is `project_boolean()` defined in runtime.c.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (compile-r7 pgm)
   (match pgm
@@ -146,6 +169,10 @@
 (define (mk-void expr)    `(inject ,expr Void))
 
 (define (get-integer expr) `(project ,expr Integer))
-(define (get-boolean expr) `(project ,expr Boolean))
+
+; Note the special form `project-boolean` here. We can't use `project`. See
+; NOTE [Special case for (project any Boolean)] above.
+(define (get-boolean expr) `(project-boolean ,expr))
+
 (define (get-vector expr)  `(project ,expr (Vectorof Any)))
 (define (get-function expr arity) `(project ,expr (,@(replicate 'Any arity) -> Any)))

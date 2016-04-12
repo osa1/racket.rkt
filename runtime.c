@@ -456,6 +456,41 @@ int print_bool(int64_t closure, int64_t x)
     return 0;
 }
 
+// Special case for (project any Boolean): See NOTE [Special case for
+// (project any Boolean)] in compile-r7.rkt.
+uint64_t project_boolean(int64_t* any_val)
+{
+#ifndef NDEBUG
+    if (is_forwarding(*any_val))
+    {
+        printf("project(): Vector argument (%p) is an indirection to %" PRIi64 "\n",
+               any_val, *any_val);
+        fflush(stdout);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!((void*)any_val >= (void*)fromspace_begin && (void*)any_val < (void*)fromspace_end))
+    {
+        printf("project(): Vector argument is not in correct heap: %p\n", any_val);
+        fflush(stdout);
+        exit(EXIT_FAILURE);
+    }
+#endif
+
+    // Is the value a boolean?
+    if ((((uint8_t) *(any_val + 2)) & 0b111) == 0b001)
+    {
+        // Return the payload which is a boolean
+        int any_vec_len = get_length(*any_val);
+        return *(any_val + any_vec_len);
+    }
+
+    // Otherwise it's #t. Note that we can't return payload or anything like
+    // that here, as it could be 0 (as in the Integer 0) which is treated as
+    // false by the generated code.
+    return 1;
+}
+
 uint64_t project(int64_t* any_val, uint8_t* ty_ser)
 {
 #ifndef NDEBUG

@@ -345,6 +345,11 @@
        (callq 2 (toplevel-fn project))
        (movq (reg rax) ,(arg->x86-arg bind-to)))]
 
+    [`(project-boolean ,arg1)
+     `((movq ,(arg->x86-arg arg1) (reg rdi))
+       (callq 1 (toplevel-fn project_boolean))
+       (movq (reg rax) ,(arg->x86-arg bind-to)))]
+
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [`(app ,f . ,args)

@@ -67,7 +67,7 @@
      (let [(fresh (fresh "tmp"))]
        (values binds (cons `(assign ,fresh Void (void)) pgm) fresh))]
 
-    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let [(fresh (fresh "tmp"))]
          (values binds (cons `(assign ,fresh ,(car e0) (,(cadr e0) ,e1)) pgm) fresh)))]

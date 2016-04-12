@@ -47,7 +47,7 @@
     [`(lambda: ,args : ,ret-ty ,body)
      `(,(car e0) . (lambda: ,args : ,ret-ty ,(desugar-expr body)))]
 
-    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1)
      `(,(car e0) . (,(cadr e0) ,(desugar-expr e1)))]
 
     [`(,(or '+ 'eq? 'eq?-dynamic '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)

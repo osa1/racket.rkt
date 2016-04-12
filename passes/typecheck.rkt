@@ -150,6 +150,12 @@
        (assert-ty (cons expr context) e1 'Any (car e1))
        `(,ty . (project ,e1 ,ty)))]
 
+    ; See NOTE [Special case for (project any Boolean)] in compile-r7.rkt
+    [`(project-boolean ,e1)
+     (let ([e1 (typecheck-expr (cons expr context) e1 env)])
+       (assert-ty (cons expr context) e1 'Any (car e1))
+       `(Boolean . (project-boolean ,e1)))]
+
     [`(,(or 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)])
        (assert-ty context e1 'Any (car e1))

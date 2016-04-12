@@ -26,7 +26,7 @@
       [(or (? fixnum?) (? boolean?) `(read) `(void))
        e0]
 
-      [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
+      [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1)
        `(,(car e0) . (,(cadr e0) ,(iter e1)))]
 
       [`(,(or 'inject 'project) ,e1 ,ty)

@@ -33,7 +33,7 @@
             [rns     (foldl (lambda (rn h) (hash-set h (car rn) (cdr rn))) rns rn-maps)])
        `(,(car e0) . (lambda: ,args : ,ret-ty ,(uniquify-expr rns body))))]
 
-    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1)
      `(,(car e0) . (,(cadr e0) ,(uniquify-expr rns e1)))]
 
     [`(,(or 'inject 'project) ,e1 ,ty)
