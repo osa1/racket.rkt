@@ -23,7 +23,7 @@
 
 (define (uniquify-expr rns e0)
   (match (cdr e0)
-    [(or (? fixnum?) (? boolean?) `(read))
+    [(or (? fixnum?) (? boolean?) `(read) `(void))
      e0]
 
     [`(lambda: ,args : ,ret-ty ,body)

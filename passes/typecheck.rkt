@@ -37,7 +37,7 @@
       rts-funs)))
 
 (define rts-funs
-  `((print-int . (Integer -> void))))
+  `((print-int . (Integer -> Void))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Extracting stuff from stuff
@@ -233,6 +233,8 @@
 
     [`(read) `(Integer . ,expr)]
 
+    [`(void) `(Void . ,expr)]
+
     [`(vector . ,elems)
      (let* ([elems (map (lambda (expr) (typecheck-expr (cons expr context) expr env)) elems)]
             [elem-tys (map car elems)])
@@ -276,7 +278,7 @@
                    idx (length elems) expr))
           (let ([e (typecheck-expr (cons expr context) e env)])
             (assert-ty context (cdr e) (list-ref elems idx) (car e))
-            `(void . (vector-set! ,vec ,idx ,e)))]
+            `(Void . (vector-set! ,vec ,idx ,e)))]
          [_ (ty-err context expr 'Vector (car vec))]))]
 
     ; Like vector-set!, but takes a dynamic Integer expression as index. Also,

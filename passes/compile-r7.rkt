@@ -62,6 +62,8 @@
     [`(read)
      (mk-integer expr)]
 
+    [`(void) (mk-void expr)]
+
     [`(- ,e1)
      (mk-integer `(- ,(get-integer (compile-expr ts e1))))]
 
@@ -141,6 +143,7 @@
 (define (mk-boolean expr) `(inject ,expr Boolean))
 (define (mk-vector expr)  `(inject ,expr (Vectorof Any)))
 (define (mk-function expr arity) `(inject ,expr (,@(replicate 'Any arity) -> Any)))
+(define (mk-void expr)    `(inject ,expr Void))
 
 (define (get-integer expr) `(project ,expr Integer))
 (define (get-boolean expr) `(project ,expr Boolean))

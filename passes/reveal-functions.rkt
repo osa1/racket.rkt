@@ -23,7 +23,7 @@
 (define (reveal-funs-expr toplevel-ty-env)
   (define (iter e0)
     (match (cdr e0)
-      [(or (? fixnum?) (? boolean?) `(read))
+      [(or (? fixnum?) (? boolean?) `(read) `(void))
        e0]
 
       [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)

@@ -37,7 +37,7 @@
 
   (define (closure-convert-expr e0)
     (match (cdr e0)
-      [(or (? fixnum?) (? boolean?) (? symbol?) `(read))
+      [(or (? fixnum?) (? boolean?) (? symbol?) `(read) `(void))
        e0]
 
       [`(lambda: ,args : ,ret-ty ,body)

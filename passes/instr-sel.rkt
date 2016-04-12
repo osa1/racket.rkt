@@ -210,6 +210,8 @@
     [(or (? fixnum?) (? symbol?) (? boolean?))
      `(,(instr-sel-arg bind-to expr))]
 
+    [`(void) '()]
+
     [`(- ,arg)
      `(,(instr-sel-arg bind-to arg)
        (negq ,(arg->x86-arg bind-to)))]

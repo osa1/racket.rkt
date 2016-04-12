@@ -63,6 +63,10 @@
      (let [(fresh (fresh "tmp"))]
        (values binds (cons `(assign ,fresh Integer (app-noalloc (toplevel-fn read_int))) pgm) fresh))]
 
+    [`(void)
+     (let [(fresh (fresh "tmp"))]
+       (values binds (cons `(assign ,fresh Void (void)) pgm) fresh))]
+
     [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      (let-values ([(binds pgm e1) (flatten-expr binds pgm e1)])
        (let [(fresh (fresh "tmp"))]

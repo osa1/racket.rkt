@@ -62,7 +62,7 @@
     [`(let ([,var ,e1]) ,e2)
      `(,(car e0) . (let ([,var ,(desugar-expr e1)]) ,(desugar-expr e2)))]
 
-    [`(read) e0]
+    [`(,(or 'read 'void)) e0]
 
     [`(vector-ref ,e1 ,e2)
      `(,(car e0) . (vector-ref ,(desugar-expr e1) ,e2))]

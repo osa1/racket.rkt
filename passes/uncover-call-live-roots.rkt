@@ -157,7 +157,7 @@
     [`(project ,v1 ,_) (add-live (set) v1)]
     [`(vector-set! ,vec ,_ ,val) (add-live (set) vec val)]
     [`(vector-set!-dynamic ,vec ,idx ,val) (add-live (set) vec idx val)]
-    [`(read) (set)]
+    [`(,(or 'read 'void)) (set)]
     [(? symbol?) (set expr)]
     [(or (? fixnum?) (? boolean?)) (set)]
     [_ (unsupported-form 'expr-vs expr)]))

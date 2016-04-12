@@ -54,7 +54,7 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ;; Simple cases
 
-    [(or (? fixnum?) (? boolean?) (? symbol?) `(read))
+    [(or (? fixnum?) (? boolean?) (? symbol?) `(read) `(void))
      e0]
 
     [`(lambda: ,args : ,ret-ty ,body)
