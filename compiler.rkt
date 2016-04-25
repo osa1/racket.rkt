@@ -6,6 +6,7 @@
 (require "passes/desugar.rkt")
 (require "passes/choose-branch.rkt")
 (require "passes/uniquify.rkt")
+(require "passes/elim-dyns.rkt")
 (require "passes/closure-convert.rkt")
 (require "passes/reveal-functions.rkt")
 (require "passes/flatten.rkt")
@@ -59,6 +60,7 @@
     ("choose-branch" ,choose-branch #f)
 
     ("uniquify" ,uniquify #f)
+    ("elim-dyns" ,elim-dyns #f)
     ("closure-convert" ,closure-convert #f)
     ("reveal-functions" ,reveal-functions #f)
     ("flatten" ,flatten #f)
