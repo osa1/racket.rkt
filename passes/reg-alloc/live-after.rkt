@@ -77,7 +77,7 @@
      (values instr (remove-live lives `(reg rax)))]
 
     [`(movzbq (byte-reg al) ,arg2)
-     (values instr (remove-live lives arg2))]
+     (values instr (add-live (remove-live lives arg2) `(reg rax)))]
 
     [`(,(or 'movq 'leaq) ,arg1 ,arg2)
      (values instr (add-live (remove-live lives arg2) arg1))]

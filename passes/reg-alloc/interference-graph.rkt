@@ -53,10 +53,19 @@
 
     [`(cmpq ,_ ,_) (void)]
 
-    [(or `(,(or 'sete 'setl 'pushq 'popq 'negq) ,d)
-         `(movzbq (byte-reg al) ,d))
+    [`(,(or 'pushq 'popq 'negq) ,d)
      (for ([live lives])
        (unless (equal? live d)
+         (add-int graph d live)))]
+
+    [`(,(or 'sete 'setl) (byte-reg al))
+     (for ([live lives])
+       (unless (equal? live `(reg rax))
+         (add-int graph `(reg rax) live)))]
+
+    [`(movzbq (byte-reg al) ,d)
+     (for ([live lives])
+       (unless (or (equal? live `(reg rax)) (equal? live d))
          (add-int graph d live)))]
 
     [`(,(or 'movq 'leaq) ,s ,d)
