@@ -1,11 +1,17 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "runtime.h"
+uint8_t*  fromspace_begin;
+uint8_t*  fromspace_end;
+uint8_t*  free_ptr;
+uint8_t** rootstack_begin;
+uint8_t** rootstack_ptr; // current top of the root stack
+uint8_t** rootstack_end;
 
 static uint8_t* tospace_begin;
 static uint8_t* tospace_end;
@@ -49,7 +55,7 @@ void initialize(uint64_t rootstack_size, uint64_t heap_size)
 #ifndef NDEBUG
     if (sizeof(int64_t) != sizeof(int64_t*))
     {
-        printf("The runtime was compiler on an incompatible platform.");
+        printf("The runtime was compiled on an incompatible platform.");
         exit(EXIT_FAILURE);
     }
 
@@ -68,35 +74,37 @@ void initialize(uint64_t rootstack_size, uint64_t heap_size)
     }
 #endif
 
-  // 2. Allocate memory (You should always check if malloc gave you memory)
-  if (!(fromspace_begin = malloc(heap_size))) {
-      printf("Failed to malloc %" PRIu64 " byte fromspace.\n", heap_size);
-      exit(EXIT_FAILURE);
-  }
+    // 2. Allocate memory
+    if (!(fromspace_begin = malloc(heap_size)))
+    {
+        printf("Failed to malloc %" PRIu64 " byte fromspace.\n", heap_size);
+        exit(EXIT_FAILURE);
+    }
 
-  if (!(tospace_begin = malloc(heap_size))) {
-      printf("Failed to malloc %" PRIu64 " byte tospace.\n", heap_size);
-      exit(EXIT_FAILURE);
-  }
+    if (!(tospace_begin = malloc(heap_size)))
+    {
+        printf("Failed to malloc %" PRIu64 " byte tospace.\n", heap_size);
+        exit(EXIT_FAILURE);
+    }
 
-  if (!(rootstack_begin = malloc(rootstack_size))) {
-    printf("Failed to malloc %" PRIu64 " byte rootstack.", rootstack_size);
-    exit(EXIT_FAILURE);
-  }
+    if (!(rootstack_begin = malloc(rootstack_size))) {
+        printf("Failed to malloc %" PRIu64 " byte rootstack.", rootstack_size);
+        exit(EXIT_FAILURE);
+    }
 
-  rootstack_ptr = rootstack_begin;
+    rootstack_ptr = rootstack_begin;
 
-  // 2.5 Calculate the ends memory we are using.
-  // Note: the pointers are for a half open interval [begin, end)
-  fromspace_end = fromspace_begin + heap_size;
-  tospace_end = tospace_begin + heap_size;
-  rootstack_end = rootstack_begin + rootstack_size;
+    // 2.5. Calculate the ends memory we are using.
+    // Note: the pointers are for a half open interval [begin, end)
+    fromspace_end = fromspace_begin + heap_size;
+    tospace_end = tospace_begin + heap_size;
+    rootstack_end = rootstack_begin + rootstack_size;
 
-  // 3 Initialize the global free pointer
-  free_ptr = fromspace_begin;
+    // 3. Initialize the global free pointer
+    free_ptr = fromspace_begin;
 
-  // Useful for debugging
-  initialized = 1;
+    // Useful for debugging
+    initialized = 1;
 }
 
 int shutdown()
@@ -106,19 +114,18 @@ int shutdown()
     {
         printf("rootstack_ptr is not reset before shutdown.\n");
         printf("rootstack_ptr: %p rootstack_begin: %p\n",
-               (void*)rootstack_ptr, (void*)rootstack_begin);
+                (void*)rootstack_ptr, (void*)rootstack_begin);
         return 1;
     }
-
 #endif
+
     free(fromspace_begin);
     free(tospace_begin);
     free(rootstack_begin);
     return 0;
 }
 
-// cheney implements cheney's copying collection algorithm
-// There is a stub and explaination below.
+// cheney's copying collection algorithm
 static void cheney();
 
 void print_vector(int64_t* vector)
@@ -196,7 +203,7 @@ void print_pointers(void* free_ptr)
 
 void collect(int64_t bytes_requested)
 {
-     // 1. Check our assumptions about the world
+    // 1. Check our assumptions about the world
 #ifndef NDEBUG
     if (!initialized)
     {
@@ -244,71 +251,44 @@ void collect(int64_t bytes_requested)
     // 3. Check if collection freed enough space in order to allocate
     if (fromspace_end - free_ptr < bytes_requested)
     {
-      /*
-         If there is not enough room left for the bytes_requested,
-         allocate larger tospace and fromspace.
+        ptrdiff_t occupied_bytes = free_ptr - fromspace_begin;
+        ptrdiff_t needed_bytes = occupied_bytes + bytes_requested;
 
-         In order to determine the new size of the heap double the
-         heap size until it is bigger than the occupied portion of
-         the heap plus the bytes requested.
+        ptrdiff_t old_len = fromspace_end - fromspace_begin;
+        ptrdiff_t new_len = old_len;
 
-         This covers the corner case of heaps objects that are
-         more than half the size of the heap. No a very likely
-         scenario but slightly more robust.
+        while (new_len < needed_bytes)
+            new_len *= 2;
 
-         One corner case that isn't handled is if the heap is size
-         zero. My thought is that malloc probably wouldn't give
-         back a pointer if you asked for 0 bytes. Thus initialize
-         would fail, but our runtime-config.rkt file has a contract
-         on the heap_size parameter that the code generator uses
-         to determine initial heap size to this is a non-issue
-         in reality.
-      */
+        // Free and allocate a new tospace of size new_bytes
+        free(tospace_begin);
 
-      ptrdiff_t occupied_bytes = free_ptr - fromspace_begin;
-      ptrdiff_t needed_bytes = occupied_bytes + bytes_requested;
+        if (!(tospace_begin = malloc(new_len)))
+        {
+            printf("failed to malloc %ld byte fromspace", new_len);
+            exit(EXIT_FAILURE);
+        }
 
-      ptrdiff_t old_len = fromspace_end - fromspace_begin;
-      ptrdiff_t new_len = old_len;
+        tospace_end = tospace_begin + new_len;
 
-      while (new_len < needed_bytes)
-          new_len *= 2;
+        // The pointers on the stack and in the heap must be updated, so this
+        // cannot be just a memcopy of the heap. Performing cheney's algorithm
+        // again will have the correct effect.
+        cheney();
 
-      // Free and allocate a new tospace of size new_bytes
-      free(tospace_begin);
+        // Cheney flips tospace and fromspace.
+        free(tospace_begin);
 
-      if (!(tospace_begin = malloc(new_len)))
-      {
-          printf("failed to malloc %ld byte fromspace", new_len);
-          exit(EXIT_FAILURE);
-      }
+        if (!(tospace_begin = malloc(new_len)))
+        {
+            printf("failed to malloc %ld byte tospace", new_len);
+            exit(EXIT_FAILURE);
+        }
 
-      tospace_end = tospace_begin + new_len;
-
-      // The pointers on the stack and in the heap must be updated,
-      // so this cannot be just a memcopy of the heap.
-      // Performing cheney's algorithm again will have the correct
-      // effect, and we have already implemented it.
-      cheney();
-
-      // Cheney flips tospace and fromspace. Thus, we allocate another
-      // tospace not fromspace as we might expect.
-      free(tospace_begin);
-
-      if (!(tospace_begin = malloc(new_len)))
-      {
-          printf("failed to malloc %ld byte tospace", new_len);
-          exit(EXIT_FAILURE);
-      }
-
-      tospace_end = tospace_begin + new_len;
+        tospace_end = tospace_begin + new_len;
     }
 }
 
-// copy_vector is responsible for doing a pointer oblivious
-// move of vector data and updating the vector pointer with
-// the new address of the data.
-// There is a stub and explaination for copy_vector below.
 static void copy_vector(int64_t** vector_ptr_loc);
 
 int in_fromspace(void* ptr)

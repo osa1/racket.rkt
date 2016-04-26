@@ -1,6 +1,6 @@
 SHELL  = /bin/bash
 CC     = clang
-CC_OPTS= -std=c11 -Wall -Wpedantic -Wextra
+CC_OPTS= -std=c11 -Wall -Wpedantic -Wextra -Wno-gnu-binary-literal
 
 execs =
 
