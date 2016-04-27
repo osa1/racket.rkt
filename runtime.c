@@ -422,20 +422,6 @@ int print_int(int64_t closure, int64_t x)
     return 0;
 }
 
-int print_bool(int64_t closure, int64_t x)
-{
-    (void)closure;
-    if (x)
-    {
-        printf("#t");
-    }
-    else
-    {
-        printf("#f");
-    }
-    return 0;
-}
-
 // Special case for (project any Boolean): See NOTE [Special case for
 // (project any Boolean)] in compile-r7.rkt.
 uint64_t project_boolean(int64_t* any_val)
