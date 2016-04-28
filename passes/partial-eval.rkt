@@ -10,6 +10,8 @@
     [`(program . ,defs)
      (let-values ([(defs main) (split-last defs)])
        (define initial-env (mk-env defs))
+       ; (printf "initial-env:~n")
+       ; (pretty-print initial-env)
        (match main
          [`(define main : void ,main-expr)
           (peval-expr initial-env (make-hash) main-expr)
@@ -22,13 +24,15 @@
     (map (lambda (def)
            (match def
              [`(define (,name . ,args) : ,ret-ty ,body)
-              ; Closure environment is empty
-              `(,name . (lambda: ,args : ,ret-ty ,(make-immutable-hash) ,body))]
+              ; Top-level functions don't have closure environments.
+              `(,name .
+                ((,@(map caddr args) -> ,ret-ty) . (lambda: ,args : ,ret-ty #f ,body)))]
              [_ (unsupported-form 'mk-env def)]))
          defs)))
 
 (define (peval-expr env fun-defs expr)
 
+  (define ret
   (match (cdr expr)
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -128,8 +132,22 @@
     ; Function application - the tricky part
 
     [`(,f . ,args)
-     (let (; Evaluate the function
-           [f (peval-expr env fun-defs f)]
+     (let (; Evaluate the function, get the lambda form
+           [f (let ([f-pe (peval-expr env fun-defs f)])
+                ; (printf "f-pe:~n")
+                ; (pretty-print f-pe)
+                ; (pretty-print (cdr f-pe))
+                ; (pretty-print env)
+
+                (match (cdr f-pe)
+                  [`(lambda: . ,_) f-pe]
+                  ; leave RTS calls
+                  [(? rts-fun?) f-pe]
+                  ; user-defined functions should be in env
+                  [(? symbol?)
+                   `(,(car f-pe) . ,(hash-ref env (cdr f-pe) (cdr f-pe)))]
+                  [_ (error "weird f-pe:" f-pe)]))]
+
            ; Evaluate arguments
            [args (map (lambda (arg)
                         (peval-expr env fun-defs arg))
@@ -146,6 +164,9 @@
           (define static-args  (filter (lambda (arg)      (val? (cdr arg)))  arg-vals))
           (define dynamic-args (filter (lambda (arg) (not (val? (cdr arg)))) arg-vals))
 
+          (printf "static-args: ") (pretty-print static-args)
+          (printf "dynamic-args: ") (pretty-print dynamic-args)
+
           (if (null? dynamic-args)
             ; Inline completely static applications.
             ; TODO: What happens if the function loops/crashes? In case of a
@@ -154,7 +175,7 @@
             ; stops partial evaluator...
             (peval-expr (foldr (lambda (kv m)
                                  (hash-set m (car kv) (cdr kv)))
-                               clo-env static-args)
+                               (if clo-env clo-env env) static-args)
                         fun-defs body)
             ; (Partially) dynamic application
             (let ()
@@ -170,30 +191,36 @@
                   ; so that a recursive call generates a residual application.
                   (define pe-env (foldr (lambda (kv m)
                                           (hash-set m (car kv) (cdr kv)))
-                                        clo-env static-args))
+                                        (if clo-env clo-env (make-immutable-hash))
+                                        static-args))
                   (hash-set! fun-defs (list (cdr f) static-args) (cons fun-name 'placeholder))
                   (define body-pe (peval-expr pe-env fun-defs body))
 
                   ; Names of arguments of the new function
                   (define dynamic-arg-names (map car dynamic-args))
-
-                  ; Lambda arg syntax, with types
+                  ; Types of arguments of the new function
                   (define dynamic-arg-types
                     (map (lambda (dyn-arg-name)
-                           `(,dyn-arg-name :
-                             ,(extract-arg-ty
-                                (findf (lambda (fun-arg)
-                                         (equal? (extract-arg-name fun-arg) dyn-arg-name))
-                                       as))))
+                           (extract-arg-ty
+                             (findf (lambda (fun-arg)
+                                      (equal? (extract-arg-name fun-arg) dyn-arg-name))
+                                    as)))
                          dynamic-arg-names))
+
+                  ; Lambda arg syntax, with types
+                  (define dynamic-fun-args
+                    (map (lambda (n t) `(,n : ,t)) dynamic-arg-names dynamic-arg-types))
+
+                  (define dynamic-fun-type `(,@dynamic-fun-args -> ,ret-ty))
 
                   ; Replace the placeholder with the actual definition
                   (hash-set! fun-defs (list (cdr f) static-args)
                              (cons fun-name
                                    ; Not sure about clo-env here
-                                   `(lambda: ,dynamic-arg-types : ,ret-ty
-                                             ,clo-env
-                                             ,body-pe)))
+                                   (cons dynamic-fun-type
+                                         `(lambda: ,dynamic-fun-args : ,ret-ty
+                                                   ,clo-env
+                                                   ,body-pe))))
 
                   ; Finally generate the residual call to our new function
                   `(,(car expr) . (,fun-name ,@(map cdr dynamic-args)))))))]
@@ -203,13 +230,31 @@
           `(,(car expr) . (,f ,@args))]
 
          [no-lambda (error "This a bug? A non-lambda in fun-defs:"
-                           no-lambda)]))]
+                           no-lambda
+                           fun-defs)]))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    [e1 (unsupported-form 'peval-expr e1)])
+    [e1 (unsupported-form 'peval-expr e1)]))
 
-  expr)
+
+  (printf "peval-expr~n")
+  (printf "--- env:~n")
+  (pretty-print env)
+  (printf "--- fun-defs:~n")
+  (pretty-print fun-defs)
+  (printf "--- expr:~n")
+  (pretty-print expr)
+  (printf "--- ret:~n")
+  (pretty-print ret)
+  (printf "~n")
+
+  ret)
+
+(define (rts-fun? id)
+  (match id
+    [(or 'print-int) #t]
+    [_ #f]))
 
 (define (val? expr)
   (match (cdr expr)
@@ -228,4 +273,5 @@
     ['>= >=]
     ['<= <=]
     ['eq? eq?]
+    ['not not]
     [_ (unsupported-form 'racket-fn fn)]))
