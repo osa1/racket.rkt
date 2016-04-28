@@ -37,8 +37,12 @@
           ; (printf "peval new-fns:~n")
           ; (pretty-print new-fns)
           ; pgm
-          `(program ,@(mk-defs new-fns)
-                    (define main : void ,ret))]
+          `(program
+             ,@defs ; FIXME: Some of the definition are not necessary anymore,
+                    ; maybe implement a garbage collection pass that removes
+                    ; unused definitions.
+             ,@(mk-defs new-fns)
+             (define main : void ,ret))]
          [_ (unsupported-form 'peval main)]))]
     [_ (unsupported-form 'peval pgm)]))
 
@@ -48,7 +52,7 @@
          (define def-lambda (cddr def))
          (match def-lambda
            [`(lambda: ,args : ,ret-ty #f ,body)
-            `(define (,def-name : ,args) ,ret-ty ,body)]
+            `(define (,def-name ,@args) : ,ret-ty ,body)]
            [_ (unsupported-form 'mk-defs def)]))
        (hash-values fns)))
 
@@ -218,6 +222,8 @@
          ;     ...)
          ;
          ; But it's fine for now.
+         ;
+         ; TODO: Can we do anything about vector-set!?
          (let ([body (peval-expr (hash-set env var e1) fun-defs body)])
            ; Keep the let if value is a vector
            (match (cdr e1)
@@ -254,6 +260,7 @@
           (debug-printf "dynamic-args: ") (debug-pretty-print dynamic-args)
 
           (if (null? dynamic-args)
+
             ; Inline completely static applications.
             ; TODO: What happens if the function loops/crashes? In case of a
             ; crash we just residualize the term that crashes, so it'll crash in
@@ -263,13 +270,33 @@
                                  (hash-set m (car kv) (cdr kv)))
                                (if clo-env clo-env env) static-args)
                         fun-defs body)
+
             ; (Partially) dynamic application
             (let ()
-              ; If a function for these static args exists, use that one
               (define existing-fn (hash-ref fun-defs (list (cdr f) static-args) #f))
+
+              ; Names of arguments of the memoized function
+              (define dynamic-arg-names (map car dynamic-args))
+              ; Types of arguments of the memoized function
+              (define dynamic-arg-types
+                (map (lambda (dyn-arg-name)
+                       (extract-arg-ty
+                         (findf (lambda (fun-arg)
+                                  (equal? (extract-arg-name fun-arg) dyn-arg-name))
+                                as)))
+                     dynamic-arg-names))
+
+              ; Lambda arg syntax, with types
+              (define dynamic-fun-args
+                (map (lambda (n t) `(,n : ,t)) dynamic-arg-names dynamic-arg-types))
+
+              (define dynamic-fun-type `(,@dynamic-arg-types -> ,ret-ty))
+
+              ; If a function for these static args exists, use that one
               (if existing-fn
-                ; Generate the resudial call
-                `(,(car expr) . (,(car existing-fn) ,@(map cdr dynamic-args)))
+                ; Generate the residual call
+                `(,(car expr) . ((,dynamic-fun-type . ,(car existing-fn))
+                                 ,@(map cdr dynamic-args)))
                 ; Create a new function for the given static args
                 (let ()
                   (define fun-name (fresh "pe"))
@@ -282,23 +309,6 @@
                   (hash-set! fun-defs (list (cdr f) static-args) (cons fun-name 'placeholder))
                   (define body-pe (peval-expr pe-env fun-defs body))
 
-                  ; Names of arguments of the new function
-                  (define dynamic-arg-names (map car dynamic-args))
-                  ; Types of arguments of the new function
-                  (define dynamic-arg-types
-                    (map (lambda (dyn-arg-name)
-                           (extract-arg-ty
-                             (findf (lambda (fun-arg)
-                                      (equal? (extract-arg-name fun-arg) dyn-arg-name))
-                                    as)))
-                         dynamic-arg-names))
-
-                  ; Lambda arg syntax, with types
-                  (define dynamic-fun-args
-                    (map (lambda (n t) `(,n : ,t)) dynamic-arg-names dynamic-arg-types))
-
-                  (define dynamic-fun-type `(,@dynamic-fun-args -> ,ret-ty))
-
                   ; Replace the placeholder with the actual definition
                   (hash-set! fun-defs (list (cdr f) static-args)
                              (cons fun-name
@@ -309,7 +319,9 @@
                                                    ,body-pe))))
 
                   ; Finally generate the residual call to our new function
-                  `(,(car expr) . (,fun-name ,@(map cdr dynamic-args)))))))]
+                  `(,(car expr) .
+                    ((,dynamic-fun-type . ,fun-name)
+                     ,@(map cdr dynamic-args)))))))]
 
          ; We don't evaluate RTS function calls
          [(or 'print-int)
