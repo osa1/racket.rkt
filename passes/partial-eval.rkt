@@ -91,6 +91,12 @@
            [_ `(,(car expr) . (project ,e1 ,ty))])
          `(,(car expr) . (project ,e1 ,ty))))]
 
+    [`(project-boolean ,e1)
+     (let ([e1 (peval-expr env fun-defs e1)])
+       (if (val? e1)
+         `(,(car expr) . ,(if (cdr e1) #t #f))
+         `(,(car expr) . ,e1)))]
+
     [`(if ,e1 ,e2 ,e3)
      (let ([e1 (peval-expr env fun-defs e1)])
        (if (val? e1)
@@ -116,6 +122,13 @@
             ((racket-fn (cadr expr)) (cdr e1) (cdr e2))
             `(,(cadr expr) ,e1 ,e2))))]
 
+    [`(eq?-dynamic ,e1 ,e2)
+     (let ([e1 (peval-expr env fun-defs e1)]
+           [e2 (peval-expr env fun-defs e2)])
+       (if (and (val? e1) (val? e2))
+         `(,(car expr) . ,(equal? (cdr e1) (cdr e2)))
+         `(,(car expr) . (eq?-dynamic ,e1 ,e2))))]
+
     ; TODO: This is probably a bit too restrictive: We only evaluate this when
     ; `e1` is completely evaluated. In theory only having nth element evaluated
     ; should be enough. (rest of the exprs need to be evaluated for the side
@@ -130,10 +143,28 @@
             `(,(car expr) . (vector-ref ,e1 ,idx))])
          `(,(car expr) . (vector-ref ,e1 ,idx))))]
 
+    [`(vector-ref-dynamic ,e1 ,e2)
+     (let ([e1 (peval-expr env fun-defs e1)]
+           [e2 (peval-expr env fun-defs e2)])
+       ; Make it a static vector-ref if e2 is completely evaluated
+       (if (and (val? e2) (fixnum? (cdr e2)))
+         ; We can potentially evaluate this further, so the recursive call
+         (peval-expr env fun-defs `(,(car expr) . (vector-ref ,e1 ,(cdr e2))))
+         `(,(car expr) . (vector-ref-dynamic ,e1 ,e2))))]
+
     [`(vector-set! ,e1 ,idx ,e2)
      (let ([e1 (peval-expr env fun-defs e1)]
            [e2 (peval-expr env fun-defs e2)])
        `(,(car expr) . (vector-set! ,e1 ,idx ,e2)))]
+
+    [`(vector-set!-dynamic ,e1 ,e2 ,e3)
+     (let ([e1 (peval-expr env fun-defs e1)]
+           [e2 (peval-expr env fun-defs e2)]
+           [e3 (peval-expr env fun-defs e3)])
+       ; Make it a static vector-set! if e2 is completely evaluated
+       (if (and (val? e2) (fixnum? (cdr e2)))
+         `(,(car expr) . (vector-set! ,e1 ,(cdr e2) ,e3))
+         `(,(car expr) . (vector-set!-dynamic ,e1 ,e2 ,e3))))]
 
     [`(let ([,var ,e1]) ,body)
      (let ([e1 (peval-expr env fun-defs e1)])
