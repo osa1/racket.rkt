@@ -1,6 +1,7 @@
 #lang racket
 
 (require "utils.rkt")
+(require (only-in "typecheck.rkt" extract-arg-name extract-arg-ty))
 
 (provide peval)
 
@@ -21,7 +22,8 @@
     (map (lambda (def)
            (match def
              [`(define (,name . ,args) : ,ret-ty ,body)
-              `(,name . (lambda: ,args : ,ret-ty ,body))]
+              ; Closure environment is empty
+              `(,name . (lambda: ,args : ,ret-ty ,(make-immutable-hash) ,body))]
              [_ (unsupported-form 'mk-env def)]))
          defs)))
 
@@ -121,6 +123,89 @@
          ; TODO: Do we need to keep the let here?
          (peval-expr (hash-set env var e1) fun-defs body)
          `(,(car expr) . (let ([,var ,e1]) ,(peval-expr env fun-defs body)))))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Function application - the tricky part
+
+    [`(,f . ,args)
+     (let (; Evaluate the function
+           [f (peval-expr env fun-defs f)]
+           ; Evaluate arguments
+           [args (map (lambda (arg)
+                        (peval-expr env fun-defs arg))
+                      args)])
+
+       (match (cdr f)
+         [`(lambda: ,as : ,ret-ty ,clo-env ,body)
+          ; Determine static and dynamic arguments
+          (define arg-vals (map (lambda (arg arg-val)
+                                  (cons (car arg) arg-val))
+                                as args))
+          ; TODO: Implement `Data.List.span`
+          ; [(arg-name, arg-value)]
+          (define static-args  (filter (lambda (arg)      (val? (cdr arg)))  arg-vals))
+          (define dynamic-args (filter (lambda (arg) (not (val? (cdr arg)))) arg-vals))
+
+          (if (null? dynamic-args)
+            ; Inline completely static applications.
+            ; TODO: What happens if the function loops/crashes? In case of a
+            ; crash we just residualize the term that crashes, so it'll crash in
+            ; runtime instead. In case of a loop, I don't see anything that
+            ; stops partial evaluator...
+            (peval-expr (foldr (lambda (kv m)
+                                 (hash-set m (car kv) (cdr kv)))
+                               clo-env static-args)
+                        fun-defs body)
+            ; (Partially) dynamic application
+            (let ()
+              ; If a function for these static args exists, use that one
+              (define existing-fn (hash-ref fun-defs (list (cdr f) static-args) #f))
+              (if existing-fn
+                ; Generate the resudial call
+                `(,(car expr) . (,(car existing-fn) ,@(map cdr dynamic-args)))
+                ; Create a new function for the given static args
+                (let ()
+                  (define fun-name (fresh "pe"))
+                  ; Evaluate the body with a placeholder for the new function,
+                  ; so that a recursive call generates a residual application.
+                  (define pe-env (foldr (lambda (kv m)
+                                          (hash-set m (car kv) (cdr kv)))
+                                        clo-env static-args))
+                  (hash-set! fun-defs (list (cdr f) static-args) (cons fun-name 'placeholder))
+                  (define body-pe (peval-expr pe-env fun-defs body))
+
+                  ; Names of arguments of the new function
+                  (define dynamic-arg-names (map car dynamic-args))
+
+                  ; Lambda arg syntax, with types
+                  (define dynamic-arg-types
+                    (map (lambda (dyn-arg-name)
+                           `(,dyn-arg-name :
+                             ,(extract-arg-ty
+                                (findf (lambda (fun-arg)
+                                         (equal? (extract-arg-name fun-arg) dyn-arg-name))
+                                       as))))
+                         dynamic-arg-names))
+
+                  ; Replace the placeholder with the actual definition
+                  (hash-set! fun-defs (list (cdr f) static-args)
+                             (cons fun-name
+                                   ; Not sure about clo-env here
+                                   `(lambda: ,dynamic-arg-types : ,ret-ty
+                                             ,clo-env
+                                             ,body-pe)))
+
+                  ; Finally generate the residual call to our new function
+                  `(,(car expr) . (,fun-name ,@(map cdr dynamic-args)))))))]
+
+         ; We don't evaluate RTS function calls
+         [(or 'print-int)
+          `(,(car expr) . (,f ,@args))]
+
+         [no-lambda (error "This a bug? A non-lambda in fun-defs:"
+                           no-lambda)]))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [e1 (unsupported-form 'peval-expr e1)])
 
