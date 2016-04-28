@@ -149,20 +149,7 @@
 
     [`(,f . ,args)
      (let (; Evaluate the function, get the lambda form
-           [f (let ([f-pe (peval-expr env fun-defs f)])
-                ; (printf "f-pe:~n")
-                ; (pretty-print f-pe)
-                ; (pretty-print (cdr f-pe))
-                ; (pretty-print env)
-
-                (match (cdr f-pe)
-                  [`(lambda: . ,_) f-pe]
-                  ; leave RTS calls
-                  [(? rts-fun?) f-pe]
-                  ; user-defined functions should be in env
-                  [(? symbol?)
-                   `(,(car f-pe) . ,(hash-ref env (cdr f-pe) (cdr f-pe)))]
-                  [_ (error "weird f-pe:" f-pe)]))]
+           [f (peval-expr env fun-defs f)]
 
            ; Evaluate arguments
            [args (map (lambda (arg)
@@ -245,9 +232,11 @@
          [(or 'print-int)
           `(,(car expr) . (,f ,@args))]
 
-         [no-lambda (error "This a bug? A non-lambda in fun-defs:"
-                           no-lambda
-                           fun-defs)]))]
+
+         ; TODO: There are some games we can play here. For example, if `f` is
+         ; an if, we can push the arguments to the branches. (maybe only do that
+         ; when all args are static) I'm not doing anything fancy for now.
+         [_ `(,(car expr) . (,f . ,args))]))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
