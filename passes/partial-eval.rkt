@@ -279,4 +279,25 @@
     ['<= <=]
     ['eq? eq?]
     ['not not]
+    ['integer? fixnum?]
+    ['boolean? boolean?]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Can't use native Racket functions here, as we don't represent vectors and
+    ; procedures as Racket vectors and procedures.
+
+    ['procedure?
+     (lambda (val)
+       (match val
+         [`(lambda: . ,_) #t]
+         [_ #f]))]
+
+    ['vector?
+     (lambda (val)
+       (match val
+         [`(vector . ,_) #t]
+         [_ #f]))]
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
     [_ (unsupported-form 'racket-fn fn)]))
