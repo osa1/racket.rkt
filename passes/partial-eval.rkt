@@ -5,13 +5,29 @@
 
 (provide peval)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; FIXME: Copied from register allocator
+
+(define debug-peval (make-parameter #f))
+
+(define (debug-printf . args)
+  (when (debug-peval)
+    (apply printf args)))
+
+(define (debug-pretty-print . args)
+  (when (debug-peval)
+    (apply pretty-print args)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define (peval pgm)
   (match pgm
     [`(program . ,defs)
      (let-values ([(defs main) (split-last defs)])
        (define initial-env (mk-env defs))
-       ; (printf "initial-env:~n")
-       ; (pretty-print initial-env)
+       ; (debug-printf "initial-env:~n")
+       ; (debug-pretty-print initial-env)
        (match main
          [`(define main : void ,main-expr)
           (peval-expr initial-env (make-hash) main-expr)
@@ -164,8 +180,8 @@
           (define static-args  (filter (lambda (arg)      (val? (cdr arg)))  arg-vals))
           (define dynamic-args (filter (lambda (arg) (not (val? (cdr arg)))) arg-vals))
 
-          (printf "static-args: ") (pretty-print static-args)
-          (printf "dynamic-args: ") (pretty-print dynamic-args)
+          (debug-printf "static-args: ") (debug-pretty-print static-args)
+          (debug-printf "dynamic-args: ") (debug-pretty-print dynamic-args)
 
           (if (null? dynamic-args)
             ; Inline completely static applications.
@@ -238,16 +254,16 @@
     [e1 (unsupported-form 'peval-expr e1)]))
 
 
-  (printf "peval-expr~n")
-  (printf "--- env:~n")
-  (pretty-print env)
-  (printf "--- fun-defs:~n")
-  (pretty-print fun-defs)
-  (printf "--- expr:~n")
-  (pretty-print expr)
-  (printf "--- ret:~n")
-  (pretty-print ret)
-  (printf "~n")
+  (debug-printf "peval-expr~n")
+  (debug-printf "--- env:~n")
+  (debug-pretty-print env)
+  (debug-printf "--- fun-defs:~n")
+  (debug-pretty-print fun-defs)
+  (debug-printf "--- expr:~n")
+  (debug-pretty-print expr)
+  (debug-printf "--- ret:~n")
+  (debug-pretty-print ret)
+  (debug-printf "~n")
 
   ret)
 
