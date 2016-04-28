@@ -97,7 +97,12 @@
     ; Variables may be unbound, e.g. we don't bind dynamic arguments in function
     ; applications
     [(? symbol?)
-     (hash-ref env (cdr expr) expr)]
+     (define val (hash-ref env (cdr expr) expr))
+     (match (cdr val)
+       [`(vector . ,_)
+        ; See NOTE [Mutable cells and environment]
+        expr]
+       [_ val])]
 
     [`(project ,e1 ,ty)
      (let ([e1 (peval-expr env fun-defs e1)])
@@ -188,8 +193,38 @@
        ; TODO: This part is tricky -- need to make sure this won't lead to work
        ; duplication. For now I'm only updating the environment if e1 is value.
        (if (val? e1)
-         ; TODO: Do we need to keep the let here?
-         (peval-expr (hash-set env var e1) fun-defs body)
+
+         ; NOTE [Mutable cells and environment]
+         ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         ;
+         ; This part is tricky. We add the value to the environment. In a lookup
+         ; we should make sure to not duplicate work, and actually update
+         ; mutable cells of vectors.
+         ;
+         ; Currently the way it works is: We never residualize a vector from an
+         ; environment, so the number of vectors should be the same. We make
+         ; sure this is really the case by only residualizing a vector in
+         ; `vector` case of peval. So vector-ref etc. doesn't resudialize a
+         ; vector even if vector-ref returns a vector. This is not ideal though.
+         ; Suppose we have:
+         ;
+         ;   (let (v [(vector (vector 0))])
+         ;     (vector-set! (vector-ref v 0) 0 42)
+         ;     ...)
+         ;
+         ; This doesn't get evaluated to
+         ;
+         ;   (let (v [(vector (vector 42))])
+         ;     ...)
+         ;
+         ; But it's fine for now.
+         (let ([body (peval-expr (hash-set env var e1) fun-defs body)])
+           ; Keep the let if value is a vector
+           (match (cdr e1)
+             [`(vector . ,_)
+              `(,(car expr) . (let ([,var ,e1]) ,body))]
+             [_ body]))
+
          `(,(car expr) . (let ([,var ,e1]) ,(peval-expr env fun-defs body)))))]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
