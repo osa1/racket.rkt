@@ -48,6 +48,8 @@
 
          print-x86_64)
 
+(define do-peval (make-parameter #t))
+
 (define r1-passes
   `(; Reset the fresh name generator counter before each compilation to get
     ; deterministic outputs when running batch compilations.
@@ -63,7 +65,11 @@
     ("uniquify" ,uniquify #f)
     ("elim-dyns" ,elim-dyns #f)
 
-    ("partial-eval" ,peval #f)
+    ,@(if (do-peval)
+        `(("partial-eval" ,peval #f)
+          ("print-pgm" ,(print-pgm "after partial-eval") #f)
+          )
+        `())
 
     ("closure-convert" ,closure-convert #f)
     ("reveal-functions" ,reveal-functions #f)

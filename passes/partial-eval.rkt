@@ -30,10 +30,27 @@
        ; (debug-pretty-print initial-env)
        (match main
          [`(define main : void ,main-expr)
-          (peval-expr initial-env (make-hash) main-expr)
-          pgm]
+          (define new-fns (make-hash))
+          (define ret (peval-expr initial-env new-fns main-expr))
+          ; (printf "peval ret:~n")
+          ; (pretty-print ret)
+          ; (printf "peval new-fns:~n")
+          ; (pretty-print new-fns)
+          ; pgm
+          `(program ,@(mk-defs new-fns)
+                    (define main : void ,ret))]
          [_ (unsupported-form 'peval main)]))]
     [_ (unsupported-form 'peval pgm)]))
+
+(define (mk-defs fns)
+  (map (lambda (def)
+         (define def-name (car def))
+         (define def-lambda (cddr def))
+         (match def-lambda
+           [`(lambda: ,args : ,ret-ty #f ,body)
+            `(define (,def-name : ,args) ,ret-ty ,body)]
+           [_ (unsupported-form 'mk-defs def)]))
+       (hash-values fns)))
 
 (define (mk-env defs)
   (make-immutable-hash
@@ -262,7 +279,6 @@
          ; We don't evaluate RTS function calls
          [(or 'print-int)
           `(,(car expr) . (,f ,@args))]
-
 
          ; TODO: There are some games we can play here. For example, if `f` is
          ; an if, we can push the arguments to the branches. (maybe only do that
