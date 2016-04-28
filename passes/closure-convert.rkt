@@ -1,7 +1,7 @@
 #lang racket
 
 (require "utils.rkt")
-(require (only-in "typecheck.rkt" extract-toplevel-name))
+(require (only-in "typecheck.rkt" extract-toplevel-name extract-arg-name extract-arg-ty))
 
 (provide closure-convert)
 
@@ -119,7 +119,8 @@
     [(? symbol?) (set e0)]
 
     [`(lambda: ,args : ,ret-ty ,body)
-     (foldl (lambda (arg s) (set-remove s (car arg))) (fvs body) args)]
+     (foldl (lambda (arg s) (set-remove s (cons (extract-arg-ty arg)
+                                                (extract-arg-name arg)))) (fvs body) args)]
 
     [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1) (fvs e1)]
 
