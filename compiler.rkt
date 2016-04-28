@@ -7,6 +7,7 @@
 (require "passes/choose-branch.rkt")
 (require "passes/uniquify.rkt")
 (require "passes/elim-dyns.rkt")
+(require "passes/partial-eval.rkt")
 (require "passes/closure-convert.rkt")
 (require "passes/reveal-functions.rkt")
 (require "passes/flatten.rkt")
@@ -61,6 +62,9 @@
 
     ("uniquify" ,uniquify #f)
     ("elim-dyns" ,elim-dyns #f)
+
+    ("partial-eval" ,peval #f)
+
     ("closure-convert" ,closure-convert #f)
     ("reveal-functions" ,reveal-functions #f)
     ("flatten" ,flatten #f)
