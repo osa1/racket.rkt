@@ -1,6 +1,6 @@
 #lang racket
 
-(require "public/utilities.rkt")
+(require (only-in "public/utilities.rkt" compiler-tests))
 
 (require "compiler.rkt")
 (require "settings.rkt")

@@ -2,7 +2,7 @@
 
 (require "compiler.rkt")
 
-(require "public/utilities.rkt")
+(require (only-in "public/utilities.rkt" compile-file))
 (require "settings.rkt")
 
 (let ([files (current-command-line-arguments)])
@@ -11,27 +11,12 @@
       (error 'main "File does not exist: ~a" file)))
 
   (initial-heap-size 8)
-  (debug-level 4)
   (use-regs #t)
 
   (for ([file files])
     (let ([path (string->path file)])
       (let-values ([(_1 name _2) (split-path path)])
     (let ([name (car (string-split (path->string name) "."))])
-	  (pretty-print (typecheck (read-program file)))
-      (if ((compile-file typechecker r3-passes) file)
+      (if ((compile-file typechecker (r3-passes)) file)
         (system (format "gcc -g runtime.o tests/~a.s -o ~a" name name))
         (printf "Compilation failed: ~a~n" file)))))))
-
-; (define (mk-crazy-vec total n)
-;   (if (eq? n 0)
-;     (foldl (lambda (vec-i rest)
-;              `(and (vector-ref ,(string->symbol (string-append "vector-" (number->string vec-i))) 0)
-;                    ,rest))
-;            #t (range 1 (+ total 1)))
-;     `(let ([,(string->symbol (string-append "vector-" (number->string n)))
-;             (vector #t)])
-;        ,(mk-crazy-vec total (- n 1)))))
-;
-; (let* ([arg (string->number (vector-ref (current-command-line-arguments) 0))])
-;   `(if ,(mk-crazy-vec arg arg) 42 123))
