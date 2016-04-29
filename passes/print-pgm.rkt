@@ -74,6 +74,9 @@
     [`(vector . ,elems)
      `(vector ,@(map remove-tys-expr elems))]
 
+    [`(app-noalloc ,f . ,args)
+     `(app-noalloc ,(remove-tys-expr f) ,@(map remove-tys-expr args))]
+
     [`(,f . ,args)
      `(,(remove-tys-expr f) ,@(map remove-tys-expr args))]
 
