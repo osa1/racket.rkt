@@ -69,11 +69,11 @@
     ; ("print-pgm" ,(print-pgm-typeless "after remove-unused-defs") #f)
 
     ,@(if (do-peval)
-        `(; ("print-pgm" ,(print-pgm-typeless "before partial-eval") #f)
+        `(("print-pgm" ,(print-pgm-typeless "before partial-eval") #f)
           ("partial-eval" ,peval #f)
           ("elim-dyns" ,elim-dyns #f)
-          ; ("print-pgm" ,(print-pgm-typeless "after partial-eval") #f)
           ("remove-unused-defs" ,rm-unused-defs #f)
+          ("print-pgm" ,(print-pgm-typeless "after partial-eval") #f)
           )
         `())
 
