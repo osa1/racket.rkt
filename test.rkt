@@ -44,7 +44,7 @@
   (compiler-tests "peval-bug" typechecker (r6-passes) "peval-bug" (range 1 2))
   (compiler-tests "dynamic" #f (r7-passes) "dynamic" (range 1 16))
   (compiler-tests "r7" #f (r7-passes) "r7" (range 0 12))
-  (compiler-tests "pe" #f (r7-passes) "pe" (range 1 5)))
+  (compiler-tests "pe" typechecker (r6-passes) "pe" (range 1 5)))
 
 (printf "================================================================================~n")
 (printf "= Testing with default settings ================================================~n")
