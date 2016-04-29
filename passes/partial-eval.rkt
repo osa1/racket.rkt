@@ -114,8 +114,10 @@
     [`(project-boolean ,e1)
      (let ([e1 (peval-expr env fun-defs e1)])
        (if (val? e1)
-         `(,(car expr) . ,(if (cdr e1) #t #f))
-         `(,(car expr) . ,e1)))]
+         (match e1
+           [`(inject ,val ,ty1) `(,(car expr) . ,(if val #t #f))]
+           [_ `(,(car expr) . (project-boolean ,e1))])
+         `(,(car expr) . (project-boolean ,e1))))]
 
     [`(if ,e1 ,e2 ,e3)
      (let ([e1 (peval-expr env fun-defs e1)])
@@ -327,30 +329,35 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; These work on Any
 
-    ['integer?
-     (lambda (val)
-       (match val
-         [`(inject ,val ,_) (fixnum? (cdr val))]
-         [_ #f]))]
-
-    ['boolean?
-     (lambda (val)
-       (match val
-         [`(inject ,val ,_) (boolean? (cdr val))]
-         [_ #f]))]
-
-    ['procedure?
-     (lambda (val)
-       (match val
-         [`(inject (,_ . (lambda: . ,_)) ,_) #t]
-         [_ #f]))]
-
-    ['vector?
-     (lambda (val)
-       (match val
-         [`(inject (,_ . (vector . ,_)) ,_) #t]
-         [_ #f]))]
+    ['integer? integer-val?]
+    ['boolean? boolean-val?]
+    ['procedure? procedure-val?]
+    ['vector? vector-val?]
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     [_ (unsupported-form 'racket-fn fn)]))
+
+(define (integer-val? val)
+  (match val
+    [`(inject (,_ . ,val) ,_) (integer-val? val)]
+    [(? fixnum?) #t]
+    [_ #f]))
+
+(define (boolean-val? val)
+  (match val
+    [`(inject (,_ . ,val) ,_) (boolean-val? val)]
+    [(? boolean?) #t]
+    [_ #f]))
+
+(define (procedure-val? val)
+  (match val
+    [`(inject (,_ . ,val) ,_) (procedure-val? val)]
+    [`(lambda: . ,_) #t]
+    [_ #f]))
+
+(define (vector-val? val)
+  (match val
+    [`(inject (,_ . ,val) ,_) (vector-val? val)]
+    [`(vector . ,_) #t]
+    [_ #f]))
