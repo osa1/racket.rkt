@@ -3,6 +3,7 @@
 (require rackunit)
 
 (require "../passes/utils.rkt")
+(require (only-in "../passes/closure-convert.rkt" fvs))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; to-bit-list
@@ -133,3 +134,15 @@
 (check-equal? (byte-list-to-quadword-list '(0 255))
               (list (* 255 256))
               "Encoding of type is wrong")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; fvs
+
+(define (filter-names lst) (map cdr lst))
+
+(check-equal? (fvs `((Integer -> Integer) . (lambda: [(x : Integer)] : Integer (Integer . x))))
+              (set))
+
+(check-equal? (fvs `(Integer . (let ([x (Integer . 10)])
+                                 (Integer . (+ (Integer . x) (Integer . y))))))
+              (set `(Integer . y)))

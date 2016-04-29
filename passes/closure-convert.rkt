@@ -3,7 +3,7 @@
 (require "utils.rkt")
 (require (only-in "typecheck.rkt" extract-toplevel-name extract-arg-name extract-arg-ty))
 
-(provide closure-convert)
+(provide closure-convert fvs)
 
 (define (closure-convert pgm)
   (match pgm
@@ -132,7 +132,7 @@
     [`(if ,e1 ,e2 ,e3) (set-union (fvs e1) (fvs e2) (fvs e3))]
 
     [`(let ([,var ,e1]) ,body)
-     (set-union (fvs e1) (set-remove (fvs body) var))]
+     (set-union (fvs e1) (set-remove (fvs body) `(,(car e1) . ,var)))]
 
     [`(vector-ref ,e1 ,_) (fvs e1)]
 
