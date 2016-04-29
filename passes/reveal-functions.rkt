@@ -60,6 +60,9 @@
       [`(vector . ,elems)
        `(,(car e0) . (vector ,@(map iter elems)))]
 
+      [`(app-noalloc ,f . ,args)
+       `(,(car e0) . (app-noalloc ,(iter f) ,@(map iter args)))]
+
       [`(,f . ,args)
        `(,(car e0) . (app ,(iter f) ,@(map iter args)))]
 

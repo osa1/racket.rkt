@@ -194,6 +194,13 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Function application - the tricky part
 
+    ; HACK: This is only used for rts functions for now, so no need to evaluate
+    ; `f` and do the usual business with function applications.
+    [`(app-noalloc ,f . ,args)
+     `(,(car expr) . (app-noalloc ,f ,@(map (lambda (arg)
+                                               (peval-expr env fun-defs arg))
+                                             args)))]
+
     [`(,f0 . ,args)
      (let (; Evaluate the function, get the lambda form
            [f (peval-expr env fun-defs f0)]

@@ -26,7 +26,7 @@
              [expr (desugar-expr expr)])
          `(program ,@defs
                    (define main : void
-                     (void . (((Integer -> void) . print-int) ,expr))))))]
+                     (void . (app-noalloc ((Integer -> void) . print-int) ,expr))))))]
     [_ (unsupported-form 'desugar pgm)]))
 
 (define (desugar-expr e0)

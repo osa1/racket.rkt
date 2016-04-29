@@ -153,7 +153,7 @@
     ;      (values binds (cons `(assign ,fresh ,(car e0) (app (toplevel-fn ,f) ,@args)) pgm) fresh)))]
 
     ; Slow application
-    [`(app ,f . ,args)
+    [`(,(or 'app 'app-noalloc) ,f . ,args)
 
      ; FIXME: This part is a bit hacky. Toplevel functions have function types,
      ; lambdas have vector. Toplevel-functions are flattened to their closures,
@@ -172,7 +172,7 @@
        (define funret (fresh "funret"))
 
        (define select-fn `(assign ,closure-fn ,fn-type (vector-ref ,f 0)))
-       (define apply-fn `(assign ,funret ,(car e0) (app ,closure-fn ,@(cons f args))))
+       (define apply-fn `(assign ,funret ,(car e0) (,(cadr e0) ,closure-fn ,@(cons f args))))
 
        ; Adding in reversed order
        (values binds (cons apply-fn (cons select-fn pgm)) funret))]

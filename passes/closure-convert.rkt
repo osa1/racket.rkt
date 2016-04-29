@@ -93,6 +93,9 @@
       [`(vector . ,elems)
        `(,(car e0) . (vector ,@(map closure-convert-expr elems)))]
 
+      [`(app-noalloc ,f . ,args)
+       `(,(car e0) . (app-noalloc ,(closure-convert-expr f) ,@(map closure-convert-expr args)))]
+
       [`(,f . ,args)
        `(,(car e0) . (,(closure-convert-expr f) ,@(map closure-convert-expr args)))]
 
@@ -145,6 +148,8 @@
     [`(vector . ,elems) (foldl set-union (set) (map fvs elems))]
 
     [`(,(or 'toplevel-fn 'toplevel-closure) ,_) (set)]
+
+    [`(app-noalloc ,f . ,args) (foldl set-union (set) (map fvs (cons f args)))]
 
     [`(,f . ,args) (foldl set-union (set) (map fvs (cons f args)))]
 

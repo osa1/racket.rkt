@@ -88,6 +88,9 @@
 
     [`(vector) e0]
 
+    [`(app-noalloc ,f . ,args)
+     `(,(car e0) . (app-noalloc ,(choose-branch-expr f) ,@(map choose-branch-expr args)))]
+
     [`(,f . ,args)
      `(,(car e0) . (,(choose-branch-expr f) ,@(map choose-branch-expr args)))]
 

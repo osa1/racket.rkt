@@ -97,6 +97,10 @@
     [`(vector . ,elems)
      `(,(car e0) . (vector ,@(map (lambda (elem) (elim-dyn-expr elem)) elems)))]
 
+    [`(app-noalloc ,f . ,args)
+     `(,(car e0) . (app-noalloc ,(elim-dyn-expr f)
+                                ,@(map (lambda (expr) (elim-dyn-expr expr)) args)))]
+
     [`(,f . ,args)
      `(,(car e0) . (,(elim-dyn-expr f) ,@(map (lambda (expr) (elim-dyn-expr expr)) args)))]
 

@@ -70,6 +70,10 @@
     [`(vector . ,elems)
      `(,(car e0) . (vector ,@(map (lambda (elem) (uniquify-expr rns elem)) elems)))]
 
+    [`(app-noalloc ,f . ,args)
+     `(,(car e0) . (app-noalloc ,(uniquify-expr rns f)
+                                ,@(map (lambda (expr) (uniquify-expr rns expr)) args)))]
+
     [`(,f . ,args)
      `(,(car e0) . (,(uniquify-expr rns f) ,@(map (lambda (expr) (uniquify-expr rns expr)) args)))]
 
