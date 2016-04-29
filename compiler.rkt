@@ -8,6 +8,7 @@
 (require "passes/uniquify.rkt")
 (require "passes/elim-dyns.rkt")
 (require "passes/partial-eval.rkt")
+(require "passes/remove-unused-defs.rkt")
 (require "passes/closure-convert.rkt")
 (require "passes/reveal-functions.rkt")
 (require "passes/flatten.rkt")
@@ -63,11 +64,16 @@
     ("uniquify" ,uniquify #f)
     ("elim-dyns" ,elim-dyns #f)
 
+    ; ("print-pgm" ,(print-pgm-typeless "before remove-unused-defs") #f)
+    ("remove-unused-defs" ,rm-unused-defs #f)
+    ; ("print-pgm" ,(print-pgm-typeless "after remove-unused-defs") #f)
+
     ,@(if (do-peval)
         `(; ("print-pgm" ,(print-pgm-typeless "before partial-eval") #f)
           ("partial-eval" ,peval #f)
           ("elim-dyns" ,elim-dyns #f)
           ; ("print-pgm" ,(print-pgm-typeless "after partial-eval") #f)
+          ("remove-unused-defs" ,rm-unused-defs #f)
           )
         `())
 
