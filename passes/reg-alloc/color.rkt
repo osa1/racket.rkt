@@ -25,7 +25,6 @@
 (require "../annotate-lives.rkt")
 (require "../uncover-call-live-roots.rkt")
 (require "../instr-sel.rkt")
-(require (only-in "../../public/utilities.rkt" read-program))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -533,27 +532,3 @@
       [_ (unsupported-form 'reg-alloc-def def)]))
 
   (reg-alloc-iter def))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Tests
-
-(define (reg-alloc-test file)
-  (unless (file-exists? file)
-    (error 'reg-alloc-test "File does not exist: ~a" file))
-
-  (let ([path (string->path file)])
-    (let-values ([(_1 name _2) (split-path path)])
-      (let ([name (car (string-split (path->string name) "."))]
-            [pgm (read-program file)])
-
-        ((reg-alloc name)
-         (instr-sel
-           (uncover-call-live-roots
-             (annotate-lives
-               (expose-allocations
-                 (initialize-rts
-                   (flatten
-                     (reveal-functions
-                       (uniquify
-                         (desugar
-                           (typecheck pgm)))))))))))))))
