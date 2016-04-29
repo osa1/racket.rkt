@@ -2,7 +2,7 @@
 
 (require "utils.rkt")
 
-(provide elim-dyns)
+(provide elim-dyns elim-dyn-expr)
 
 (define (elim-dyns pgm)
   (match pgm

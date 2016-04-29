@@ -1,8 +1,9 @@
 #lang racket
 
 (require "utils.rkt")
-(require (only-in "typecheck.rkt" extract-arg-name extract-arg-ty))
 (require (only-in "closure-convert.rkt" fvs))
+(require (only-in "elim-dyns.rkt" elim-dyn-expr))
+(require (only-in "typecheck.rkt" extract-arg-name extract-arg-ty))
 
 (provide peval)
 
@@ -132,7 +133,7 @@
      (let ([e1 (peval-expr env fun-defs e1)])
        `(,(car expr) .
          ,(if (val? e1)
-            ((racket-fn (cadr expr)) (cdr e1))
+            ((racket-fn (cadr expr)) (cdr (elim-dyn-expr e1)))
             `(,(cadr expr) ,e1))))]
 
     ; Binary operators
@@ -141,7 +142,8 @@
            [e2 (peval-expr env fun-defs e2)])
        `(,(car expr) .
          ,(if (and (val? e1) (val? e2))
-            ((racket-fn (cadr expr)) (cdr e1) (cdr e2))
+            ((racket-fn (cadr expr)) (cdr (elim-dyn-expr e1))
+                                     (cdr (elim-dyn-expr e2)))
             `(,(cadr expr) ,e1 ,e2))))]
 
     [`(eq?-dynamic ,e1 ,e2)
@@ -307,7 +309,7 @@
   (match (cdr expr)
     [(or (? fixnum?) (? boolean?) `(void)) #t]
     [`(vector . ,_) #f]
-    [`(inject ,expr ,_)
+    [`(,(or 'inject 'project) ,expr ,_)
      ; TODO: How do I say "only inline if `inject` will be eliminated"?
      ; This implementation can lead to more allocations.
      (val? expr)]
