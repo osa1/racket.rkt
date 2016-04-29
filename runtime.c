@@ -429,7 +429,7 @@ uint64_t project_boolean(int64_t* any_val)
 #ifndef NDEBUG
     if (is_forwarding(*any_val))
     {
-        printf("project(): Vector argument (%p) is an indirection to %" PRIi64 "\n",
+        printf("project_boolean(): Vector argument (%p) is an indirection to %" PRIi64 "\n",
                any_val, *any_val);
         fflush(stdout);
         exit(EXIT_FAILURE);
@@ -437,7 +437,7 @@ uint64_t project_boolean(int64_t* any_val)
 
     if (!((void*)any_val >= (void*)fromspace_begin && (void*)any_val < (void*)fromspace_end))
     {
-        printf("project(): Vector argument is not in correct heap: %p\n", any_val);
+        printf("project_boolean(): Vector argument is not in correct heap: %p\n", any_val);
         fflush(stdout);
         exit(EXIT_FAILURE);
     }
