@@ -55,19 +55,16 @@
     ; deterministic outputs when running batch compilations.
     ; FIXME: What happens if we use (fresh) in type checker?
     ("reset-fresh-counter" ,reset-fresh-counter-pass #f)
-
     ("desugar" ,desugar #f)
-
-    ;; TODO: Think about the best place for this. One of the goals here is to
-    ;; avoid generating illegal instructions for code like (if (eq? 1 1) _ _).
     ("choose-branch" ,choose-branch #f)
-
     ("uniquify" ,uniquify #f)
     ("elim-dyns" ,elim-dyns #f)
 
     ,@(if (do-peval)
-        `(("partial-eval" ,peval #f)
-          ("print-pgm" ,(print-pgm "after partial-eval") #f)
+        `(; ("print-pgm" ,(print-pgm-typeless "before partial-eval") #f)
+          ("partial-eval" ,peval #f)
+          ("elim-dyns" ,elim-dyns #f)
+          ; ("print-pgm" ,(print-pgm-typeless "after partial-eval") #f)
           )
         `())
 
@@ -97,5 +94,6 @@
 ; r7 is different - it's dynamically typed
 (define r7-passes
   `(("compile-r7" ,compile-r7 #f)
+    ; ("print-pgm" ,(print-pgm "after compile-r7") #f)
     ("typecheck" ,typecheck #f)
     ,@r6-passes))
