@@ -42,7 +42,9 @@
 
       [`(lambda: ,args : ,ret-ty ,body)
        (let ([body (closure-convert-expr body)])
-         (define args-set  (list->set (map (lambda (arg) (cons (caddr arg) (car arg))) args)))
+         (define args-set  (list->set (map (lambda (arg)
+                                             (cons (extract-arg-ty arg) (extract-arg-name arg)))
+                                           args)))
          (define bounds    (set-union toplevel-names args-set))
          (define frees-lst (set->list (set-subtract (fvs body) bounds)))
          (define fname     (fresh "fn"))
