@@ -54,7 +54,7 @@
 
 (define do-peval (make-parameter #f))
 
-(define r1-passes
+(define (r1-passes)
   `(; Reset the fresh name generator counter before each compilation to get
     ; deterministic outputs when running batch compilations.
     ; FIXME: What happens if we use (fresh) in type checker?
@@ -101,8 +101,8 @@
 (define r6-passes r1-passes)
 
 ; r7 is different - it's dynamically typed
-(define r7-passes
+(define (r7-passes)
   `(("compile-r7" ,compile-r7 #f)
     ; ("print-pgm" ,(print-pgm "after compile-r7") #f)
     ("typecheck" ,typecheck #f)
-    ,@r6-passes))
+    ,@(r6-passes)))
