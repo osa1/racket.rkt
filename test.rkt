@@ -59,3 +59,12 @@
 (run-all-tests)
 (newline)
 (newline)
+
+(printf "================================================================================~n")
+(printf "= Testing with partial evaluation (heap size 8-byte) ===========================~n")
+(printf "================================================================================~n")
+(do-peval #t)
+(initial-heap-size 8)
+(run-all-tests)
+(newline)
+(newline)

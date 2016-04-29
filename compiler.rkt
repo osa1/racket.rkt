@@ -46,9 +46,12 @@
          ; asm passes
          reg-alloc lower-conditionals
 
-         print-x86_64)
+         print-x86_64
 
-(define do-peval (make-parameter #t))
+         ; settings
+         do-peval)
+
+(define do-peval (make-parameter #f))
 
 (define r1-passes
   `(; Reset the fresh name generator counter before each compilation to get
