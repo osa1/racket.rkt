@@ -39,11 +39,7 @@
           ; (printf "peval new-fns:~n")
           ; (pretty-print new-fns)
           ; pgm
-          `(program
-             ,@defs ; FIXME: Some of the definition are not necessary anymore,
-                    ; maybe implement a garbage collection pass that removes
-                    ; unused definitions.
-             ,@(mk-defs new-fns)
+          `(program ,@defs ,@(mk-defs new-fns)
              (define main : void ,ret))]
          [_ (unsupported-form 'peval main)]))]
     [_ (unsupported-form 'peval pgm)]))
