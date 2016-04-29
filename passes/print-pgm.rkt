@@ -51,7 +51,7 @@
     [`(,(or 'project 'inject) ,e1 ,ty)
      `(,(cadr expr) ,(remove-tys-expr e1) ,ty)]
 
-    [`(,(or '+ 'eq? 'eq?-dynamic '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
+    [`(,(or '+ '* 'eq? 'eq?-dynamic '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
      `(,(cadr expr) ,(remove-tys-expr e1) ,(remove-tys-expr e2))]
 
     [`(if ,e1 ,e2 ,e3)

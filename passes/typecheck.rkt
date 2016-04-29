@@ -177,12 +177,12 @@
        (assert-ty context e1 'Integer (car e1))
        `(Integer . (- ,e1)))]
 
-    [`(+ ,e1 ,e2)
+    [`(,(or '+ '*) ,e1 ,e2)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)]
            [e2 (typecheck-expr (cons expr context) e2 env)])
        (assert-ty context e1 'Integer (car e1))
        (assert-ty context e2 'Integer (car e2))
-       `(Integer . (+ ,e1 ,e2)))]
+       `(Integer . (,(car expr) ,e1 ,e2)))]
 
     [`(and ,e1 ,e2)
      (let ([e1 (typecheck-expr (cons expr context) e1 env)]

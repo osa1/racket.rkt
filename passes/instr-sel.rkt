@@ -239,6 +239,10 @@
      `(,(instr-sel-arg bind-to arg1)
        (addq ,(arg->x86-arg arg2) ,(arg->x86-arg bind-to)))]
 
+    [`(* ,arg1 ,arg2)
+     `(,(instr-sel-arg bind-to arg1)
+       (imulq ,(arg->x86-arg arg2) ,(arg->x86-arg bind-to)))]
+
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; Integer comparisons
 

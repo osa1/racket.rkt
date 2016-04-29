@@ -88,7 +88,7 @@
     [`(>= ,e1 ,e2)
      (flatten-expr binds pgm `(,(car e0) . (<= ,e2 ,e1)))]
 
-    [`(,(or '+ 'eq? 'eq?-dynamic '< '<= 'vector-ref-dynamic) ,e1 ,e2)
+    [`(,(or '+ '* 'eq? 'eq?-dynamic '< '<= 'vector-ref-dynamic) ,e1 ,e2)
      (let*-values ([(binds pgm e1) (flatten-expr binds pgm e1)]
                    [(binds pgm e2) (flatten-expr binds pgm e2)])
        (let [(fresh (fresh "tmp"))]

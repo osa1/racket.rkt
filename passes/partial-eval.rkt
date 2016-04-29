@@ -133,7 +133,7 @@
             `(,(cadr expr) ,e1))))]
 
     ; Binary operators
-    [`(,(or '+ 'eq? '< '<= '> '>=) ,e1 ,e2)
+    [`(,(or '+ '* 'eq? '< '<= '> '>=) ,e1 ,e2)
      (let ([e1 (peval-expr env fun-defs e1)]
            [e2 (peval-expr env fun-defs e2)])
        `(,(car expr) .
@@ -323,6 +323,7 @@
 (define (racket-fn fn)
   (match fn
     ['+ +]
+    ['* *]
     ['- -]
     ['> >]
     ['< <]

@@ -90,9 +90,9 @@
     [`(- ,e1)
      (mk-integer `(- ,(get-integer (compile-expr ts e1))))]
 
-    [`(+ ,e1 ,e2)
-     (mk-integer `(+ ,(get-integer (compile-expr ts e1))
-                     ,(get-integer (compile-expr ts e2))))]
+    [`(,(or '+ '*) ,e1 ,e2)
+     (mk-integer `(,(car expr) ,(get-integer (compile-expr ts e1))
+                               ,(get-integer (compile-expr ts e2))))]
 
     [`(let ([,var ,e1]) ,body)
      `(let ([,var ,(compile-expr ts e1)]) ,(compile-expr ts body))]

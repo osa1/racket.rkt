@@ -65,7 +65,7 @@
     [`(,(or 'inject 'project) ,e1 ,ty)
      `(,(car e0) . (,(cadr e0) ,(elim-dyn-expr e1) ,ty))]
 
-    [`(,(or '+ 'eq? 'eq?-dynamic '< '<= '> '>=) ,e1 ,e2)
+    [`(,(or '+ '* 'eq? 'eq?-dynamic '< '<= '> '>=) ,e1 ,e2)
      `(,(car e0) . (,(cadr e0) ,(elim-dyn-expr e1) ,(elim-dyn-expr e2)))]
 
     [`(let ([,var ,e1]) ,body)

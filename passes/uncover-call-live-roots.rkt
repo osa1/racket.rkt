@@ -150,7 +150,7 @@
     [`(,(or 'app 'app-noalloc) ,v . ,vs) (foldl (lambda (v s) (add-live s v)) (set) (cons v vs))]
     [`(toplevel-fn ,_) (set)]
 
-    [`(,(or '+ 'eq? 'eq?-dynamic '< '<= 'vector-ref 'vector-ref-dynamic) ,v1 ,v2)
+    [`(,(or '+ '* 'eq? 'eq?-dynamic '< '<= 'vector-ref 'vector-ref-dynamic) ,v1 ,v2)
      (add-live (set) v1 v2)]
     [`(,(or '- 'not 'allocate 'collection-needed? 'procedure? 'vector? 'boolean? 'integer?
             'project-boolean) ,v1)
