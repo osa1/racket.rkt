@@ -32,6 +32,14 @@
        [_
         `(,(car e0) . (project ,e1-elim ,ty1))])]
 
+    [`(project-boolean ,e1)
+     (define e1-elim (elim-dyn-expr e1))
+     (match (cdr e1-elim)
+       [`(inject ,e1 Boolean)
+        e1]
+       [_
+        `(,(car e0) . (project-boolean ,e1-elim))])]
+
     [`(if ,e1 ,e2 ,e3)
      (define e1-elim (elim-dyn-expr e1))
      (define e2-elim (elim-dyn-expr e2))
@@ -51,7 +59,7 @@
     [`(lambda: ,args : ,ret-ty ,body)
      `(,(car e0) . (lambda: ,args : ,ret-ty ,(elim-dyn-expr body)))]
 
-    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1)
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)
      `(,(car e0) . (,(cadr e0) ,(elim-dyn-expr e1)))]
 
     [`(,(or 'inject 'project) ,e1 ,ty)
