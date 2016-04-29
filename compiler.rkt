@@ -39,7 +39,7 @@
          typecheck typecheck-ignore
 
          ; scheme passes
-         desugar choose-branch uniquify reveal-functions flatten
+         desugar choose-branch uniquify elim-dyns peval rm-unused-defs reveal-functions flatten
 
          ; C passes
          initialize-rts expose-allocations annotate-lives uncover-call-live-roots instr-sel
