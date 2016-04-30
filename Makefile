@@ -42,3 +42,4 @@ clean:
 	rm -f *.png
 	rm -f *.dot
 	rm -f *.hi
+	rm -f a.out
