@@ -143,12 +143,13 @@ Note how `2` is inlined in the new function.
 
 # How
 
-The partial evaluator is just a program transformation -- it doesn't need any
-static analysis, pre-processing (control-flow graph) etc. The implementation is
-in `passes/partial-eval.rkt`. Main transformation (`peval-expr`) looks quite a
-lot like an interpreter. Constant expressions are directly evaluated. In a let
-expression, environment is only extended when the value is safe to inline. Safe
-to inline values are completely evaluated integers, booleans and lambdas.
+The partial evaluator is just a program transformer -- it doesn't need any
+static analysis, pre-processing (to generate control-flow graph) etc. The
+implementation is in `passes/partial-eval.rkt`. Main transformation
+(`peval-expr`) looks quite a lot like an interpreter. Constant expressions are
+directly evaluated. In a let expression, environment is only extended when the
+value is safe to inline. Safe to inline values are completely evaluated
+integers, booleans and lambdas.
 
 To avoid work duplication problems, we never add vectors to the environment.
 This prevents some optimizations, but the implementation stays simple.
@@ -194,7 +195,7 @@ in the environment:
 
 Note that the recursive call calls itself, instead of the original `pow` with
 `2` passed for `x`. This is implemented with another environment that keeps
-tract of specialized functions. In our case, the new function's body is
+track of specialized functions. In our case, the new function's body is
 evaluated with a new entry to the specialized function environment. The entry
 basically says that `pow` is already specialized for `x = 2`, and this
 specialized function's name is `pe_fresh_2`. So when the evaluator sees an
