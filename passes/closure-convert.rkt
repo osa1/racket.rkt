@@ -123,7 +123,8 @@
 
     [(? symbol?) (set e0)]
 
-    [`(lambda: ,args : ,ret-ty ,body)
+    [(or `(lambda: ,args : ,ret-ty ,body)
+         `(lambda: ,args : ,ret-ty ,_ ,body))
      (foldl (lambda (arg s) (set-remove s (cons (extract-arg-ty arg)
                                                 (extract-arg-name arg)))) (fvs body) args)]
 

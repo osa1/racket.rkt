@@ -56,7 +56,8 @@
     [(or (? fixnum?) (? boolean?) (? symbol?) `(read) `(void))
      e0]
 
-    [`(lambda: ,args : ,ret-ty ,body)
+    [(or `(lambda: ,args : ,ret-ty ,body)
+         `(lambda: ,args : ,ret-ty ,_ ,body))
      `(,(car e0) . (lambda: ,args : ,ret-ty ,(elim-dyn-expr body)))]
 
     [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure?) ,e1)

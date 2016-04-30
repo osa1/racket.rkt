@@ -5,7 +5,9 @@
 (require (only-in "elim-dyns.rkt" elim-dyn-expr))
 (require (only-in "typecheck.rkt" extract-arg-name extract-arg-ty))
 
-(provide peval)
+(require racket/hash)
+
+(provide peval args-used-once-iter)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -49,7 +51,7 @@
          (define def-name (car def))
          (define def-lambda (cddr def))
          (match def-lambda
-           [`(lambda: ,args : ,ret-ty ,body)
+           [`(lambda: ,args : ,ret-ty ,_ ,body)
             `(define (,def-name ,@args) : ,ret-ty ,body)]
            [_ (unsupported-form 'mk-defs def)]))
        (hash-values fns)))
@@ -60,7 +62,7 @@
            (match def
              [`(define (,name . ,args) : ,ret-ty ,body)
               `(,name .
-                ((,@(map caddr args) -> ,ret-ty) . (lambda: ,args : ,ret-ty ,body)))]
+                ((,@(map caddr args) -> ,ret-ty) . (lambda: ,args : ,ret-ty toplevel ,body)))]
              [_ (unsupported-form 'mk-env def)]))
          defs)))
 
@@ -82,8 +84,9 @@
                                     elems)))]
 
     ; Closures
-    [`(lambda: ,args : ,ret-ty ,body)
-     `(,(car expr) . (lambda: ,args : ,ret-ty ,(peval-expr env fun-defs body)))]
+    [(or `(lambda: ,args : ,ret-ty ,body)
+         `(lambda: ,args : ,ret-ty ,_ ,body))
+     `(,(car expr) . (lambda: ,args : ,ret-ty closure ,(peval-expr env fun-defs body)))]
 
     ; Dynamic values
     [`(inject ,e1 ,ty)
@@ -207,7 +210,16 @@
                       args)])
 
        (match (cdr f)
-         [`(lambda: ,as : ,ret-ty ,body)
+
+         [`(lambda: ,as : ,ret-ty closure ,body)
+          ; We could memoize this part in lambdas but whatever
+          #:when (args-used-once (make-immutable-hash (map (lambda (arg) `(,arg . 1)) as)) body)
+          (peval-expr (foldr (lambda (k v m)
+                               (hash-set m k v))
+                             env (map extract-arg-name as) args)
+                      fun-defs body)]
+
+         [`(lambda: ,as : ,ret-ty ,_ ,body)
           ; Determine static and dynamic arguments
           (define arg-vals (map (lambda (arg arg-val)
                                   (cons (car arg) arg-val))
@@ -273,6 +285,7 @@
                              (cons fun-name
                                    (cons dynamic-fun-type
                                          `(lambda: ,dynamic-fun-args : ,ret-ty
+                                                   toplevel
                                                    ,body-pe))))
 
                   ; Finally generate the residual call to our new function
@@ -302,6 +315,90 @@
   (debug-printf "~n")
 
   ret)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (args-used-once uses body)
+  (define-values (ignore ret) (args-used-once-iter uses body))
+  ret)
+
+(define (args-used-once-iter uses body)
+
+  (match (cdr body)
+    [(or (? fixnum?) (? boolean?) `(read) `(void))
+     (values uses #t)]
+
+    [(? symbol?)
+     (define amt (hash-ref uses (cdr body) #f))
+     (if amt
+       (if (equal? amt 0)
+         (values uses #f)
+         (values (hash-set uses (cdr body) (- amt 1)) #t))
+       (values uses #t))]
+
+    [`(lambda: ,_ : ,_ ,_ ,body)
+     (args-used-once-iter uses body)]
+
+    [`(let ([,var ,rhs]) ,body)
+     (args-used-once--and uses rhs body)]
+
+    [`(,(or '- 'not 'boolean? 'integer? 'vector? 'procedure? 'project-boolean) ,e1)
+     (args-used-once-iter uses e1)]
+
+    [`(,(or 'project 'inject) ,e1 ,_)
+     (args-used-once-iter uses e1)]
+
+    [`(,(or '+ '* 'eq? 'eq?-dynamic '< '<= '> '>= 'vector-ref-dynamic) ,e1 ,e2)
+     (args-used-once--and uses e1 e2)]
+
+    [`(if ,e1 ,e2 ,e3)
+     (let-values ([(uses ret1) (args-used-once-iter uses e1)])
+       (if ret1
+         (args-used-once--or uses e2 e3)
+         (values uses #f)))]
+
+    [`(vector-ref ,e1 ,_)
+     (args-used-once-iter uses e1)]
+
+    [`(vector-set! ,e1 ,_ ,e2)
+     (args-used-once--and uses e1 e2)]
+
+    [`(vector-set!-dynamic ,e1 ,e2 ,e3)
+     (args-used-once--and uses e1 e2 e3)]
+
+    [`(vector . ,elems)
+     (apply args-used-once--and uses elems)]
+
+    [`(app-noalloc ,f . ,args)
+     (apply args-used-once--and uses f args)]
+
+    [`(,f . ,args)
+     (apply args-used-once--and uses f args)]
+
+    [_ (unsupported-form 'args-used-once body)]))
+
+(define (args-used-once--and uses . exprs)
+  (match exprs
+    [`(,e . ,es)
+     (let-values ([(uses ret) (args-used-once-iter uses e)])
+       (if ret
+         (apply args-used-once--and uses es)
+         (values uses #f)))]
+    [`() (values uses #t)]))
+
+(define (args-used-once--or uses . exprs)
+  (match exprs
+    [`(,e . ,es)
+     (let-values ([(uses1 ret) (args-used-once-iter uses e)])
+       (if ret
+         (apply args-used-once--or (lub-uses uses uses1) es)
+         (values uses #f)))]
+    [`() (values uses #t)]))
+
+(define (lub-uses uses1 uses2)
+  (hash-union uses1 uses2 #:combine min))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (rts-fun? id)
   (match id
