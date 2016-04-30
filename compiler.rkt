@@ -21,6 +21,8 @@
 (require "passes/lower-conditionals.rkt")
 (require "passes/print-x86.rkt")
 
+(require (only-in "passes/utils.rkt" unsupported-form))
+
 ; debugging
 (require "passes/print-pgm.rkt")
 
@@ -50,7 +52,10 @@
          print-x86_64
 
          ; settings
-         do-peval print-peval)
+         do-peval print-peval
+
+         ; main
+         compile-file)
 
 (define do-peval (make-parameter #f))
 
@@ -114,3 +119,49 @@
     ; ("print-pgm" ,(print-pgm "after compile-r7") #f)
     ("typecheck" ,typecheck #f)
     ,@(r6-passes)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (read-program path)
+  (unless (or (string? path) (path? path))
+    (error 'read-program "expected a string or path in ~s" path))
+
+  (unless (file-exists? path)
+    (error 'read-program "file doesn't exist in ~s" path))
+
+  (call-with-input-file
+    path
+    (lambda (f)
+      `(program . ,(for/list ([e (in-port read f)]) e)))))
+
+(define (run-passes passes pgm)
+  (match passes
+    [`() pgm]
+    [`((,_ ,pass ,_) . ,ps)
+     (run-passes ps (pass pgm))]
+    [_ (unsupported-form 'run-passes passes)]))
+
+(define (compile-file typechecker passes)
+  (lambda (prog-file-name)
+    (define file-base (string-trim prog-file-name ".rkt"))
+    (define out-file-name (string-append file-base ".s"))
+    (call-with-output-file
+      out-file-name
+      #:exists 'replace
+      (lambda (out-file)
+        (define sexp (read-program prog-file-name))
+
+        (define typechecked-pgm
+          (if typechecker
+            (with-handlers ([exn:fail? (lambda (e) #f)]) (typechecker sexp))
+            sexp))
+
+        (if typechecked-pgm
+          (let ([x86 (run-passes passes typechecked-pgm)])
+            (if (string? x86)
+              (begin
+                (write-string x86 out-file)
+                (newline out-file)
+                #t)
+              (unsupported-form 'compile-file x86)))
+          #f)))))

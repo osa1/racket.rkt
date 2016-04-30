@@ -1,18 +1,79 @@
 #lang racket
 
-(require (only-in "public/utilities.rkt" compiler-tests))
-
 (require "compiler.rkt")
 (require "settings.rkt")
 
-;; Start running passes from the given pass
-(define (start-from step passes)
-  (cond [(null? passes)
-         (error 'start-from "run out of passes")]
-        [(equal? (caar passes) step)
-         passes]
-        [else
-         (start-from step (cdr passes))]))
+(define (compiler-tests name typechecker passes test-family test-nums)
+  (define compiler (compile-file typechecker passes))
+  (for ([test-number (in-list test-nums)])
+    (define test-name  (format "~a_~a" test-family test-number))
+    (define type-error-expected (file-exists? (format "tests/~a.tyerr" test-name)))
+    (define compiler-ret (compiler (format "tests/~a.rkt" test-name)))
+
+    (if compiler-ret
+      (when type-error-expected
+        (error (format "test ~a failed, unexpected type error" test-name)))
+      (unless type-error-expected
+        (error (format "test ~a passed typechecking but should not have." test-name))))
+
+    (when compiler-ret
+      ; Compile the file
+      (match-let
+        ([`(,stdout ,stdin ,pid ,stderr ,proc)
+          (process (format "gcc -g runtime.o tests/~a.s" test-name))])
+
+        (proc 'wait)
+        (define ret (proc 'status))
+
+        (define stdout-str (port->string stdout))
+        (define stderr-str (port->string stderr))
+
+        (close-input-port stdout)
+        (close-input-port stderr)
+        (close-output-port stdin)
+
+        (match ret
+          ['done-ok
+           (void)]
+          ['running
+           (error "bug -- apparently (proc 'wait) didn't really wait")]
+          ['done-error
+           (error (format "gcc failed.~nstdout: ~a~nstderr: ~a~n" stdout-str stderr-str))]))
+
+      ; Run the compiled program
+      (let* ([input (if (file-exists? (format "tests/~a.in" test-name))
+                      (format " < tests/~a.in" test-name)
+                      "")]
+
+             ; I now hate the number 42
+             [expected-output
+               (if (file-exists? (format "tests/~a.res" test-name))
+                 (call-with-input-file
+                   (format "tests/~a.res" test-name)
+                   (lambda (f) (read-line f)))
+                 "42")])
+
+        (match-define `(,stdout ,stdin ,_ ,stderr ,proc) (process (format "./a.out~a" input)))
+
+        (proc 'wait)
+        (define ret (proc 'status))
+        (define stdout-str (port->string stdout))
+        (define stderr-str (port->string stderr))
+
+        (close-input-port stdout)
+        (close-input-port stderr)
+        (close-output-port stdin)
+
+        (if (eq? ret 'done-ok)
+
+          (if (equal? stdout-str expected-output)
+            (begin (display test-name) (display " ") (flush-output))
+            (error (format "test ~a failed, output: ~a, expected ~a"
+                           test-name stdout-str expected-output)))
+
+          (error
+            (format "test ~a error in x86 execution, exit code: ~a"
+                    test-name (proc 'exit-code))))))))
 
 (define (run-all-tests)
   (compiler-tests "spill" typechecker (r1-passes) "spill" (range 1 16))
