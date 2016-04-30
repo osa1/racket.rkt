@@ -50,9 +50,13 @@
          print-x86_64
 
          ; settings
-         do-peval)
+         do-peval print-peval)
 
 (define do-peval (make-parameter #f))
+
+; Print the program before and after partial evaluation.
+; Only used when do-peval is #t.
+(define print-peval (make-parameter #f))
 
 (define (r1-passes)
   `(; Reset the fresh name generator counter before each compilation to get
@@ -69,11 +73,15 @@
     ; ("print-pgm" ,(print-pgm-typeless "after remove-unused-defs") #f)
 
     ,@(if (do-peval)
-        `(("print-pgm" ,(print-pgm-typeless "before partial-eval") #f)
+        `(,@(if (print-peval)
+              `(("print-pgm" ,(print-pgm-typeless "before partial-eval") #f))
+              `())
           ("partial-eval" ,peval #f)
           ("elim-dyns" ,elim-dyns #f)
           ("remove-unused-defs" ,rm-unused-defs #f)
-          ("print-pgm" ,(print-pgm-typeless "after partial-eval") #f)
+          ,@(if (print-peval)
+              `(("print-pgm" ,(print-pgm-typeless "after partial-eval") #f))
+              `())
           )
         `())
 

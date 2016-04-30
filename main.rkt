@@ -12,6 +12,8 @@
 
   (initial-heap-size 8)
   (use-regs #t)
+  (do-peval #t)
+  (print-peval #t)
 
   (for ([file files])
     (let ([path (string->path file)])
