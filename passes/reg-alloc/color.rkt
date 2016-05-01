@@ -13,19 +13,6 @@
 
 (provide reg-alloc)
 
-; For testing purposes
-(require "../typecheck.rkt")
-(require "../desugar.rkt")
-(require "../choose-branch.rkt")
-(require "../uniquify.rkt")
-(require "../reveal-functions.rkt")
-(require "../flatten.rkt")
-(require "../initialize-rts.rkt")
-(require "../expose-allocations.rkt")
-(require "../annotate-lives.rkt")
-(require "../uncover-call-live-roots.rkt")
-(require "../instr-sel.rkt")
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define debug-reg-alloc (make-parameter #f))
